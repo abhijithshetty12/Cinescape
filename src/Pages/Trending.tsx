@@ -111,7 +111,7 @@ const TrendingMovies = () => {
                                     <img
                                         src={poster}
                                         alt={title}
-                                        className="w-full h-60 object-cover object-center transition-all duration-300 group-hover:scale-105"
+                                        className="w-full h-auto object-cover object-center transition-all duration-300 group-hover:scale-105"
                                     />
                                     <div className="absolute top-3 right-3 bg-black/70 rounded backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
                                         <Star className="w-4 h-4 text-yellow-400 fill-current" />

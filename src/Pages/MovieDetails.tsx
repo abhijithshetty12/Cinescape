@@ -610,16 +610,47 @@ const MovieDetails = () => {
             <TvMinimalPlay className="w-6 h-6 md:w-8 md:h-8 text-red-500" />
             <h2 className="text-xl md:text-2xl font-bold">Watch Now</h2>
           </div>
-          <div className="aspect-video rounded-xl overflow-hidden bg-black">
-            <iframe
-              src={embedUrl}
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              allowFullScreen
-              title="Movie Embed"
-              className="w-full h-full"
-            />
+          <div className="rounded-2xl overflow-hidden shadow-2xl border-4 border-zinc-900/80">
+            <div className="w-full" style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+              <iframe
+                src={embedUrl}
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                allowFullScreen
+                allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
+                title="Movie Embed"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  border: 0,
+                  borderRadius: "1rem",
+                  background: "#000"
+                }}
+                ref={el => {
+                  if (el && typeof window !== "undefined") {
+                    const handleFs = () => {
+                      const orientation: any =
+                        (window.screen as any).orientation ||
+                        (window.screen as any).mozOrientation ||
+                        (window.screen as any).msOrientation;
+                      if (
+                        document.fullscreenElement &&
+                        orientation &&
+                        typeof orientation.lock === "function"
+                      ) {
+                        orientation.lock("landscape").catch(() => { });
+                      }
+                    };
+                    document.removeEventListener("fullscreenchange", handleFs);
+                    document.addEventListener("fullscreenchange", handleFs);
+                  }
+                }}
+              ></iframe>
+            </div>
           </div>
         </motion.section>
 

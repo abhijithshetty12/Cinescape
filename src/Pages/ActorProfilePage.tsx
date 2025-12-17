@@ -58,7 +58,7 @@ const ActorProfiles = () => {
   const loadMoreActors = async () => {
     try {
       const response = await axios.get(`https://api.themoviedb.org/3/person/popular?api_key=859afbb4b98e3b467da9c99ac390e950&page=${page + 1}`);
-      const data = response.data;
+      const {data} = response;
       setActors((prevActors) => [...prevActors, ...data.results]);
       setPage((prevPage) => prevPage + 1);
     } catch (error) {
@@ -78,31 +78,31 @@ const ActorProfiles = () => {
           <Users className="w-10 h-10 text-orange-500 drop-shadow" />
           <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow">Popular Actors</h1>
         </motion.div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-5 sm:gap-8">
           {actors.length > 0 ? (
             actors.map((actor) => (
               <Link
                 to={`/actor/${actor.id}`}
                 key={actor.id}
-                className="group bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700 hover:border-orange-500"
+                className="group bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 rounded-xl sm:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700 hover:border-orange-500"
               >
                 <div className="relative">
                   <img
                     src={
                       actor.profile_path
-                        ? `https://image.tmdb.org/t/p/w500${actor.profile_path}`
+                        ? `https://image.tmdb.org/t/p/w300${actor.profile_path}`
                         : "/path/to/default-image.jpg"
                     }
                     alt={actor.name}
-                    className="w-full h-64 object-cover object-center transition-all duration-300 group-hover:scale-105"
+                    className="w-full object-cover object-center transition-all duration-300 group-hover:scale-105 h-40 sm:h-64"
                   />
                 </div>
-                <div className="p-4 flex flex-col gap-1">
-                  <h2 className="font-bold text-lg text-white truncate">{actor.name}</h2>
+                <div className="p-2 sm:p-4 flex flex-col gap-1">
+                  <h2 className="font-bold text-base sm:text-lg text-white truncate">{actor.name}</h2>
                   <h3 className="text-xs text-orange-400 font-semibold mb-1">Movies:</h3>
                   <ul className="text-xs text-gray-300">
                     {movies[actor.id] && movies[actor.id].length > 0 ? (
-                      movies[actor.id].slice(0, 3).map((movie, index) => (
+                      movies[actor.id].slice(0, window.innerWidth < 640 ? 1 : 3).map((movie, index) => (
                         <li key={index} className="truncate">{movie}</li>
                       ))
                     ) : (

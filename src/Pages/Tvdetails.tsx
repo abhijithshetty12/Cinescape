@@ -389,21 +389,53 @@ const Tvdetails = () => {
           </h2>
         </div>
         <div className="rounded-2xl overflow-hidden shadow-2xl border-4 border-zinc-900/80">
-          <iframe
-            src={
-              selectedEpisode !== null
-                ? `https://www.vidking.net/embed/tv/${showId}/${selectedSeason}/${selectedEpisode}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
-                : (() => {
-                  const latestSeason = Tvdetails?.seasons[Tvdetails.seasons.length - 1];
-                  return `https://www.vidking.net/embed/tv/${showId}/${latestSeason?.season_number}/${latestSeason?.episode_count}?color=e50914&nextEpisode=true&episodeSelector=true`;
-                })()
-            }
-            width="100%"
-            height="400"
-            frameBorder="0"
-            allowFullScreen
-            title="TV Show Embed"
-          ></iframe>
+          <div className="w-full" style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+            <iframe
+              src={
+                selectedEpisode !== null
+                  ? `https://www.vidking.net/embed/tv/${showId}/${selectedSeason}/${selectedEpisode}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
+                  : (() => {
+                    const latestSeason = Tvdetails?.seasons[Tvdetails.seasons.length - 1];
+                    return `https://www.vidking.net/embed/tv/${showId}/${latestSeason?.season_number}/${latestSeason?.episode_count}?color=e50914&nextEpisode=true&episodeSelector=true`;
+                  })()
+              }
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              allowFullScreen
+              allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
+              title="TV Show Embed"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: 0,
+                borderRadius: "1rem",
+                background: "#000"
+              }}
+              ref={el => {
+                if (el && typeof window !== "undefined") {
+                  const handleFs = () => {
+                    const orientation: any =
+                      (window.screen as any).orientation ||
+                      (window.screen as any).mozOrientation ||
+                      (window.screen as any).msOrientation;
+                    if (
+                      document.fullscreenElement &&
+                      orientation &&
+                      typeof orientation.lock === "function"
+                    ) {
+                      orientation.lock("landscape").catch(() => { });
+                    }
+                  };
+                  document.removeEventListener("fullscreenchange", handleFs);
+                  document.addEventListener("fullscreenchange", handleFs);
+                }
+              }}
+            ></iframe>
+          </div>
         </div>
       </section>
 
@@ -485,33 +517,31 @@ const Tvdetails = () => {
       <section className="mb-12 px-4">
         <h2 className="text-3xl font-bold mb-6 text-gray-200">Cast</h2>
         <div className="overflow-x-auto">
-          <div className="flex justify-between items-center mb-4">
-            <ul className="flex gap-4 md:gap-6 lg:gap-8">
-              {Tvdetails?.cast?.map((actor) => (
-                <li key={actor.id}>
-                  <Link to={`/actor/${actor.id}`}>
-                    <div className="bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 hover:from-orange-500 hover:to-red-600 transition-all duration-300 rounded-2xl shadow-lg overflow-hidden group w-44">
-                      <img
-                        src={
-                          actor.profile_path
-                            ? `https://image.tmdb.org/t/p/w500${actor.profile_path}`
-                            : "/path/to/default-image.jpg"
-                        }
-                        alt={actor.name}
-                        className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      <div className="p-4 text-center">
-                        <h3 className="font-bold text-base text-gray-200 group-hover:text-yellow-400">
-                          {actor.name}
-                        </h3>
-                        <p className="text-sm text-gray-400 mt-1">{actor.role}</p>
-                      </div>
+          <ul className="flex gap-3 sm:gap-4 md:gap-6 lg:gap-8 pb-2">
+            {Tvdetails?.cast?.map((actor) => (
+              <li key={actor.id} className="flex-shrink-0">
+                <Link to={`/actor/${actor.id}`}>
+                  <div className="bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 hover:from-orange-500 hover:to-red-600 transition-all duration-300 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden group w-28 sm:w-44">
+                    <img
+                      src={
+                        actor.profile_path
+                          ? `https://image.tmdb.org/t/p/w500${actor.profile_path}`
+                          : "/path/to/default-image.jpg"
+                      }
+                      alt={actor.name}
+                      className="w-full h-36 sm:h-56 object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="p-2 sm:p-4 text-center">
+                      <h3 className="font-bold text-xs sm:text-base text-gray-200 group-hover:text-yellow-400">
+                        {actor.name}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-400 mt-1">{actor.role}</p>
                     </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

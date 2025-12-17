@@ -341,10 +341,11 @@ const Home = () => {
         </section>
         <section className="mb-12">
           <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
-                <Youtube className="w-8 h-8 text-red-600" />
-                Latest Trailers
+            <div className="flex items-center gap-2 md:gap-4">
+              <h2 className="text-lg md:text-2xl font-bold flex items-center gap-1 md:gap-2 text-white">
+                <Youtube className="w-6 h-6 md:w-8 md:h-8 text-red-600" />
+                <span className="hidden xs:inline">Latest Trailers</span>
+                <span className="inline xs:hidden">Trailers</span>
               </h2>
 
               <div className="hidden md:flex items-center gap-2">
@@ -387,25 +388,25 @@ const Home = () => {
                 </div>
               </div>
 
-              <div className="w-full md:hidden mt-3">
-                <div className="inline-flex items-center justify-center gap-1 bg-zinc-900 rounded-full p-1 mx-auto max-w-xs">
+              <div className="w-full md:hidden mt-2">
+                <div className="inline-flex items-center justify-center gap-0.5 bg-zinc-900 rounded-full p-0.5 mx-auto max-w-xs">
                   <button
                     onClick={() => setTrailersCategory('popular')}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${trailersCategory === 'popular' ? 'bg-red-600 text-white' : 'text-gray-300'}`}
+                    className={`px-2 py-0.5 rounded-full text-[0.7rem] font-medium transition-colors ${trailersCategory === 'popular' ? 'bg-red-600 text-white' : 'text-gray-300'}`}
                     aria-pressed={trailersCategory === 'popular'}
                   >
                     Popular
                   </button>
                   <button
                     onClick={() => setTrailersCategory('intheaters')}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${trailersCategory === 'intheaters' ? 'bg-red-600 text-white' : 'text-gray-300'}`}
+                    className={`px-2 py-0.5 rounded-full text-[0.7rem] font-medium transition-colors ${trailersCategory === 'intheaters' ? 'bg-red-600 text-white' : 'text-gray-300'}`}
                     aria-pressed={trailersCategory === 'intheaters'}
                   >
-                    In Theatres
+                    Theatres
                   </button>
                   <button
                     onClick={() => setTrailersCategory('tv')}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${trailersCategory === 'tv' ? 'bg-red-600 text-white' : 'text-gray-300'}`}
+                    className={`px-2 py-0.5 rounded-full text-[0.7rem] font-medium transition-colors ${trailersCategory === 'tv' ? 'bg-red-600 text-white' : 'text-gray-300'}`}
                     aria-pressed={trailersCategory === 'tv'}
                   >
                     Series

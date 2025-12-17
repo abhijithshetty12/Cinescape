@@ -87,41 +87,50 @@ const TopRated = () => {
             </div>
           </div>
         </motion.div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-8">
-          {media.map((item) => (
-            <Link to={`/${mediaType}/${item.id}`} key={item.id}>
-              <motion.div
-                className="group bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700 hover:border-orange-500"
-                whileHover={{ scale: 1.04, y: -4 }}
-              >
-                <div className="relative">
-                  <img
-                    src={`https://image.tmdb.org/t/p/w500${item.poster_path}`}
-                    alt={item.title || item.name}
-                    className="w-full h-72 object-cover object-center transition-all duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute top-3 right-3 bg-black/70 rounded-full px-3 py-1 flex items-center gap-1 shadow">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span className="text-yellow-400 font-bold">
-                      {item.vote_average?.toFixed(1) ?? "N/A"}
-                    </span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-6">
+          {media.map((item) => {
+            const title = item.title || item.name || "Untitled";
+            const poster = item.poster_path
+              ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+              : "/path/to/default-image.jpg";
+            const dateStr = item.release_date || item.first_air_date || "";
+            const year = dateStr ? new Date(dateStr).getFullYear() : "N/A";
+            const to =
+              mediaType === "movie" ? `/movie/${item.id}` : `/tv/${item.id}`;
+
+            return (
+              <Link to={to} key={item.id}>
+                <motion.div
+                  className="group bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700 hover:border-yellow-500"
+                  whileHover={{ scale: 1.04, y: -4 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="relative">
+                    <img
+                      src={poster}
+                      alt={title}
+                      className="w-full h-auto object-cover object-center transition-all duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute top-3 right-3 bg-black/70 rounded backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="text-white font-bold text-xs">
+                        {item.vote_average?.toFixed(1) ?? "N/A"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="p-4 flex flex-col gap-1">
-                  <h2 className="text-lg font-bold text-white truncate">
-                    {item.title || item.name}
-                  </h2>
-                  <span className="text-gray-400 text-sm">
-                    {item.release_date || item.first_air_date
-                      ? new Date(
-                          item.release_date || item.first_air_date
-                        ).getFullYear()
-                      : "N/A"}
-                  </span>
-                </div>
-              </motion.div>
-            </Link>
-          ))}
+                  <div className="p-4 flex flex-col gap-1">
+                    <h2 className="text-lg font-bold text-white truncate">
+                      {title}
+                    </h2>
+                    <div className="flex items-center justify-between text-xs text-gray-400">
+                      <span>{year}</span>
+                      <span className="uppercase">{mediaType}</span>
+                    </div>
+                  </div>
+                </motion.div>
+              </Link>
+            );
+          })}
         </div>
         <div className="flex justify-center mt-10">
           <button

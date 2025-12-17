@@ -52,7 +52,7 @@ function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-black text-white relative">
         <AppRoutes />
-        <License />
+        <License/>
       </div>
     </BrowserRouter>
   );
