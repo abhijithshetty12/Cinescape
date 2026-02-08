@@ -24,3 +24,9 @@ Cinescape is a modern movie discovery web app built with React and deployed on V
 - **Frontend**: React.js  
 - **Deployment**: Vercel  
 - **Styling**: Responsive design with modern UI components
+
+---
+
+## 🖼️ Screenshots / Preview
+1. Login Page 
+<img width="1919" height="913" alt="Image" src="https://github.com/user-attachments/assets/f703906c-88ff-4b76-8f17-bb71a7e72963" />
