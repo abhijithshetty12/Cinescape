@@ -1,11 +1,14 @@
 # 🎬 Cinescape
 
-Cinescape is a modern movie discovery web app built with React and deployed on Vercel. It allows users to explore movies, view top-rated films, browse actors, and manage favorite actors—all in a clean, responsive interface.
+Cinescape is a modern movie discovery web app built with **React** and deployed on **Vercel**.  
+It lets you explore movies, discover top-rated films, browse actors, and manage your favorites—all in a sleek, responsive interface designed for a smooth cinematic experience.
 
 ---
 
 ## 🌐 Live Demo
-👉 [Cinescape Deployed URL](https://cinescape-teal.vercel.app/home)
+
+✨ Experience it here → [**Cinescape**](https://cinescape-teal.vercel.app/home)  
+Dive into the world of movies with just one click!
 
 ---
 
@@ -15,7 +18,7 @@ Cinescape is a modern movie discovery web app built with React and deployed on V
 - ⭐ **Top Rated**: Discover highly rated movies  
 - 🎭 **Actors**: View actor details and filmography  
 - ❤️ **Favorite Actors**: Save and manage your favorite actors  
-- 👤 **Profile Section**: Personalized user experience (coming soon)  
+- 👤 **Profile Section**: Personalized user experience *(coming soon)*  
 
 ---
 
@@ -23,7 +26,7 @@ Cinescape is a modern movie discovery web app built with React and deployed on V
 
 - **Frontend**: React.js  
 - **Deployment**: Vercel  
-- **Styling**: Responsive design with modern UI components
+- **Styling**: Responsive design with modern UI components  
 
 ---
 
@@ -48,3 +51,11 @@ Below are some UI previews of the application:
 
 6. **History Page**  
    <img width="1920" height="1080" alt="History Page" src="https://github.com/user-attachments/assets/37e668ba-1a6d-4271-a215-5279ea8f19d9" />
+
+---
+
+## 👨‍💻 Author
+
+Developed by **Abhijith Shetty**  
+Front-End Web Developer
+Passionate about building modern, user-friendly web applications that blend creativity with technology.
