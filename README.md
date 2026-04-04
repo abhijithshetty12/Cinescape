@@ -1,5 +1,10 @@
 # 🎬 Cinescape
 
+[![React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=flat&logo=react)](https://react.dev)
+[![Vercel](https://img.shields.io/badge/Vercel-Deployed-000000?style=flat&logo=vercel)](https://vercel.com)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.15-38B2AC?style=flat&logo=tailwind-css)](https://tailwindcss.com)
+[![Firebase](https://img.shields.io/badge/Firebase-Hosting-orange?style=flat&logo=firebase)](https://firebase.google.com)
+
 Cinescape is a modern movie discovery web app built with **React** and deployed on **Vercel**.  
 It lets you explore movies, discover top-rated films, browse actors, and manage your favorites—all in a sleek, responsive interface designed for a smooth cinematic experience.
 
