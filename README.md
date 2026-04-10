@@ -60,3 +60,10 @@
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](https://linkedin.com/in/abhijithshetty12)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/abhijithshetty12)
+
+---
+## 🌟 Show Your Support
+
+If you find this project helpful or like the design, please give it a ⭐ on **GitHub**! It helps the project gain more visibility and motivates me to keep adding new features.
+
+---
