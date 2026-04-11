@@ -13,6 +13,7 @@
 
 ## 🚀 Key Features
 
+* **📺 Instant Streaming**: Watch any film in the library for free with integrated high-quality playback.
 * **🎬 Cinematic Discovery**: Explore a vast library of movies with real-time data.
 * **⭐ Curated Rankings**: Access top-rated films and trending content instantly.
 * **🎭 Talent Profiles**: Detailed insights into actors, including full filmographies.
@@ -65,5 +66,3 @@
 ## 🌟 Show Your Support
 
 If you find this project helpful or like the design, please give it a ⭐ on **GitHub**! It helps the project gain more visibility and motivates me to keep adding new features.
-
----
