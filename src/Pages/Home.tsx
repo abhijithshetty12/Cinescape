@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { motion, keyframes } from "framer-motion";
+import { motion } from "framer-motion";
 import Hero from "../components/Hero.tsx";
 import { Youtube, Clock, Star, TrendingUp, Bookmark, User, History } from "lucide-react";
 import { Link } from "react-router-dom";
