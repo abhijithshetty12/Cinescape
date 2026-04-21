@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { motion } from "framer-motion";
+import { motion, keyframes } from "framer-motion";
 import Hero from "../components/Hero.tsx";
 import { Youtube, Clock, Star, TrendingUp, Bookmark, User, History } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -12,6 +12,85 @@ const Home = () => {
   const [upcomingMovies, setUpcomingMovies] = useState([]);
   const [upcomingType, setUpcomingType] = useState<'movie' | 'tv'>('movie');
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
+
+  const menuItems = [
+    {
+      icon: TrendingUp,
+      label: "Trending",
+      path: "/trending",
+      color: "bg-gradient-to-r from-orange-600/90 to-orange-500/80 border border-orange-500/30 shadow-xl hover:shadow-2xl",
+      glowColor: "#f97316",
+      glowRadius: 10,
+    },
+    {
+      icon: Clock,
+      label: "Upcoming",
+      path: "/upcoming",
+      color: "bg-gradient-to-r from-blue-500/90 to-blue-400/80 border border-blue-500/30 shadow-xl hover:shadow-2xl",
+      glowColor: "#3b82f6",
+      glowRadius: 10,
+    },
+    {
+      icon: Star,
+      label: "Top Rated",
+      path: "/top-rated",
+      color: "bg-gradient-to-r from-amber-500/90 to-amber-400/80 border border-amber-500/30 shadow-xl hover:shadow-2xl",
+      glowColor: "#f59e0b",
+      glowRadius: 10,
+    },
+    {
+      icon: Bookmark,
+      label: "Watchlist",
+      path: "/watchlist",
+      color: "bg-gradient-to-r from-cyan-500/90 to-cyan-400/80 border border-cyan-500/30 shadow-xl hover:shadow-2xl",
+      glowColor: "#06b6d4",
+      glowRadius: 10,
+    },
+    {
+      icon: History,
+      label: "History",
+      path: "/history",
+      color: "bg-gradient-to-r from-green-500/90 to-green-400/80 border border-green-500/30 shadow-xl hover:shadow-2xl",
+      glowColor: "#10b981",
+      glowRadius: 10,
+    },
+  ];
+
+  const MenuItem = ({ icon: Icon, label, path, color, glowColor, glowRadius }: any) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    const handleHover = () => {
+      setIsHovered(true);
+    };
+
+    const handleHoverOut = () => {
+      setIsHovered(false);
+    };
+
+    return (
+      <li
+        className={`relative flex items-center p-4 ${color} text-white rounded-xl cursor-pointer group transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1`}
+        onMouseEnter={handleHover}
+        onMouseLeave={handleHoverOut}
+      >
+        <Link to={path} className="flex items-center gap-2 w-full z-10 px-2 py-1 rounded-lg backdrop-blur-sm">
+          <span className="flex-shrink-0"><Icon className="w-5 h-5" /></span>
+          <span className="font-medium text-sm md:text-base whitespace-nowrap">{label}</span>
+        </Link>
+        <div
+          className="absolute -inset-1 rounded-xl bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500 pointer-events-none"
+          style={{
+            boxShadow: isHovered 
+              ? `0 0 ${glowRadius}px ${glowColor}, 0 0 ${glowRadius * 2}px ${glowColor}, 0 0 ${glowRadius * 3}px ${glowColor} inset` 
+              : 'none',
+            animation: isHovered ? 'glow 1.5s ease-in-out infinite alternate' : 'none',
+          }}
+        />
+      </li>
+    );
+  };
+
+
   type TrailerMovie = {
     id: number;
     title: string;
@@ -124,47 +203,17 @@ const Home = () => {
     <div>
       <Hero />
       <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
-          {[
-            {
-              icon: TrendingUp,
-              label: "Trending",
-              path: "/trending",
-              color: "bg-orange-600",
-            },
-            {
-              icon: Clock,
-              label: "Upcoming",
-              path: "/upcoming",
-              color: "bg-blue-500",
-            },
-            {
-              icon: Star,
-              label: "Top Rated",
-              path: "/top-rated",
-              color: "bg-amber-500",
-            },
-            {
-              icon: Bookmark,
-              label: "Watchlist",
-              path: "/watchlist",
-              color: "bg-cyan-500",
-            },
-            {
-              icon: History,
-              label: "History",
-              path: "/history",
-              color: "bg-green-500",
-            },
-          ].map((category, index) => (
-            <Link
-              key={index}
-              to={category.path}
-              className={`${category.color} p-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-70 transition-opacity`}
-            >
-              <category.icon className="w-5 h-5" />
-              <span className="font-medium text-white">{category.label}</span>
-            </Link>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12 w-full">
+          {menuItems.map((item) => (
+            <MenuItem
+              key={item.path}
+              icon={item.icon}
+              label={item.label}
+              path={item.path}
+              color={item.color}
+              glowColor={item.glowColor}
+              glowRadius={item.glowRadius}
+            />
           ))}
         </div>
         <section className="mb-12">
