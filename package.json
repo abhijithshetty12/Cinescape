@@ -20,7 +20,7 @@
     "react-redux": "^9.2.0",
     "react-responsive-carousel": "^3.2.23",
     "react-router-dom": "^7.0.1",
-    "react-scripts": "^0.0.0",
+"react-scripts": "5.0.1",
     "react-slick": "^0.30.3",
     "slick-carousel": "^1.8.1",
     "swiper": "^12.1.3",
