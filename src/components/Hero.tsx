@@ -78,53 +78,54 @@ const Hero = () => {
   const movie: Movie | undefined = trendingMovies[currentMovie];
 
   return (
-    <div className="relative h-[70vh] min-h-[320px] sm:h-[90vh] sm:min-h-[500px] bg-gradient-to-b from-zinc-950/80 via-zinc-900/60 to-black flex flex-col overflow-hidden">
+    <div className="relative h-[70vh] min-h-[320px] sm:h-[90vh] sm:min-h-[500px] flex flex-col overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-black-900/20 to-purple-900/20 backdrop-blur-xl" />
       <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 gradient-mask"
+        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 gradient-mask glassmorphic-overlay"
         style={{
           backgroundImage: `url('${movie?.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : ''}')`,
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90 glassmorphic-overlay" />
       </div>
 
       <div className="relative container mx-auto px-2 xs:px-4 flex-grow flex items-center">
         <div className="max-w-full sm:max-w-2xl sm:ml-16 z-10">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 mb-3 sm:mb-5">
-            <div className="flex items-center gap-1 sm:gap-2 bg-black/60 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 mb-3 sm:mb-5">
+            <div className="flex items-center gap-1 sm:gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 glassmorphic-card">
               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
               <span className="text-white font-bold text-xs sm:text-sm">
                 {movie?.vote_average} Rating
               </span>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 bg-black/60 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow">
+            <div className="flex items-center gap-1 sm:gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 glassmorphic-card">
               <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500" />
               <span className="text-zinc-200 text-xs sm:text-sm">{movie?.release_date || movie?.first_air_date}</span>
             </div>
-            <div className={`${movie?.media_type === 'tv' ? 'bg-blue-600' : 'bg-gradient-to-r from-orange-500 to-red-600'} px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow`}>
+            <div className={`${movie?.media_type === 'tv' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-orange-500 to-red-600'} px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 glassmorphic-card glassmorphic-gradient`}>
               <span className="text-white font-bold text-xs sm:text-sm">
                 {movie?.media_type === 'tv' ? 'TV' : 'Movie'}
               </span>
             </div>
           </div>
-          <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 text-white drop-shadow-lg leading-tight">
+          <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 text-white drop-shadow-lg leading-tight glassmorphic-text">
             {movie?.title || movie?.name}
           </h1>
-          <p className="text-zinc-300 text-base xs:text-lg mb-6 sm:mb-10 line-clamp-4 max-w-full sm:max-w-xl">
+          <p className="text-zinc-300 text-base xs:text-lg mb-6 sm:mb-10 line-clamp-4 max-w-full sm:max-w-xl glassmorphic-text">
             {movie?.overview}
           </p>
           <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-6 w-full max-w-xs xs:max-w-none">
             <Link
               to="#"
               onClick={() => window.open(`https://www.youtube.com/watch?v=${movie?.trailers[0]?.key}`, '_blank')}
-              className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold flex items-center justify-center gap-2 shadow-lg hover:from-orange-600 hover:to-red-700 hover:scale-105 transition-all duration-300 no-underline text-base sm:text-lg"
+              className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold flex items-center justify-center gap-2 shadow-lg hover:from-orange-600 hover:to-red-700 hover:scale-105 transition-all duration-300 no-underline text-base sm:text-lg glassmorphic-button glassmorphic-gradient"
             >
               <Play className="w-5 h-5" />
               Watch Trailer
             </Link>
             <Link
               to={movie?.media_type === 'tv' ? `/tv/${movie?.id}` : `/movie/${movie?.id}`}
-              className="bg-white/10 border border-white/20 backdrop-blur-md text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg no-underline text-base sm:text-lg flex items-center justify-center"
+              className="bg-white/10 border border-white/20 backdrop-blur-md text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg no-underline text-base sm:text-lg flex items-center justify-center glassmorphic-button"
               style={{
                 boxShadow: '0 4px 32px 0 rgba(0,0,0,0.25), 0 1.5px 8px 0 rgba(255,255,255,0.05) inset',
                 backdropFilter: 'blur(12px)'
@@ -139,14 +140,14 @@ const Hero = () => {
           <>
             <button
               onClick={prevMovie}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800/40 hover:bg-gray-800/60 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer glassmorphic-button"
               aria-label="Previous"
             >
               <ChevronLeft className="w-6 h-6 text-white" />
             </button>
             <button
               onClick={nextMovie}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800/40 hover:bg-gray-800/60 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer glassmorphic-button"
               aria-label="Next"
             >
               <ChevronRight className="w-6 h-6 text-white" />
@@ -162,7 +163,7 @@ const Hero = () => {
               aria-label={`Go to slide ${index + 1}`}
               aria-current={currentMovie === index}
               onClick={() => setCurrentMovie(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${currentMovie === index ? 'w-6 sm:w-8 bg-gradient-to-r from-orange-500 to-red-600' : 'w-2 sm:w-2 bg-white/50'
+              className={`h-2 rounded-full transition-all duration-300 ${currentMovie === index ? 'w-6 sm:w-8 bg-gradient-to-r from-orange-500 to-red-600 glassmorphic-dot-active' : 'w-2 sm:w-2 bg-white/50 glassmorphic-dot-inactive'
                 }`}
             />
           ))}
