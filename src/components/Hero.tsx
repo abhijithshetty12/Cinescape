@@ -90,18 +90,18 @@ const Hero = () => {
 
       <div className="relative container mx-auto px-2 xs:px-4 flex-grow flex items-center">
         <div className="max-w-full sm:max-w-2xl sm:ml-16 z-10">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
-            <div className="flex items-center gap-1 sm:gap-2 bg-black/60 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow">
-              <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-current" />
-              <span className="text-white font-bold text-sm sm:text-base">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 mb-3 sm:mb-5">
+            <div className="flex items-center gap-1 sm:gap-2 bg-black/60 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow">
+              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
+              <span className="text-white font-bold text-xs sm:text-sm">
                 {movie?.vote_average} Rating
               </span>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 bg-black/60 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
-              <span className="text-zinc-200 text-sm sm:text-base">{movie?.release_date || movie?.first_air_date}</span>
+            <div className="flex items-center gap-1 sm:gap-2 bg-black/60 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow">
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500" />
+              <span className="text-zinc-200 text-xs sm:text-sm">{movie?.release_date || movie?.first_air_date}</span>
             </div>
-            <div className={`${movie?.media_type === 'tv' ? 'bg-blue-600' : 'bg-gradient-to-r from-orange-500 to-red-600'} px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow`}>
+            <div className={`${movie?.media_type === 'tv' ? 'bg-blue-600' : 'bg-gradient-to-r from-orange-500 to-red-600'} px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow`}>
               <span className="text-white font-bold text-xs sm:text-sm">
                 {movie?.media_type === 'tv' ? 'TV' : 'Movie'}
               </span>
@@ -139,17 +139,17 @@ const Hero = () => {
           <>
             <button
               onClick={prevMovie}
-              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-orange-500/80 text-white p-2 sm:p-3 rounded-full shadow-lg transition-all duration-300 z-20"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-gray-800/40 hover:bg-gray-800/60 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer"
               aria-label="Previous"
             >
-              <ChevronLeft className="w-6 h-6 sm:w-7 sm:h-7" />
+              <ChevronLeft className="w-6 h-6 text-white" />
             </button>
             <button
               onClick={nextMovie}
-              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-orange-500/80 text-white p-2 sm:p-3 rounded-full shadow-lg transition-all duration-300 z-20"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800/40 hover:bg-gray-800/60 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer"
               aria-label="Next"
             >
-              <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7" />
+              <ChevronRight className="w-6 h-6 text-white" />
             </button>
           </>
         )}
