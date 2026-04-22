@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Youtube, Award, Instagram, Star, Twitter, Heart, HeartOff, ImageOff, ChartNoAxesCombined } from "lucide-react";
+import { Youtube, Instagram, Star, Twitter, Heart, HeartOff, ImageOff, ChartNoAxesCombined } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
