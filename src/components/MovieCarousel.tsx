@@ -49,19 +49,27 @@ const MovieCarousel = ({ movies, mediaType }: { movies: any[]; mediaType?: 'movi
         </div>
       </div>
 
+      {/* Navigation buttons - glowy with liquid glass */}
       {movies.length > visibleMovies && (
         <>
+          {/* Left arrow */}
           <button
             onClick={prevSlide}
-            className="absolute left-0 top-1/2 -translate-y-1/2 bg-black/30 backdrop-blur-md p-3 rounded-full transition-opacity"
+            className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 glassmorphic-button liquid-glass group p-2.5 sm:p-3 rounded-full shadow-xl hover:shadow-orange-500/40 transition-all duration-300 z-10 flex items-center justify-center"
+            aria-label="Previous slide"
           >
-            <ChevronLeft className="w-8 h-8 text-white" />
+            <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-orange-500/20 to-transparent" />
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10 drop-shadow-lg group-hover:scale-110 transition-transform" />
           </button>
+
+          {/* Right arrow */}
           <button
             onClick={nextSlide}
-            className="absolute right-0 top-1/2 -translate-y-1/2 bg-black/30 backdrop-blur-md p-3 rounded-full transition-opacity"
+            className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 glassmorphic-button liquid-glass group p-2.5 sm:p-3 rounded-full shadow-xl hover:shadow-orange-500/40 transition-all duration-300 z-10 flex items-center justify-center"
+            aria-label="Next slide"
           >
-            <ChevronRight className="w-8 h-8 text-white" />
+            <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-orange-500/20 to-transparent" />
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10 drop-shadow-lg group-hover:scale-110 transition-transform" />
           </button>
         </>
       )}

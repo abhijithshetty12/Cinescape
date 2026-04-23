@@ -89,6 +89,9 @@ const Hero = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90 glassmorphic-overlay" />
       </div>
 
+      {/* Deco gradient accents */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
+
       <div className="relative container mx-auto px-2 xs:px-4 flex-grow flex items-center">
         <div className="max-w-full sm:max-w-2xl sm:ml-16 z-10">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 mb-3 sm:mb-5">
@@ -156,15 +159,15 @@ const Hero = () => {
         )}
       </div>
       {trendingMovies.length > 1 && (
-        <div className="absolute bottom-4 sm:bottom-8 flex gap-1.5 sm:gap-2 left-1/2 -translate-x-1/2 z-20">
-          {trendingMovies.map((_, index) => (
-            <button
-              key={index}
-              aria-label={`Go to slide ${index + 1}`}
-              aria-current={currentMovie === index}
-              onClick={() => setCurrentMovie(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${currentMovie === index ? 'w-6 sm:w-8 bg-gradient-to-r from-orange-500 to-red-600 glassmorphic-dot-active' : 'w-2 sm:w-2 bg-white/50 glassmorphic-dot-inactive'
-                }`}
+  <div className="absolute bottom-4 sm:bottom-8 flex gap-1.5 sm:gap-2 left-1/2 -translate-x-1/2 z-20">
+    {trendingMovies.map((_, index) => (
+      <button
+        key={index}
+        aria-label={`Go to slide ${index + 1}`}
+        aria-current={currentMovie === index}
+        onClick={() => setCurrentMovie(index)}
+        className={`h-2 rounded-full transition-all duration-300 ${currentMovie === index ? 'w-6 sm:w-8 bg-gradient-to-r from-orange-500 to-red-600 glassmorphic-dot-active' : 'w-2 sm:w-2 bg-white/50 glassmorphic-dot-inactive'
+          }`}
             />
           ))}
         </div>

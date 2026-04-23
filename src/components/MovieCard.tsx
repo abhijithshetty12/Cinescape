@@ -119,41 +119,43 @@ const MovieCard: React.FC<MovieCardProps> = ({
     Array.isArray(genre_ids) && genre_ids.length
       ? genre_ids.map((gid) => genreMapping[gid]).filter(Boolean)
       : Array.isArray(genres) && genres.length
-      ? genres.map((g) => g.name).filter(Boolean)
-      : [];
+        ? genres.map((g) => g.name).filter(Boolean)
+        : [];
 
   return (
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="group bg-gradient-to-br from-zinc-900/80 to-zinc-800/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700 hover:border-orange-500"
+      className="group bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl hover:backdrop-blur-md hover:border-white/20 hover:ring-2 hover:ring-blue-500/30 transition-all duration-500 border border-white/10"
     >
-      <div className="relative aspect-[12/9]">
+      <div className="relative aspect-[16/9]">
         <img
           src={imageSrc}
           alt={displayTitle}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 group-hover:brightness-110 transition-all duration-500"
         />
-        <div className="absolute top-3 right-3 bg-black/70 rounded-full px-3 py-1 flex items-center gap-1 shadow">
-          <Star className="w-4 h-4 text-yellow-400 fill-current" />
+        <div className="absolute top-3 right-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-0.5 flex items-center gap-1 shadow-lg">
+          <Star className="w-3 h-3 text-yellow-400 fill-current" />
           <span className="text-white font-bold">{rating}</span>
         </div>
         {userRating !== null && (
-          <div className="absolute top-3 left-3 bg-black/70 rounded-full px-3 py-1 flex items-center gap-1 shadow">
+          <div className="absolute top-3 left-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-0.5 flex items-center gap-1 shadow-lg">
             <span className="text-orange-400 text-xs font-bold">User: {userRating}</span>
           </div>
         )}
         {trailerUrl && isPlaying && (
           <iframe
             src={trailerUrl}
-            className="absolute top-0 left-0 w-full h-full rounded-2xl"
+            className="absolute top-0 left-0 w-full h-full rounded-3xl"
             allow="autoplay; fullscreen"
             allowFullScreen
             title={displayTitle + " Trailer"}
           />
         )}
+        {/* Vignette overlay */}
+        <div className="absolute inset-0 bg-gradient-radial from-black/0 via-black/20 to-black/40 pointer-events-none" />
       </div>
-      <div className="p-4 flex flex-col gap-2">
+      <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 flex flex-col gap-2">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-bold text-lg text-white truncate">{displayTitle}</h3>
           <span className="text-gray-400 text-sm">{year}</span>
@@ -163,7 +165,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
             {genreNames.slice(0, 2).map((gName, idx) => (
               <span
                 key={idx}
-                className="text-xs px-2 py-1 bg-gradient-to-r from-orange-500 to-red-600 rounded-full text-white font-semibold shadow"
+                className="relative text-xs px-3 py-1 bg-gradient-to-r from-indigo-400/20 via-blue-500/20 to-purple-600/20 backdrop-blur-md border border-white/30 rounded-xl text-white/95 font-semibold shadow-xl hover:shadow-purple-500/25 overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/20 before:to-transparent before:blur-sm before:animate-shimmer"
               >
                 {gName}
               </span>
@@ -176,3 +178,4 @@ const MovieCard: React.FC<MovieCardProps> = ({
 };
 
 export default MovieCard;
+
