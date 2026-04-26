@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Menu, User, X, Compass, CircleUser, Users, Heart, Award } from 'lucide-react';
+import { Search, Menu, X, Compass, Users, Heart, Award } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 interface SearchResult {
@@ -227,9 +227,7 @@ const Navbar = () => {
             ))}
           </div>
           <Link to="/profile" className="text-gray-300 hover:text-red-600 transition-colors duration-200">
-            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-red-600 transition-colors duration-200">
-              <User className="text-white text-lg" />
-            </div>
+            <img src="/user-icon.jpg" alt="Profile" className="w-8 h-8 rounded-full object-cover active:shadow-[0_0_12px_rgba(255,255,255,0.8)] active:ring-2 active:ring-white/50 transition-all duration-200"/>
           </Link>
         </div>
       </div>
@@ -329,7 +327,7 @@ const Navbar = () => {
             className="flex items-center gap-3 text-gray-300 hover:text-red-600 py-3"
             onClick={() => setIsMenuOpen(false)}
           >
-            <CircleUser className="w-5 h-5" />
+            <img src="/user-icon.jpg" alt="Profile" className="w-5 h-5 rounded-full object-cover" />
             <span>Profile</span>
           </Link>
 
