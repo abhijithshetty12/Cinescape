@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Youtube, Instagram, Star, Twitter, Heart, HeartOff, ImageOff, ChartNoAxesCombined } from "lucide-react";
+import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
@@ -215,34 +215,31 @@ const Actordetails = () => {
                   {actor?.instagram_id && (
                     <a
                       href={`https://instagram.com/${actor.instagram_id}`}
-                      className="p-3 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl hover:scale-110 transition-transform duration-200 shadow-lg"
-                      target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`${actorName} on Instagram`}
+                      className="flex items-center justify-center"
                     >
-                      <Instagram className="w-5 h-5 text-white" />
+                      <img src="/insta-icon.png" alt="Instagram" className="w-11 h-11 object-contain" />
                     </a>
                   )}
                   {actor?.twitter_id && (
                     <a
                       href={`https://twitter.com/${actor.twitter_id}`}
-                      className="p-3 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl hover:scale-110 transition-transform duration-200 shadow-lg"
-                      target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`${actorName} on Twitter`}
+                      className="flex items-center justify-center"
                     >
-                      <Twitter className="w-5 h-5 text-white" />
+                      <img src="/twitter-icon.png" alt="Twitter" className="w-11 h-11 object-contain" />
                     </a>
                   )}
                   {actor?.youtube_id && (
                     <a
                       href={`https://youtube.com/${actor.youtube_id}`}
-                      className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-xl hover:scale-110 transition-transform duration-200 shadow-lg"
-                      target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`${actorName} on YouTube`}
+                      className="flex items-center justify-center"
                     >
-                      <Youtube className="w-5 h-5 text-white" />
+                      <img src="/yt-icon2.png" alt="YouTube" className="w-13 h-11 object-contain" />
                     </a>
                   )}
                 </div>
