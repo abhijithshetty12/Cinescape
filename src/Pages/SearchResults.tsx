@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Star, ImageOff, Film, Tv, User, Loader2, Frown, RotateCcw } from 'lucide-react';
+import { Search, Star, ImageOff, Film, Tv, User, Frown, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SearchResult {
