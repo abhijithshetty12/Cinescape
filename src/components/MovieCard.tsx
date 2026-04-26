@@ -165,7 +165,8 @@ const MovieCard: React.FC<MovieCardProps> = ({
             {genreNames.slice(0, 2).map((gName, idx) => (
               <span
                 key={idx}
-                className="relative text-xs px-3 py-1 bg-gradient-to-r from-indigo-400/20 via-blue-500/20 to-purple-600/20 backdrop-blur-md border border-white/30 rounded-xl text-white/95 font-semibold shadow-xl hover:shadow-purple-500/25 overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/20 before:to-transparent before:blur-sm before:animate-shimmer"
+                className="text-[10px] sm:text-xs px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded-full text-zinc-300 font-medium"
+
               >
                 {gName}
               </span>
