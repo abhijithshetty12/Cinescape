@@ -3,46 +3,71 @@ import { motion } from 'framer-motion';
 
 const Loading = () => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-md">
       <div className="relative flex flex-col items-center">
-        <svg width="64" height="96" viewBox="0 0 64 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="8" y="8" width="48" height="80" rx="24" fill="url(#glass-gradient)" />
-          <path d="M16 8 Q32 48 48 8" stroke="#fff" strokeWidth="2" fill="none" opacity="0.2"/>
-          <path d="M16 88 Q32 48 48 88" stroke="#fff" strokeWidth="2" fill="none" opacity="0.2"/>
-          <motion.polygon
-            points="20,16 44,16 32,40"
-            fill="url(#sand-gradient)"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: [1, 0.2, 1] }}
-            transition={{ duration: 1.2, repeat: Infinity, repeatType: "loop" }}
+        {/* Animated film reel */}
+        <motion.div
+          className="relative"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          {/* Spinning reel rings */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            className="w-24 h-24 rounded-full border-2 border-amber-500/30 border-t-amber-500/80"
           />
-          <motion.rect
-            x="30" y="40" width="4" height="16" rx="2"
-            fill="url(#sand-gradient)"
-            initial={{ opacity: 0.8, scaleY: 1 }}
-            animate={{ opacity: [0.8, 0.2, 0.8], scaleY: [1, 1.5, 1] }}
-            transition={{ duration: 1.2, repeat: Infinity, repeatType: "loop" }}
-            style={{ transformOrigin: "center top" }}
+          <motion.div
+            animate={{ rotate: -360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-2 w-20 h-20 rounded-full border border-neutral-700/50"
           />
-          <motion.ellipse
-            cx="32" cy="80" rx="12" ry="6"
-            fill="url(#sand-gradient)"
-            initial={{ opacity: 0.2, scaleY: 0.5 }}
-            animate={{ opacity: [0.2, 1, 0.2], scaleY: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.2, repeat: Infinity, repeatType: "loop" }}
-          />
-          <defs>
-            <linearGradient id="glass-gradient" x1="8" y1="8" x2="56" y2="88" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#22223b" />
-              <stop offset="1" stopColor="#4a4e69" />
-            </linearGradient>
-            <linearGradient id="sand-gradient" x1="32" y1="16" x2="32" y2="88" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#fbbf24" />
-              <stop offset="1" stopColor="#e11d48" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <span className="mt-6 text-white text-lg font-bold tracking-widest animate-pulse">Loading...</span>
+          
+          {/* Center hub */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-4 h-4 rounded-full bg-gradient-to-br from-amber-500 to-red-500 shadow-lg shadow-amber-500/20" />
+          </div>
+
+          {/* Film strip holes animated */}
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-8">
+            {[-1, 0, 1].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0.3 }}
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop", delay: Math.abs(i) * 0.2 }}
+                className="w-2 h-2 rounded-sm bg-neutral-700"
+              />
+            ))}
+          </div>
+
+          {/* Play indicator */}
+          <motion.div
+            className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 text-neutral-500"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-xs tracking-wider uppercase">Loading</span>
+          </motion.div>
+        </motion.div>
+
+        {/* Title */}
+        <motion.div
+          className="mt-8 text-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+        >
+          <h2 className="text-white text-lg font-medium tracking-[0.3em] uppercase">
+            Cinescape
+          </h2>
+          <p className="text-neutral-500 text-xs mt-2 tracking-[0.15em]">
+            Preparing your experience
+          </p>
+        </motion.div>
       </div>
     </div>
   );
