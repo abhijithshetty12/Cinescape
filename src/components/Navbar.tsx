@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Menu, X, Compass, Users, Heart, Award } from 'lucide-react';
+import { Search, Menu, X, Compass, Users, Heart, Award, Clapperboard, Tv, User, Loader2, AlertCircle, SearchX } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 interface SearchResult {
@@ -105,101 +105,181 @@ const Navbar = () => {
             <img src="/Cinescape.png" alt="Cinescape" className="h-6 w-auto" />
           </Link>
           <div className="hidden md:block">
-            <form onSubmit={handleSearch} className="relative w-80">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search movies, TV shows, actors..."
-                className="bg-gray-500 bg-opacity-30 text-white pl-10 pr-10 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-red-700 w-full"
-              />
-              {searchQuery && (
-                <X
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5 cursor-pointer hover:text-white"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSearchResults([]);
-                  }}
+            <form onSubmit={handleSearch} className="relative w-96">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 w-4 h-4 transition-colors group-focus-within:text-red-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search movies, TV shows, actors..."
+                  className="bg-zinc-800/60 backdrop-blur-md border border-zinc-700/50 text-white pl-11 pr-10 py-2.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-600/50 focus:border-red-600/30 w-full transition-all duration-300 placeholder:text-zinc-500 text-sm"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-zinc-700/50 transition-colors"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                    }}
+                  >
+                    <X className="text-zinc-400 w-3.5 h-3.5 hover:text-white transition-colors" />
+                  </button>
+                )}
+              </div>
+
+              {/* Loading State */}
+              {loading && (
+                <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/50 p-6 flex items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <Loader2 className="w-5 h-5 text-red-500 animate-spin" />
+                  <span className="text-zinc-300 text-sm">Searching...</span>
+                </div>
               )}
-              {loading && <div className="absolute top-full left-0 w-full bg-black text-white p-2 rounded-b-lg">Loading...</div>}
-              {error && <div className="absolute top-full left-0 w-full bg-red-600 text-white p-2 rounded-b-lg">{error}</div>}
-              {searchResults.length > 0 && (
-                <ul className="absolute bg-black/80 text-white w-full rounded-lg shadow-xl max-h-60 overflow-y-auto mt-2">
+
+              {/* Error State */}
+              {error && !loading && (
+                <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-red-900/50 rounded-2xl shadow-2xl shadow-black/50 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                  <span className="text-red-200 text-sm">{error}</span>
+                </div>
+              )}
+
+              {/* Results Dropdown */}
+              {searchQuery && !loading && !error && searchResults.length === 0 && (
+                <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/50 p-6 flex flex-col items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <SearchX className="w-8 h-8 text-zinc-600" />
+                  <span className="text-zinc-400 text-sm">No results found for "{searchQuery}"</span>
+                </div>
+              )}
+
+              {searchResults.length > 0 && !loading && (
+                <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/50 max-h-[70vh] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 custom-scrollbar">
                   {movies.length > 0 && (
-                    <li>
-                      <h3 className="bg-gradient-to-r from-orange-500 to-red-600 p-3 text-white font-semibold rounded-t-lg">Movies</h3>
-                      {movies.map((result) => (
-                        <li
-                          key={result.id}
-                          onClick={() => handleResultClick(result.id, result.media_type)}
-                          className="p-3 hover:bg-zinc-900 cursor-pointer transition duration-200"
-                        >
-                          <div className="flex items-center">
-                            {result.poster_path && (
-                              <img
-                                src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
-                                alt={result.title || result.name}
-                                className="inline-block mr-3 w-16 h-24 rounded-lg"
-                              />
-                            )}
-                            <span className="text-sm font-semibold">{result.title || result.name}</span>
-                            {result.media_type === 'movie' && result.release_date && (
-                              <span className="text-xs text-gray-400 ml-2">({new Date(result.release_date).getFullYear()})</span>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </li>
+                    <div className="py-2">
+                      <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-600 to-red-600 px-4 py-2.5 flex items-center gap-2">
+                        <Clapperboard className="w-4 h-4 text-white/90" />
+                        <h3 className="text-white font-semibold text-sm tracking-wide">Movies</h3>
+                        <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{movies.length}</span>
+                      </div>
+                      <ul>
+                        {movies.map((result) => (
+                          <li
+                            key={result.id}
+                            onClick={() => handleResultClick(result.id, result.media_type)}
+                            className="px-4 py-3 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 group border-b border-zinc-800/50 last:border-0"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="shrink-0 w-12 h-16 rounded-lg overflow-hidden bg-zinc-800">
+                                {result.poster_path ? (
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
+                                    alt={result.title || result.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Clapperboard className="w-5 h-5 text-zinc-600" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-red-400 transition-colors">
+                                  {result.title || result.name}
+                                </p>
+                                {result.release_date && (
+                                  <p className="text-xs text-zinc-500 mt-0.5">
+                                    {new Date(result.release_date).getFullYear()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
+
                   {tvShows.length > 0 && (
-                    <li>
-                      <h3 className="bg-gradient-to-r from-blue-600 to-cyan-500 p-3 text-white font-semibold">TV Shows</h3>
-                      {tvShows.map((result) => (
-                        <li
-                          key={result.id}
-                          onClick={() => handleResultClick(result.id, result.media_type)}
-                          className="p-3 hover:bg-gray-900 cursor-pointer transition duration-200"
-                        >
-                          <div className="flex items-center">
-                            {result.poster_path && (
-                              <img
-                                src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
-                                alt={result.title || result.name}
-                                className="inline-block mr-3 w-16 h-24 rounded-lg"
-                              />
-                            )}
-                            <span className="text-sm font-semibold">{result.title || result.name}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </li>
+                    <div className="py-2">
+                      <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2.5 flex items-center gap-2">
+                        <Tv className="w-4 h-4 text-white/90" />
+                        <h3 className="text-white font-semibold text-sm tracking-wide">TV Shows</h3>
+                        <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{tvShows.length}</span>
+                      </div>
+                      <ul>
+                        {tvShows.map((result) => (
+                          <li
+                            key={result.id}
+                            onClick={() => handleResultClick(result.id, result.media_type)}
+                            className="px-4 py-3 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 group border-b border-zinc-800/50 last:border-0"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="shrink-0 w-12 h-16 rounded-lg overflow-hidden bg-zinc-800">
+                                {result.poster_path ? (
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
+                                    alt={result.title || result.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Tv className="w-5 h-5 text-zinc-600" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-cyan-400 transition-colors">
+                                  {result.title || result.name}
+                                </p>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
+
                   {actors.length > 0 && (
-                    <li>
-                      <h3 className="bg-gradient-to-r from-green-500 to-emerald-500 p-3 text-white font-semibold">Actors</h3>
-                      {actors.map((result) => (
-                        <li
-                          key={result.id}
-                          onClick={() => handleResultClick(result.id, result.media_type)}
-                          className="p-3 hover:bg-gray-900 cursor-pointer transition duration-200"
-                        >
-                          <div className="flex items-center">
-                            {result.profile_path && (
-                              <img
-                                src={`https://image.tmdb.org/t/p/w92${result.profile_path}`}
-                                alt={result.name}
-                                className="inline-block mr-6 w-auto h-12 rounded-full"
-                              />
-                            )}
-                            <span className="text-sm font-semibold">{result.name}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </li>
+                    <div className="py-2">
+                      <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-2.5 flex items-center gap-2">
+                        <User className="w-4 h-4 text-white/90" />
+                        <h3 className="text-white font-semibold text-sm tracking-wide">Actors</h3>
+                        <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{actors.length}</span>
+                      </div>
+                      <ul>
+                        {actors.map((result) => (
+                          <li
+                            key={result.id}
+                            onClick={() => handleResultClick(result.id, result.media_type)}
+                            className="px-4 py-3 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 group border-b border-zinc-800/50 last:border-0"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-zinc-800">
+                                {result.profile_path ? (
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w92${result.profile_path}`}
+                                    alt={result.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <User className="w-5 h-5 text-zinc-600" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-emerald-400 transition-colors">
+                                  {result.name}
+                                </p>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
-                </ul>
+                </div>
               )}
             </form>
           </div>
@@ -213,135 +293,271 @@ const Navbar = () => {
             {isMenuOpen ? <X className="w-7 h-7 text-white" /> : <Menu className="w-7 h-7 text-white" />}
           </button>
         </div>
-        <div className="hidden md:flex items-center gap-10">
-          <div className="flex items-center gap-8">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                to={item.path}
-                className="flex items-center gap-2 text-gray-300 hover:text-red-600 transition-colors duration-200"
-              >
-                {item.icon && <item.icon className="w-5 h-5" />}
-                <span>{item.label}</span>
-              </Link>
-            ))}
+        <div className="hidden md:flex items-center gap-6">
+          <div className="flex items-center gap-2 bg-zinc-900/40 backdrop-blur-sm p-1.5 rounded-2xl border border-zinc-800/50">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                    isActive
+                      ? 'bg-zinc-800 text-white shadow-lg shadow-black/20'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                  }`}
+                >
+                  {item.icon && (
+                    <item.icon
+                      className={`w-4 h-4 transition-colors duration-300 ${
+                        isActive ? 'text-red-500' : 'text-zinc-500 group-hover:text-zinc-300'
+                      }`}
+                    />
+                  )}
+                  <span>{item.label}</span>
+                  {isActive && (
+                    <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+                  )}
+                </Link>
+              );
+            })}
           </div>
-          <Link to="/profile" className="text-gray-300 hover:text-red-600 transition-colors duration-200">
-            <img src="/user-icon.jpg" alt="Profile" className="w-8 h-8 rounded-full object-cover active:shadow-[0_0_12px_rgba(255,255,255,0.8)] active:ring-2 active:ring-white/50 transition-all duration-200"/>
+          <Link
+            to="/profile"
+            className="relative group p-1.5 rounded-full bg-zinc-900/40 border border-zinc-800/50 hover:bg-zinc-800/60 transition-all duration-300"
+          >
+            <img
+              src="/user-icon.jpg"
+              alt="Profile"
+              className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-red-500/30 transition-all duration-300"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-zinc-950 rounded-full" />
           </Link>
         </div>
       </div>
       {isMenuOpen && (
-        <div className="md:hidden bg-black text-white p-6">
+        <div className="md:hidden bg-zinc-950/98 backdrop-blur-xl text-white p-6 border-t border-zinc-800">
           <form onSubmit={handleSearch} className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search movies, TV shows, actors..."
-              className="bg-gray-500 bg-opacity-30 text-white pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-red-700 w-full"
-            />
-            {loading && <div className="w-full bg-black text-white p-2 rounded-b-lg mt-2">Loading...</div>}
-            {error && <div className="w-full bg-red-600 text-white p-2 rounded-b-lg mt-2">{error}</div>}
-            {searchResults.length > 0 && (
-              <ul className="absolute bg-zinc-900 text-white w-full rounded-lg shadow-xl max-h-60 overflow-y-auto mt-2">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 w-4 h-4 transition-colors group-focus-within:text-red-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search movies, TV shows, actors..."
+                className="bg-zinc-900/80 border border-zinc-700/50 text-white pl-11 pr-10 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-600/50 focus:border-red-600/30 w-full transition-all duration-300 placeholder:text-zinc-500 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-zinc-700/50 transition-colors"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                >
+                  <X className="text-zinc-400 w-3.5 h-3.5 hover:text-white transition-colors" />
+                </button>
+              )}
+            </div>
+
+            {loading && (
+              <div className="w-full mt-3 bg-zinc-900/95 border border-zinc-800 rounded-2xl shadow-2xl p-6 flex items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <Loader2 className="w-5 h-5 text-red-500 animate-spin" />
+                <span className="text-zinc-300 text-sm">Searching...</span>
+              </div>
+            )}
+
+            {error && !loading && (
+              <div className="w-full mt-3 bg-zinc-900/95 border border-red-900/50 rounded-2xl shadow-2xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                <span className="text-red-200 text-sm">{error}</span>
+              </div>
+            )}
+
+            {searchQuery && !loading && !error && searchResults.length === 0 && (
+              <div className="w-full mt-3 bg-zinc-900/95 border border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <SearchX className="w-8 h-8 text-zinc-600" />
+                <span className="text-zinc-400 text-sm">No results found for "{searchQuery}"</span>
+              </div>
+            )}
+
+            {searchResults.length > 0 && !loading && (
+              <div className="w-full mt-3 bg-zinc-900/95 border border-zinc-800 rounded-2xl shadow-2xl max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 custom-scrollbar">
                 {movies.length > 0 && (
-                  <li>
-                    <h3 className="bg-gradient-to-r from-orange-500 to-red-600 p-3 text-white font-semibold rounded-t-lg">Movies</h3>
-                    {movies.map((result) => (
-                      <li
-                        key={result.id}
-                        onClick={() => handleResultClick(result.id, result.media_type)}
-                        className="p-3 hover:bg-gray-900 cursor-pointer transition duration-200"
-                      >
-                        <div className="flex items-center">
-                          {result.poster_path && (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
-                              alt={result.title || result.name}
-                              className="inline-block mr-3 w-16 h-24 rounded-lg"
-                            />
-                          )}
-                          <span className="text-sm font-semibold">{result.title || result.name}</span>
-                          {result.media_type === 'movie' && result.release_date && (
-                            <span className="text-xs text-gray-400 ml-2">({new Date(result.release_date).getFullYear()})</span>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </li>
+                  <div className="py-2">
+                    <div className="sticky top-0 z-10 bg-gradient-to-r from-orange-600 to-red-600 px-4 py-2.5 flex items-center gap-2">
+                      <Clapperboard className="w-4 h-4 text-white/90" />
+                      <h3 className="text-white font-semibold text-sm tracking-wide">Movies</h3>
+                      <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{movies.length}</span>
+                    </div>
+                    <ul>
+                      {movies.map((result) => (
+                        <li
+                          key={result.id}
+                          onClick={() => handleResultClick(result.id, result.media_type)}
+                          className="px-4 py-3 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 group border-b border-zinc-800/50 last:border-0"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="shrink-0 w-12 h-16 rounded-lg overflow-hidden bg-zinc-800">
+                              {result.poster_path ? (
+                                <img
+                                  src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
+                                  alt={result.title || result.name}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Clapperboard className="w-5 h-5 text-zinc-600" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-red-400 transition-colors">
+                                {result.title || result.name}
+                              </p>
+                              {result.release_date && (
+                                <p className="text-xs text-zinc-500 mt-0.5">
+                                  {new Date(result.release_date).getFullYear()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
+
                 {tvShows.length > 0 && (
-                  <li>
-                    <h3 className="bg-gradient-to-r from-blue-600 to-cyan-500 p-3 text-white font-semibold">TV Shows</h3>
-                    {tvShows.map((result) => (
-                      <li
-                        key={result.id}
-                        onClick={() => handleResultClick(result.id, result.media_type)}
-                        className="p-3 hover:bg-gray-900 cursor-pointer transition duration-200"
-                      >
-                        <div className="flex items-center">
-                          {result.poster_path && (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
-                              alt={result.title || result.name}
-                              className="inline-block mr-3 w-16 h-24 rounded-lg"
-                            />
-                          )}
-                          <span className="text-sm font-semibold">{result.title || result.name}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </li>
+                  <div className="py-2">
+                    <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2.5 flex items-center gap-2">
+                      <Tv className="w-4 h-4 text-white/90" />
+                      <h3 className="text-white font-semibold text-sm tracking-wide">TV Shows</h3>
+                      <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{tvShows.length}</span>
+                    </div>
+                    <ul>
+                      {tvShows.map((result) => (
+                        <li
+                          key={result.id}
+                          onClick={() => handleResultClick(result.id, result.media_type)}
+                          className="px-4 py-3 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 group border-b border-zinc-800/50 last:border-0"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="shrink-0 w-12 h-16 rounded-lg overflow-hidden bg-zinc-800">
+                              {result.poster_path ? (
+                                <img
+                                  src={`https://image.tmdb.org/t/p/w92${result.poster_path}`}
+                                  alt={result.title || result.name}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Tv className="w-5 h-5 text-zinc-600" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-cyan-400 transition-colors">
+                                {result.title || result.name}
+                              </p>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
+
                 {actors.length > 0 && (
-                  <li>
-                    <h3 className="bg-gradient-to-r from-green-500 to-emerald-500 p-3 text-white font-semibold">Actors</h3>
-                    {actors.map((result) => (
-                      <li
-                        key={result.id}
-                        onClick={() => handleResultClick(result.id, result.media_type)}
-                        className="p-3 hover:bg-gray-900 cursor-pointer transition duration-200"
-                      >
-                        <div className="flex items-center">
-                          {result.profile_path && (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w92${result.profile_path}`}
-                              alt={result.name}
-                              className="inline-block mr-6 w-auto h-12 rounded-full"
-                            />
-                          )}
-                          <span className="text-sm font-semibold">{result.name}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </li>
+                  <div className="py-2">
+                    <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-2.5 flex items-center gap-2">
+                      <User className="w-4 h-4 text-white/90" />
+                      <h3 className="text-white font-semibold text-sm tracking-wide">Actors</h3>
+                      <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{actors.length}</span>
+                    </div>
+                    <ul>
+                      {actors.map((result) => (
+                        <li
+                          key={result.id}
+                          onClick={() => handleResultClick(result.id, result.media_type)}
+                          className="px-4 py-3 hover:bg-zinc-800/80 cursor-pointer transition-all duration-200 group border-b border-zinc-800/50 last:border-0"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-zinc-800">
+                              {result.profile_path ? (
+                                <img
+                                  src={`https://image.tmdb.org/t/p/w92${result.profile_path}`}
+                                  alt={result.name}
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <User className="w-5 h-5 text-zinc-600" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-emerald-400 transition-colors">
+                                {result.name}
+                              </p>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-              </ul>
+              </div>
             )}
           </form>
 
           <Link
             to="/profile"
-            className="flex items-center gap-3 text-gray-300 hover:text-red-600 py-3"
+            className="flex items-center gap-4 p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/50 hover:bg-zinc-800/60 hover:border-zinc-700/50 transition-all duration-300 mb-2 group"
             onClick={() => setIsMenuOpen(false)}
           >
-            <img src="/user-icon.jpg" alt="Profile" className="w-5 h-5 rounded-full object-cover" />
-            <span>Profile</span>
+            <div className="relative">
+              <img src="/user-icon.jpg" alt="Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-zinc-700 group-hover:ring-red-500/30 transition-all duration-300" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-100">Profile</p>
+              <p className="text-xs text-zinc-500">View your account</p>
+            </div>
           </Link>
 
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              to={item.path}
-              className="flex items-center gap-3 text-gray-300 hover:text-red-700 py-3"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {item.icon && <item.icon className="w-5 h-5" />}
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          <div className="space-y-1 mt-4">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 ${
+                    isActive
+                      ? 'bg-zinc-800/80 text-white border border-zinc-700/50 shadow-lg shadow-black/10'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border border-transparent'
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <div className={`p-2 rounded-xl ${
+                    isActive ? 'bg-red-500/10' : 'bg-zinc-800/50'
+                  }`}>
+                    {item.icon && (
+                      <item.icon
+                        className={`w-5 h-5 transition-colors duration-300 ${
+                          isActive ? 'text-red-500' : 'text-zinc-500'
+                        }`}
+                      />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium">{item.label}</span>
+                  {isActive && <span className="ml-auto w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
     </nav>
