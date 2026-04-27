@@ -49,7 +49,7 @@
 ### Exploration & History
 | **Top Rated Collection** | **Viewing History** |
 | :---: | :---: |
-| <img src="https://github.com/user-attachments/assets/8dc02722-9d4c-4d4d-b371-360e54b11213" /> | <img src="https://github.com/user-attachments/assets/37e668ba-1a6d-4271-a215-5279ea8f19d9" /> |
+| <img src="/screenshots/toprated.png" /> | <img src="https://github.com/user-attachments/assets/37e668ba-1a6d-4271-a215-5279ea8f19d9" /> |
 
 ---
 
