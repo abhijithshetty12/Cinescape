@@ -57,9 +57,29 @@ const TopRated = () => {
     }
   };
 
-  const loadMore = () => {
-    setPage((prevPage) => prevPage + 1);
-  };
+  const loadMore = useCallback(() => {
+    if (!loading) {
+      setPage((prevPage) => prevPage + 1);
+    }
+  }, [loading]);
+
+  // Infinite scroll with IntersectionObserver
+  const sentinelRef = useRef(null);
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [loadMore, loading, mediaType]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -283,85 +303,25 @@ const TopRated = () => {
             </motion.div>
           </AnimatePresence>
 
-          {/* Load More Button - Liquid Glass */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-            className="flex justify-center mt-16"
-          >
-            <motion.button
-              onClick={loadMore}
-              disabled={loading}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className="group relative px-10 py-4 rounded-2xl overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-500"
-              style={{
-                background: "rgba(255, 255, 255, 0.03)",
-                backdropFilter: "blur(40px) saturate(180%)",
-                WebkitBackdropFilter: "blur(40px) saturate(180%)",
-                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.1), 0 8px 32px rgba(0,0,0,0.3)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
+          {/* Infinite Scroll Sentinel */}
+          <div ref={sentinelRef} className="h-px w-full mt-16" />
+
+          {/* Subtle Loading Indicator */}
+          {loading && page > 1 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="flex justify-center items-center gap-3 py-8"
             >
-              {/* Inner liquid highlight */}
-              <div 
-                className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0) 100%)",
-                }}
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-6 h-6 border-2 border-white/10 border-t-amber-400/80 rounded-full"
               />
-              
-              {/* Top edge light reflection */}
-              <div 
-                className="absolute top-0 left-4 right-4 h-[1px] opacity-40 group-hover:opacity-70 transition-opacity duration-500"
-                style={{
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
-                }}
-              />
-              
-              {/* Bottom inner glow on hover */}
-              <div 
-                className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-32 h-16 rounded-full opacity-0 group-hover:opacity-30 transition-opacity duration-700 blur-2xl"
-                style={{
-                  background: "radial-gradient(ellipse, rgba(255,200,100,0.4), transparent)",
-                }}
-              />
-              
-              {/* Content */}
-              <span className="relative z-10 flex items-center gap-3 text-white/90 font-medium text-base tracking-wide">
-                {loading ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-5 h-5 border-2 border-white/20 border-t-white/80 rounded-full"
-                    />
-                    <span className="text-white/60">Loading...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-white/90 group-hover:text-white transition-colors duration-300">Load More</span>
-                    <motion.svg 
-                      width="16" 
-                      height="16" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                      className="text-white/40 group-hover:text-white/70 transition-colors duration-300"
-                      animate={{ y: [0, 3, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                    >
-                      <path d="M12 5v14M5 12l7 7 7-7"/>
-                    </motion.svg>
-                  </>
-                )}
-              </span>
-            </motion.button>
-          </motion.div>
+              <span className="text-zinc-500 text-sm font-medium">Loading more...</span>
+            </motion.div>
+          )}
         </div>
       </div>
 
