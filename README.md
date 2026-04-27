@@ -39,7 +39,7 @@
 ### Core Experience
 | **Login & Security** | **Home Dashboard** |
 | :---: | :---: |
-| <img src="https://github.com/user-attachments/assets/f703906c-88ff-4b76-8f17-bb71a7e72963" /> | <img src="https://github.com/user-attachments/assets/6e277495-f313-484d-8299-334efd02f0d4" /> |
+| <img src="/screenshots/login-page.png" /> | <img src="/screenshots/hero-section.png" /> |
 
 ### User Personalization
 | **Personal Profile** | **Watchlist Management** |
