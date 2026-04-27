@@ -1,20 +1,43 @@
 import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom";
-import { motion } from 'framer-motion';
-import { Heart, ImageOff, Star, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Heart,
+  Star,
+  Users,
+  Search,
+  SortAsc,
+  SortDesc,
+  LayoutGrid,
+  List,
+  ArrowRight,
+  Sparkles
+} from 'lucide-react';
 import { db } from '../firebase.ts';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { AuthContext } from '../context/AuthContext.tsx';
 
+type SortOrder = 'name' | 'recent';
+type ViewMode = 'grid' | 'list';
+
+interface Actor {
+  id: string;
+  name: string;
+  profilePath: string;
+}
+
 const FavoriteActorPage: React.FC = () => {
-  const { user } = useContext(AuthContext);
-  const [favoriteActors, setFavoriteActors] = useState<{ id: string; name: string; profilePath: string }[]>([]);
+  const { user } = useContext(AuthContext)!;
+  const [favoriteActors, setFavoriteActors] = useState<Actor[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   useEffect(() => {
     if (user?.uid) {
       const favouriteActorsRef = collection(db, `users/${user.uid}/favouriteActors`);
       const unsubscribe = onSnapshot(favouriteActorsRef, (snapshot) => {
-        const actorMap = new Map<string, { id: string; name: string; profilePath: string }>();
+        const actorMap = new Map<string, Actor>();
         snapshot.docs.forEach((doc) => {
           const data = doc.data();
           const id = data.actorId || data.id;
@@ -22,7 +45,9 @@ const FavoriteActorPage: React.FC = () => {
             actorMap.set(id, {
               id,
               name: data.name,
-              profilePath: data.profile_path ? `https://image.tmdb.org/t/p/w500${data.profile_path}` : '',
+              profilePath: data.profile_path
+                ? `https://image.tmdb.org/t/p/w500${data.profile_path}`
+                : '',
             });
           }
         });
@@ -33,135 +58,408 @@ const FavoriteActorPage: React.FC = () => {
     }
   }, [user?.uid]);
 
-  const hasActors = favoriteActors.length > 0;
-  const actorCount = favoriteActors.length;
+  const filteredActors = favoriteActors
+    .filter((actor) =>
+      actor.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (sortOrder === 'name') {
+        return a.name.localeCompare(b.name);
+      }
+      return 0;
+    });
 
-  if (!hasActors) {
+  const actorCount = filteredActors.length;
+  const totalCount = favoriteActors.length;
+
+  const toggleSort = () => {
+    setSortOrder((prev) => (prev === 'recent' ? 'name' : 'recent'));
+  };
+
+  if (favoriteActors.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6 }}
-            className="mb-8"
-          >
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center">
-              <Heart className="w-12 h-12 text-gray-400" />
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="text-center max-w-lg"
+        >
+          {/* Glowing orb background */}
+          <div className="relative mb-10">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-32 h-32 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">No Favorite Actors Found</h1>
-            <p className="text-gray-400 text-lg mb-8 max-w-md mx-auto">
-              Start building your collection by adding your favorite actors from their profile pages.
-            </p>
-            <Link
-              to="/explore"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg shadow-green-500/25"
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              className="relative w-28 h-28 mx-auto bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-full flex items-center justify-center border border-zinc-700/50 shadow-2xl"
             >
-              <Users className="w-5 h-5" />
-              Discover Actors
-            </Link>
-          </motion.div>
-        </div>
+              <Heart className="w-14 h-14 text-zinc-500" />
+            </motion.div>
+          </div>
+
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            No Favorite Actors
+          </h1>
+          <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
+            Discover and follow your favorite actors to keep track of their latest movies and shows.
+          </p>
+          <Link
+            to="/explore"
+            className="inline-flex items-center gap-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl shadow-red-500/20 hover:shadow-red-500/40"
+          >
+            <Users className="w-5 h-5" />
+            Discover Actors
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </motion.div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+      {/* Header Section */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-8 md:mb-12"
+        className="mb-10"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg">
-              <Heart className="text-white w-8 h-8 md:w-10 md:h-10" />
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900/80 to-black/80 border border-zinc-800/50 p-6 md:p-10 backdrop-blur-xl">
+          {/* Background glow */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-red-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-red-600/5 rounded-full blur-3xl" />
+
+          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="p-4 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-xl shadow-red-500/20">
+                <Heart className="text-white w-8 h-8 md:w-10 md:h-10 fill-current" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+                  Favorite Actors
+                </h1>
+                <p className="text-zinc-400 text-sm md:text-base mt-1">
+                  {totalCount} {totalCount === 1 ? 'actor' : 'actors'} in your collection
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight">
-                Favourite Actors
-              </h1>
-              <p className="text-gray-400 text-sm md:text-base mt-1">
-                {`${actorCount} ${actorCount === 1 ? 'actor' : 'actors'} in your collection`}
-              </p>
+
+            {/* Stats Pill */}
+            <div className="flex items-center gap-2 bg-zinc-800/60 backdrop-blur-sm px-5 py-3 rounded-full border border-zinc-700/50 w-fit">
+              <Sparkles className="w-4 h-4 text-yellow-400" />
+              <span className="text-zinc-300 text-sm font-medium">
+                {totalCount} talented {totalCount === 1 ? 'star' : 'stars'}
+              </span>
             </div>
           </div>
         </div>
-
-        <div className="h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent" />
       </motion.div>
 
+      {/* Controls Bar */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
-      >
-        {favoriteActors.map((actor, index) => {
-          const actorImageUrl = actor.profilePath;
-          const actorName = actor.name ?? 'Unknown Actor';
-
-          return (
-            <motion.div
-              key={actor.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <Link
-                to={`/actor/${actor.id}`}
-                className="group block bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-700/30 hover:border-gray-600/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl shadow-lg"
-              >
-                <div className="relative aspect-[3/4] overflow-hidden">
-                  {actor.profilePath ? (
-                    <img
-                      src={actorImageUrl}
-                      alt={`${actorName} profile`}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center text-gray-400">
-                      <ImageOff className="w-12 h-12 md:w-16 md:h-16 mb-2 opacity-60" />
-                      <span className="text-xs md:text-sm text-center px-2">No Image Available</span>
-                    </div>
-                  )}
-
-                  <div className="absolute top-3 right-3 bg-gradient-to-br from-green-500 to-emerald-600 p-2 rounded-full shadow-lg">
-                    <Heart className="w-3 h-3 md:w-4 md:h-4 text-white fill-current" />
-                  </div>
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </div>
-
-                <div className="p-3 md:p-4">
-                  <h2 className="font-bold text-sm md:text-base lg:text-lg text-white mb-1 truncate group-hover:text-green-400 transition-colors duration-300">
-                    {actorName}
-                  </h2>
-                </div>
-              </Link>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-        className="mt-12 text-center"
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="flex flex-col sm:flex-row gap-4 mb-8"
       >
-        <div className="inline-flex items-center gap-2 bg-gray-800/50 backdrop-blur-sm px-6 py-3 rounded-full border border-gray-700/50">
-          <Star className="w-5 h-5 text-yellow-400 fill-current" />
-          <span className="text-gray-300 text-sm md:text-base">
-            {`You've favorited ${actorCount} talented ${actorCount === 1 ? 'actor' : 'actors'}`}
-          </span>
+        {/* Search */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-500 w-4 h-4" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search actors..."
+            className="w-full pl-11 pr-4 py-3 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/30 transition-all duration-300 text-sm"
+          />
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Sort Toggle */}
+          <button
+            onClick={toggleSort}
+            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl text-zinc-300 hover:text-white hover:bg-zinc-800/60 hover:border-zinc-700/50 transition-all duration-300"
+          >
+            {sortOrder === 'name' ? (
+              <SortAsc className="w-4 h-4" />
+            ) : (
+              <SortDesc className="w-4 h-4" />
+            )}
+            <span className="text-sm font-medium">
+              {sortOrder === 'name' ? 'A-Z' : 'Recent'}
+            </span>
+          </button>
+
+          {/* View Toggle */}
+          <div className="flex items-center bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2.5 rounded-xl transition-all duration-300 ${
+                viewMode === 'grid'
+                  ? 'bg-zinc-800 text-white shadow-md'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2.5 rounded-xl transition-all duration-300 ${
+                viewMode === 'list'
+                  ? 'bg-zinc-800 text-white shadow-md'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </motion.div>
+
+      {/* Results count */}
+      {searchTerm && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-zinc-400 text-sm mb-6"
+        >
+          Found {actorCount} {actorCount === 1 ? 'actor' : 'actors'} matching "{searchTerm}"
+        </motion.p>
+      )}
+
+      {/* Grid View */}
+      <AnimatePresence mode="wait">
+        {viewMode === 'grid' && (
+          <motion.div
+            key="grid"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
+          >
+            <AnimatePresence>
+              {filteredActors.map((actor, index) => {
+                const actorImageUrl = actor.profilePath;
+                const actorName = actor.name ?? 'Unknown Actor';
+                const initials = actorName
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
+
+                return (
+                  <motion.div
+                    key={actor.id}
+                    layout
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{
+                      duration: 0.4,
+                      delay: index * 0.05,
+                      ease: [0.25, 0.46, 0.45, 0.94],
+                    }}
+                  >
+                    <Link
+                      to={`/actor/${actor.id}`}
+                      className="group block relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-red-500/10"
+                    >
+                      {/* Rank Badge */}
+                      <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1">
+                        <span className="text-xs font-bold text-zinc-300">
+                          #{index + 1}
+                        </span>
+                      </div>
+
+                      {/* Heart Badge */}
+                      <div className="absolute top-3 right-3 z-20 bg-gradient-to-br from-red-500 to-red-600 p-2 rounded-full shadow-lg shadow-red-500/30">
+                        <Heart className="w-3 h-3 md:w-4 md:h-4 text-white fill-current" />
+                      </div>
+
+                      {/* Image Container */}
+                      <div className="relative aspect-[3/4] overflow-hidden">
+                        {actor.profilePath ? (
+                          <img
+                            src={actorImageUrl}
+                            alt={`${actorName} profile`}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center">
+                            <div className="w-20 h-20 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center mb-3">
+                              <span className="text-2xl font-bold text-zinc-500">
+                                {initials}
+                              </span>
+                            </div>
+                            <span className="text-xs text-zinc-500 text-center px-4">
+                              No Image Available
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-4">
+                          <motion.div
+                            initial={{ y: 10, opacity: 0 }}
+                            whileHover={{ y: 0, opacity: 1 }}
+                            className="flex items-center gap-2 text-white"
+                          >
+                            <span className="text-sm font-semibold">View Profile</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </motion.div>
+                        </div>
+
+                        {/* Bottom gradient always visible */}
+                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                      </div>
+
+                      {/* Name */}
+                      <div className="p-3 md:p-4">
+                        <h2 className="font-bold text-sm md:text-base text-white truncate group-hover:text-red-400 transition-colors duration-300">
+                          {actorName}
+                        </h2>
+                      </div>
+
+                      {/* Hover glow ring */}
+                      <div className="absolute inset-0 rounded-2xl ring-2 ring-red-500/0 group-hover:ring-red-500/20 transition-all duration-500 pointer-events-none" />
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* List View */}
+        {viewMode === 'list' && (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col gap-3"
+          >
+            <AnimatePresence>
+              {filteredActors.map((actor, index) => {
+                const actorImageUrl = actor.profilePath;
+                const actorName = actor.name ?? 'Unknown Actor';
+                const initials = actorName
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
+
+                return (
+                  <motion.div
+                    key={actor.id}
+                    layout
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{
+                      duration: 0.3,
+                      delay: index * 0.04,
+                    }}
+                  >
+                    <Link
+                      to={`/actor/${actor.id}`}
+                      className="group flex items-center gap-4 bg-gradient-to-r from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-xl hover:shadow-red-500/5 p-3"
+                    >
+                      {/* Rank */}
+                      <span className="text-zinc-600 font-bold text-sm w-6 text-center">
+                        {index + 1}
+                      </span>
+
+                      {/* Image */}
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-zinc-800">
+                        {actor.profilePath ? (
+                          <img
+                            src={actorImageUrl}
+                            alt={`${actorName} profile`}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-sm font-bold text-zinc-600">
+                              {initials}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h2 className="font-bold text-base md:text-lg text-white truncate group-hover:text-red-400 transition-colors duration-300">
+                          {actorName}
+                        </h2>
+                        <p className="text-zinc-500 text-sm">Actor</p>
+                      </div>
+
+                      {/* Arrow */}
+                      <div className="p-2 rounded-xl bg-zinc-800/50 group-hover:bg-red-500/10 transition-colors duration-300">
+                        <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-red-400 transition-colors duration-300" />
+                      </div>
+
+                      {/* Heart */}
+                      <div className="hidden sm:flex p-2">
+                        <Heart className="w-5 h-5 text-red-500 fill-current" />
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* No search results */}
+      {filteredActors.length === 0 && searchTerm && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16"
+        >
+          <Search className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-zinc-400 mb-2">
+            No actors found
+          </h3>
+          <p className="text-zinc-500">
+            Try adjusting your search terms
+          </p>
+        </motion.div>
+      )}
+
+      {/* Footer Summary */}
+      {filteredActors.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-12 text-center"
+        >
+          <div className="inline-flex items-center gap-3 bg-zinc-900/40 backdrop-blur-sm px-6 py-3 rounded-full border border-zinc-800/50">
+            <Star className="w-5 h-5 text-yellow-400 fill-current" />
+            <span className="text-zinc-300 text-sm md:text-base">
+              You've favorited{' '}
+              <span className="text-white font-semibold">{totalCount}</span>{' '}
+              talented {totalCount === 1 ? 'actor' : 'actors'}
+            </span>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
 
 export default FavoriteActorPage;
+
