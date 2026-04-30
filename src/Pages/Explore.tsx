@@ -9,6 +9,8 @@ import {
   Calendar,
   Filter,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Search,
   X,
   Play,
@@ -169,7 +171,7 @@ const MovieCard = ({
   );
 };
 
-/* ─── Hero Banner ─── */
+/* ─── Hero Banner Slideshow ─── */
 const HeroBanner = ({
   featured,
   mediaType,
@@ -177,82 +179,194 @@ const HeroBanner = ({
   featured: MediaItem | null;
   mediaType: "movie" | "tv";
 }) => {
-  if (!featured) return null;
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+
+  // Get all featured items (top rated with backdrops) or just single featured
+  const featuredItems = useMemo(() => {
+    if (!featured) return [];
+    // For now, we'll use the current featured item as the main one
+    // In a full implementation, you could pass an array of featured items
+    return [featured];
+  }, [featured]);
+
+  const items = featuredItems;
+  const current = items[currentIndex];
+
+  // Auto-rotate every 5 seconds
+  useEffect(() => {
+    if (items.length <= 1 || !isAutoPlaying) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % items.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [items.length, isAutoPlaying, currentIndex]);
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1));
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % items.length);
+  };
+
+  if (!current) return null;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="relative w-full h-[50vh] md:h-[60vh] lg:h-[70vh] overflow-hidden rounded-3xl mb-8 group"
+      className="relative w-full h-[45vh] md:h-[55vh] lg:h-[70vh] overflow-hidden rounded-3xl mb-8 group"
+      onMouseEnter={() => setIsAutoPlaying(false)}
+      onMouseLeave={() => setIsAutoPlaying(true)}
     >
-      <img
-        src={
-          featured.backdrop ||
-          featured.image.replace("w500", "original")
-        }
-        alt={featured.title}
-        className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-105"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/80 via-transparent to-transparent" />
-
-      <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 lg:p-14">
+      {/* Background Images with Ken Burns Effect */}
+      <AnimatePresence mode="wait">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="max-w-3xl"
+          key={current.id}
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="absolute inset-0"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <span className="px-3 py-1 bg-red-600/90 backdrop-blur-sm rounded-full text-xs font-bold text-white uppercase tracking-wider">
-              {mediaType === "movie" ? "Featured Movie" : "Featured Series"}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="text-white font-bold text-sm">
-                {featured.rating.toFixed(1)}
-              </span>
-            </div>
-            {featured.year > 0 && (
-              <span className="text-white/60 text-sm">{featured.year}</span>
-            )}
-          </div>
-
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 leading-tight">
-            {featured.title}
-          </h1>
-
-          {featured.overview && (
-            <p className="text-white/70 text-sm md:text-base line-clamp-2 md:line-clamp-3 mb-6 max-w-2xl">
-              {featured.overview}
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to={
-                mediaType === "movie"
-                  ? `/movie/${featured.id}`
-                  : `/tv/${featured.id}`
-              }
-              className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 shadow-lg shadow-red-900/30"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              View Details
-            </Link>
-
-            {featured.genre.slice(0, 3).map((g) => (
-              <span
-                key={g}
-                className="px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full text-xs font-medium text-white/80"
-              >
-                {g}
-              </span>
-            ))}
-          </div>
+          <img
+            src={
+              current.backdrop ||
+              current.image.replace("w500", "original")
+            }
+            alt={current.title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
         </motion.div>
+      </AnimatePresence>
+
+      {/* Gradient Overlays */}
+      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950/60" />
+
+      {/* Content */}
+      <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8 lg:p-12">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={current.id}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="max-w-3xl"
+          >
+            {/* Badges */}
+            <div className="flex items-center gap-2.5 md:gap-3 mb-3 flex-wrap">
+              <span className="px-3 py-1 bg-red-600/90 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-wider shadow-lg shadow-red-900/30">
+                {mediaType === "movie" ? "Featured Movie" : "Featured Series"}
+              </span>
+              <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-md border border-white/10 px-2.5 py-1 rounded-full">
+                <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                <span className="text-white font-bold text-sm">
+                  {current.rating.toFixed(1)}
+                </span>
+              </div>
+              {current.year > 0 && (
+                <span className="text-white/70 text-sm bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full">
+                  {current.year}
+                </span>
+              )}
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold text-white mb-3 leading-tight drop-shadow-xl">
+              {current.title}
+            </h1>
+
+            {/* Overview */}
+            {current.overview && (
+              <p className="text-white/70 text-sm md:text-base line-clamp-2 mb-5 max-w-2xl">
+                {current.overview}
+              </p>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to={
+                  mediaType === "movie"
+                    ? `/movie/${current.id}`
+                    : `/tv/${current.id}`
+                }
+                className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 shadow-lg shadow-red-900/30 active:scale-95"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                View Details
+              </Link>
+
+              {current.genre.slice(0, 3).map((g) => (
+                <span
+                  key={g}
+                  className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-xs font-medium text-white/80"
+                >
+                  {g}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
+
+      {/* Navigation Arrows */}
+      {items.length > 1 && (
+        <>
+          <button
+            onClick={goToPrevious}
+            className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-md border border-white/10 text-white p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 active:scale-95 z-20"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-md border border-white/10 text-white p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 active:scale-95 z-20"
+            aria-label="Next"
+          >
+            <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+          </button>
+        </>
+      )}
+
+      {/* Dots Indicator */}
+      {items.length > 1 && (
+        <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 md:gap-2 z-20">
+          {items.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentIndex(index)}
+              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${
+                currentIndex === index
+                  ? "w-6 md:w-8 bg-red-600"
+                  : "w-2 bg-white/40 hover:bg-white/60"
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Progress Bar */}
+      {items.length > 1 && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20">
+          <motion.div
+            className="h-full bg-red-600"
+            initial={{ width: "0%" }}
+            animate={{ width: "100%" }}
+            transition={{ duration: 5, ease: "linear" }}
+            key={currentIndex}
+          />
+        </div>
+      )}
     </motion.div>
   );
 };
