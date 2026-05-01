@@ -375,10 +375,11 @@ const MovieDetails = () => {
       if (!movieId) {
         throw new Error('Movie ID is undefined');
       }
-      const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
+const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
       await setDoc(ratingDocRef, {
         movieId: movieDetails?.id,
         title: movieDetails?.title,
+        posterPath: movieDetails?.poster_path,
         rating: userRating,
         timestamp: new Date(),
       });

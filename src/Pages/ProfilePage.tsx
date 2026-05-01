@@ -15,7 +15,7 @@ const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
 
 const ProfilePage = () => {
   const { user } = useContext(AuthContext);
-const authContext = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
   const [username, setUsername] = useState(user?.username ?? '');
   const [selectedGenres, setSelectedGenres] = useState<string[]>(user?.preferences?.split(',') ?? []);
   const [ratedMovies, setRatedMovies] = useState<{ id: string; title: string; posterPath: string; rating: number }[]>([]);
@@ -24,7 +24,12 @@ const authContext = useContext(AuthContext);
   const [watchlist, setWatchlist] = useState<{ id: string; title: string; posterPath: string; mediaType: string }[]>([]);
   const [history, setHistory] = useState<{ id: string; title: string; posterPath: string; mediaType: string }[]>([]);
   const [favouriteActors, setFavouriteActors] = useState<{ id: string; name: string; profilePath: string }[]>([]);
+  const [historyFilter, setHistoryFilter] = useState<'movie' | 'tv'>('movie');
+  const [watchlistFilter, setWatchlistFilter] = useState<'movie' | 'tv'>('movie');
   const [isLoading, setIsLoading] = useState(false);
+
+  const filteredHistory = history.filter(item => item.mediaType === historyFilter);
+  const filteredWatchlist = watchlist.filter(item => item.mediaType === watchlistFilter);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
     message: '',
     type: 'success',
@@ -189,165 +194,165 @@ const authContext = useContext(AuthContext);
     selectedGenres: string[];
     onMediaClick: (id: string, mediaType: string) => void;
   }) => {
-     const [trendingMovies, setTrendingMovies] = useState<
-       { id: string; title: string; posterPath: string; mediaType: string; overview?: string; voteAverage?: number }[]
-     >([]);
-     const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
-     const [page, setPage] = useState(1);
-     const [loading, setLoading] = useState(false);
+    const [trendingMovies, setTrendingMovies] = useState<
+      { id: string; title: string; posterPath: string; mediaType: string; overview?: string; voteAverage?: number }[]
+    >([]);
+    const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
+    const [page, setPage] = useState(1);
+    const [loading, setLoading] = useState(false);
 
-     const handleMediaTypeChange = (type: 'movie' | 'tv') => {
-       if (type === mediaType) return;
-       setMediaType(type);
-       setTrendingMovies([]);
-       setPage(1);
-       setLoading(true);
-     };
+    const handleMediaTypeChange = (type: 'movie' | 'tv') => {
+      if (type === mediaType) return;
+      setMediaType(type);
+      setTrendingMovies([]);
+      setPage(1);
+      setLoading(true);
+    };
 
-     useEffect(() => {
-       let isMounted = true;
+    useEffect(() => {
+      let isMounted = true;
 
-       const fetchRecommendations = async () => {
-         setLoading(true);
+      const fetchRecommendations = async () => {
+        setLoading(true);
 
-         let movieIds: string[] = [];
-         let actorIds: string[] = [];
+        let movieIds: string[] = [];
+        let actorIds: string[] = [];
 
-         movieIds = [
-           ...watchlist.filter(m => m.mediaType === mediaType).map((m) => m.id),
-           ...history.filter(h => h.mediaType === mediaType).map((h) => h.id),
-         ].filter((v, i, arr) => arr.indexOf(v) === i);
+        movieIds = [
+          ...watchlist.filter(m => m.mediaType === mediaType).map((m) => m.id),
+          ...history.filter(h => h.mediaType === mediaType).map((h) => h.id),
+        ].filter((v, i, arr) => arr.indexOf(v) === i);
 
-         actorIds = favouriteActors.map((a) => a.id);
+        actorIds = favouriteActors.map((a) => a.id);
 
-         let recommended: any[] = [];
-         try {
-           const genreMap: { [key: string]: number } = {
-             'Action': 28,
-             'Adventure': 12,
-             'Animation': 16,
-             'Comedy': 35,
-             'Crime': 80,
-             'Documentary': 99,
-             'Drama': 18,
-             'Family': 10751,
-             'Fantasy': 14,
-             'History': 36,
-             'Horror': 27,
-             'Music': 10402,
-             'Mystery': 9648,
-             'Romance': 10749,
-             'Sci-Fi': 878,
-             'TV Movie': 10770,
-             'Thriller': 53,
-             'War': 10752,
-             'Western': 37,
-           };
+        let recommended: any[] = [];
+        try {
+          const genreMap: { [key: string]: number } = {
+            'Action': 28,
+            'Adventure': 12,
+            'Animation': 16,
+            'Comedy': 35,
+            'Crime': 80,
+            'Documentary': 99,
+            'Drama': 18,
+            'Family': 10751,
+            'Fantasy': 14,
+            'History': 36,
+            'Horror': 27,
+            'Music': 10402,
+            'Mystery': 9648,
+            'Romance': 10749,
+            'Sci-Fi': 878,
+            'TV Movie': 10770,
+            'Thriller': 53,
+            'War': 10752,
+            'Western': 37,
+          };
 
-           const genreIds = selectedGenres
-             .map(g => genreMap[g.trim()])
-             .filter(id => id !== undefined);
+          const genreIds = selectedGenres
+            .map(g => genreMap[g.trim()])
+            .filter(id => id !== undefined);
 
-           if (movieIds.length > 0) {
-             const MAX_MOVIE_SOURCES = Math.min(movieIds.length, 5);
-             const moviePromises = movieIds.slice(0, MAX_MOVIE_SOURCES).map(async (movieId) => {
-               try {
-                 const endpoint = mediaType === 'movie'
-                   ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
-                   : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
-                 const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                 return res.data.results || [];
-               } catch (err) {
-                 console.error(`Error fetching recommendations for ${movieId}:`, err);
-                 return [];
-               }
-             });
-             
-             const results = await Promise.all(moviePromises);
-             results.forEach(r => recommended.push(...r.slice(0, 10)));
-           }
+          if (movieIds.length > 0) {
+            const MAX_MOVIE_SOURCES = Math.min(movieIds.length, 5);
+            const moviePromises = movieIds.slice(0, MAX_MOVIE_SOURCES).map(async (movieId) => {
+              try {
+                const endpoint = mediaType === 'movie'
+                  ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
+                  : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
+                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+                return res.data.results || [];
+              } catch (err) {
+                console.error(`Error fetching recommendations for ${movieId}:`, err);
+                return [];
+              }
+            });
 
-           if (actorIds.length > 0) {
-             const actorPromises = actorIds.slice(0, 10).map(async (actorId) => {
-               try {
-                 const endpoint = mediaType === 'movie'
-                   ? `https://api.themoviedb.org/3/person/${actorId}/movie_credits`
-                   : `https://api.themoviedb.org/3/person/${actorId}/tv_credits`;
-                 const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                 return mediaType === 'movie' ? (res.data.cast || []) : (res.data.cast || []);
-               } catch (err) {
-                 console.error(`Error fetching credits for actor ${actorId}:`, err);
-                 return [];
-               }
-             });
-             
-             const actorResults = await Promise.all(actorPromises);
-             actorResults.forEach(r => recommended.push(...r.slice(0, 10)));
-           }
+            const results = await Promise.all(moviePromises);
+            results.forEach(r => recommended.push(...r.slice(0, 10)));
+          }
 
-           if (genreIds.length > 0 && recommended.length < 20) {
-             const genrePromises = genreIds.slice(0, 3).map(async (genreId) => {
-               try {
-                 const url = mediaType === 'movie'
-                   ? `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`
-                   : `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`;
-                 const res = await axios.get(url);
-                 return res.data.results || [];
-               } catch (err) {
-                 console.error(`Error fetching genre ${genreId}:`, err);
-                 return [];
-               }
-             });
-             
-             const genreResults = await Promise.all(genrePromises);
-             genreResults.forEach(r => recommended.push(...r.slice(0, 8)));
-           }
+          if (actorIds.length > 0) {
+            const actorPromises = actorIds.slice(0, 10).map(async (actorId) => {
+              try {
+                const endpoint = mediaType === 'movie'
+                  ? `https://api.themoviedb.org/3/person/${actorId}/movie_credits`
+                  : `https://api.themoviedb.org/3/person/${actorId}/tv_credits`;
+                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+                return mediaType === 'movie' ? (res.data.cast || []) : (res.data.cast || []);
+              } catch (err) {
+                console.error(`Error fetching credits for actor ${actorId}:`, err);
+                return [];
+              }
+            });
 
-           if (recommended.length === 0) {
-             const fallbackUrl = mediaType === 'movie'
-               ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
-               : `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
-             
-             const fallbackRes = await axios.get(fallbackUrl);
-             if (fallbackRes.data.results) {
-               recommended.push(...fallbackRes.data.results.slice(0, 15));
-             }
-           }
-         } catch (err) {
-           console.error('Error fetching recommendations:', err);
-         }
+            const actorResults = await Promise.all(actorPromises);
+            actorResults.forEach(r => recommended.push(...r.slice(0, 10)));
+          }
 
-         const unique = new Map();
-         recommended.forEach((m: any) => {
-           if (m.id && !unique.has(m.id)) {
-             unique.set(m.id, {
-               id: m.id.toString(),
-               title: m.title || m.name || "",
-               posterPath: m.poster_path
-                 ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
-                 : "",
-               mediaType: m.media_type || mediaType,
-               overview: m.overview || "",
-               voteAverage: m.vote_average || 0,
-             });
-           }
-         });
+          if (genreIds.length > 0 && recommended.length < 20) {
+            const genrePromises = genreIds.slice(0, 3).map(async (genreId) => {
+              try {
+                const url = mediaType === 'movie'
+                  ? `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`
+                  : `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`;
+                const res = await axios.get(url);
+                return res.data.results || [];
+              } catch (err) {
+                console.error(`Error fetching genre ${genreId}:`, err);
+                return [];
+              }
+            });
 
-         const filtered = Array.from(unique.values()).filter(item => item.mediaType === mediaType);
-         const sorted = filtered.sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0));
-         
-         if (isMounted) {
-           setTrendingMovies(sorted.slice(0, 20));
-           setLoading(false);
-         }
-       };
+            const genreResults = await Promise.all(genrePromises);
+            genreResults.forEach(r => recommended.push(...r.slice(0, 8)));
+          }
 
-       fetchRecommendations();
+          if (recommended.length === 0) {
+            const fallbackUrl = mediaType === 'movie'
+              ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
+              : `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
 
-       return () => {
-         isMounted = false;
-       };
-     }, [watchlist, history, favouriteActors, selectedGenres, mediaType, page]);
+            const fallbackRes = await axios.get(fallbackUrl);
+            if (fallbackRes.data.results) {
+              recommended.push(...fallbackRes.data.results.slice(0, 15));
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching recommendations:', err);
+        }
+
+        const unique = new Map();
+        recommended.forEach((m: any) => {
+          if (m.id && !unique.has(m.id)) {
+            unique.set(m.id, {
+              id: m.id.toString(),
+              title: m.title || m.name || "",
+              posterPath: m.poster_path
+                ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
+                : "",
+              mediaType: m.media_type || mediaType,
+              overview: m.overview || "",
+              voteAverage: m.vote_average || 0,
+            });
+          }
+        });
+
+        const filtered = Array.from(unique.values()).filter(item => item.mediaType === mediaType);
+        const sorted = filtered.sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0));
+
+        if (isMounted) {
+          setTrendingMovies(sorted.slice(0, 20));
+          setLoading(false);
+        }
+      };
+
+      fetchRecommendations();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [watchlist, history, favouriteActors, selectedGenres, mediaType, page]);
 
 
     return (
@@ -417,8 +422,8 @@ const authContext = useContext(AuthContext);
                     key={movie.id}
                     layout
                     className="group flex-shrink-0 w-32 hover:w-36 transition-all duration-300 bg-zinc-800/50 backdrop-blur-sm border border-zinc-600/30 rounded-2xl overflow-hidden shadow-lg hover:shadow-zinc-500/20 hover:-translate-y-1 cursor-pointer"
-                     whileHover={{ scale: 1.05 }}
-                     onClick={() => onMediaClick(movie.id, movie.mediaType)}
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => onMediaClick(movie.id, movie.mediaType)}
                   >
                     <div className="relative aspect-[2/3]">
                       {movie.posterPath ? (
@@ -552,11 +557,11 @@ const authContext = useContext(AuthContext);
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-gradient-to-br from-blue-900/30 via-gray-900/60 to-gray-900/80 backdrop-blur-lg rounded-2xl p-4 sm:p-6 md:p-8 border border-blue-500/30 shadow-2xl"
+              className="bg-gradient-to-br from-zinc-900/80 via-black/80 to-black/80 backdrop-blur-xl rounded-2xl p-4 sm:p-6 md:p-8 border border-white/5 shadow-2xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-3 text-blue-400 drop-shadow-lg tracking-tight">
-                  <SquarePen className="w-6 h-6 text-blue-500" />
+                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-3 text-white drop-shadow-lg tracking-tight">
+                  <SquarePen className="w-6 h-6 text-violet-500" />
                   Your Reviews
                 </h2>
               </div>
@@ -578,7 +583,7 @@ const authContext = useContext(AuthContext);
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 shadow-xl"
+              className="bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl p-6 border border-white/5 shadow-xl"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
@@ -589,33 +594,63 @@ const authContext = useContext(AuthContext);
                   <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
-              {watchlist.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No movies in watchlist yet</p>
+              {/* Movies/Series Toggle */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-sm border border-white/10 rounded-full p-0.5 shadow-lg">
+                  <button
+                    onClick={() => setWatchlistFilter('movie')}
+                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${watchlistFilter === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    Movies
+                  </button>
+                  <button
+                    onClick={() => setWatchlistFilter('tv')}
+                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${watchlistFilter === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    Series
+                  </button>
+                  <motion.div
+                    className="absolute inset-y-1 bg-gradient-to-r from-cyan-600 to-cyan-500 rounded-full shadow-lg shadow-cyan-500/40"
+                    layoutId="watchlist-toggle"
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    style={{
+                      left: watchlistFilter === 'movie' ? '4px' : '50%',
+                      right: watchlistFilter === 'tv' ? '4px' : '50%',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {filteredWatchlist.length === 0 ? (
+                <p className="text-zinc-500 text-center py-4">No {watchlistFilter === 'movie' ? 'movies' : 'series'} in watchlist yet</p>
               ) : (
                 <div className="w-full">
                   <div className="overflow-x-auto no-scrollbar">
-                    <div className="flex gap-6 pb-2">
-                      {[...watchlist]
+                    <div className="flex gap-4 pb-2">
+                      {[...filteredWatchlist]
                         .slice()
                         .reverse()
                         .map((movie) => (
                           <Link
                             key={movie.id}
                             to={movie.mediaType === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`}
-                            className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-green-500/20 min-w-[140px] max-w-[140px]"
+                            className="group relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-cyan-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-cyan-500/10 min-w-[120px] max-w-[120px]"
                           >
-                            <div className="relative">
+                            {/* Media Type Badge */}
+                            <div className="absolute top-2 right-2 z-20 bg-cyan-500/80 text-white text-xs px-2 py-1 rounded-full shadow">
+                              {movie.mediaType === 'tv' ? 'TV' : 'Movie'}
+                            </div>
+
+                            <div className="relative aspect-[2/3]">
                               <img
                                 src={movie.posterPath}
                                 alt={movie.title}
-                                className="w-full h-44 object-cover rounded-t-2xl"
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                               />
-                              <div className="absolute top-2 right-2 bg-cyan-500/80 text-white text-xs px-2 py-1 rounded-full shadow">
-                                {movie.mediaType === 'tv' ? 'TV' : 'Movie'}
-                              </div>
+                              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
                             </div>
-                            <div className="p-3">
-                              <h3 className="font-semibold text-sm truncate group-hover:text-yellow-400 transition-colors">
+                            <div className="p-2">
+                              <h3 className="font-semibold text-xs truncate group-hover:text-cyan-400 transition-colors">
                                 {movie.title}
                               </h3>
                             </div>
@@ -630,43 +665,69 @@ const authContext = useContext(AuthContext);
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 shadow-xl"
+              className="bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl p-6 border border-white/5 shadow-xl"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <History className="w-5 h-5 text-green-500" />
+                  <History className="w-5 h-5 text-emerald-500" />
                   History
                 </h2>
-                <Link to="/history" className="text-green-500 hover:text-green-400 transition-colors">
+                <Link to="/history" className="text-emerald-400 hover:text-emerald-500 transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
-              {history.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No history yet</p>
+
+              {/* Movies/Series Toggle */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-sm border border-white/10 rounded-full p-0.5 shadow-lg">
+                  <button
+                    onClick={() => setHistoryFilter('movie')}
+                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${historyFilter === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    Movies
+                  </button>
+                  <button
+                    onClick={() => setHistoryFilter('tv')}
+                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${historyFilter === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                  >
+                    Series
+                  </button>
+                  <motion.div
+                    className="absolute inset-y-1 bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full shadow-lg shadow-emerald-500/40"
+                    layoutId="history-toggle"
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    style={{
+                      left: historyFilter === 'movie' ? '4px' : '50%',
+                      right: historyFilter === 'tv' ? '4px' : '50%',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {filteredHistory.length === 0 ? (
+                <p className="text-zinc-500 text-center py-4">No history yet</p>
               ) : (
                 <div className="w-full">
                   <div className="overflow-x-auto no-scrollbar">
-                    <div className="flex gap-6 pb-2">
-                      {[...history]
-                        .slice()
+                    <div className="flex gap-4 pb-2">
+                      {filteredHistory
+                        .slice(0, 10)
                         .map((movie) => (
                           <Link
                             key={movie.id}
                             to={`/${movie.mediaType || 'movie'}/${movie.id}`}
-                            className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-yellow-500/20 min-w-[140px] max-w-[140px]"
+                            className="group bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/10 min-w-[120px] max-w-[120px]"
                           >
-                            <div className="relative">
+                            <div className="relative aspect-[2/3]">
                               <img
                                 src={movie.posterPath}
                                 alt={movie.title}
-                                className="w-full h-44 object-cover rounded-t-2xl"
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                               />
-                              <div className="absolute top-2 right-2 bg-green-500/80 text-white text-xs px-2 py-1 rounded-full shadow">
-                                {movie.mediaType === 'tv' ? 'TV' : 'Movie'}
-                              </div>
+                              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
                             </div>
-                            <div className="p-3">
-                              <h3 className="font-semibold text-sm truncate group-hover:text-yellow-400 transition-colors">
+                            <div className="p-2">
+                              <h3 className="font-semibold text-xs truncate group-hover:text-emerald-400 transition-colors">
                                 {movie.title}
                               </h3>
                             </div>
@@ -681,11 +742,11 @@ const authContext = useContext(AuthContext);
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 shadow-xl"
+              className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 backdrop-blur-xl rounded-2xl p-6 border border-yellow-500/20 shadow-xl shadow-yellow-500/5"
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-500" />
+                  <Star className="w-5 h-5 text-yellow-500 fill-current" />
                   Rated Movies
                 </h2>
                 <Link to="/top-rated" className="text-yellow-500 hover:text-yellow-400 transition-colors">
@@ -693,74 +754,109 @@ const authContext = useContext(AuthContext);
                 </Link>
               </div>
 
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {ratedMovies.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No rated movies yet</p>
-                ) : (
-                  ratedMovies.slice(0, 5).map((movie) => (
-                    <div
-                      key={movie.id}
-                      className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-xl hover:bg-gray-600/30 cursor-pointer transition-colors"
-                      onClick={() => handleMovieClick(movie.id)}
-                    >
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-sm">{movie.title}</h3>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                          <span className="text-yellow-400 text-xs">{movie.rating}/10</span>
+              {ratedMovies.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-4">
+                    <Star className="w-8 h-8 text-yellow-600" />
+                  </div>
+                  <p className="text-zinc-500 text-center">No rated movies yet</p>
+                  <p className="text-zinc-600 text-xs text-center mt-1">Rate movies to see them here</p>
+                </div>
+              ) : (
+                <div className="w-full">
+                  <div className="overflow-y-auto no-scrollbar max-h-[400px]">
+                    <div className="flex flex-col gap-3">
+                      {ratedMovies.map((movie, index) => (
+                        <div
+                          key={movie.id}
+                          onClick={() => handleMediaClick(movie.id, 'movie')}
+                          className="group flex items-center justify-between bg-gradient-to-br from-zinc-900/80 to-black/80 backdrop-blur-xl rounded-xl p-3 border border-yellow-500/20 hover:border-yellow-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-yellow-500/20 cursor-pointer"
+                        >
+                          {/* Rank Badge */}
+                          <div className="bg-black/70 backdrop-blur-md border border-yellow-500/30 rounded-lg px-2 py-1">
+                            <span className="text-xs font-bold text-yellow-400">
+                              #{index + 1}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 px-3">
+                            <h3 className="font-semibold text-sm truncate group-hover:text-yellow-400 transition-colors">
+                              {movie.title}
+                            </h3>
+                          </div>
+
+                          {/* Rating Badge */}
+                          <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-current" />
+                            {movie.rating}
+                          </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
-              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+              className="bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/5 shadow-xl"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3 text-white drop-shadow-lg">
-                  <Heart className="w-6 h-6 text-pink-500" />
+                  <Heart className="w-6 h-6 text-red-500 fill-current" />
                   Favourite Actors
                 </h2>
                 <Link
                   to="/fav-actors"
-                  className="text-pink-400 hover:text-pink-500 transition-colors flex items-center"
+                  className="text-red-400 hover:text-red-500 transition-colors flex items-center"
                   aria-label="Go to Favourite Actors page"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
               {favouriteActors.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No favourite actors yet</p>
+                <p className="text-zinc-500 text-center py-4">No favourite actors yet</p>
               ) : (
                 <div className="w-full">
                   <div className="overflow-x-auto no-scrollbar">
-                    <div className="flex gap-6 pb-2">
-                      {favouriteActors.map((actor) => (
+                    <div className="flex gap-4 pb-2">
+                      {favouriteActors.map((actor, index) => (
                         <Link
                           key={actor.id}
                           to={`/actor/${actor.id}`}
-                          className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 border border-pink-500/20 min-w-[120px] max-w-[120px]"
+                          className="group relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-red-500/10 min-w-[100px] max-w-[100px]"
                         >
-                          <div className="relative">
+                          {/* Rank Badge */}
+                          <div className="absolute top-2 left-2 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-1.5 py-0.5">
+                            <span className="text-[10px] font-bold text-zinc-300">
+                              #{index + 1}
+                            </span>
+                          </div>
+
+                          {/* Heart Badge */}
+                          <div className="absolute top-2 right-2 z-20 bg-gradient-to-br from-red-500 to-red-600 p-1 rounded-full shadow-lg shadow-red-500/30">
+                            <Heart className="w-2.5 h-2.5 text-white fill-current" />
+                          </div>
+
+                          <div className="relative aspect-[3/4]">
                             {actor.profilePath ? (
                               <img
                                 src={actor.profilePath}
                                 alt={actor.name}
-                                className="w-full h-32 object-cover rounded-t-2xl"
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                               />
                             ) : (
-                              <div className="w-full h-32 flex items-center justify-center text-gray-400 bg-zinc-800">
-                                <User className="w-8 h-8" />
+                              <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                                <User className="w-8 h-8 text-zinc-500" />
                               </div>
                             )}
+                            {/* Hover gradient overlay */}
+                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
                           </div>
-                          <div className="p-3">
-                            <h3 className="font-semibold text-sm truncate transition-colors">
+                          <div className="p-2">
+                            <h3 className="font-semibold text-xs truncate transition-colors group-hover:text-red-400">
                               {actor.name}
                             </h3>
                           </div>
