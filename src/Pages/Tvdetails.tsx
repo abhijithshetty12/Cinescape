@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Star, Calendar, TvMinimalPlay, Clock, ImageOff, Bookmark, BookmarkCheck, Check, Plus, Loader2, Play, Globe } from 'lucide-react';
+import { Star, Calendar, TvMinimalPlay, Clock, ImageOff, Bookmark, BookmarkCheck, Check, Plus, Loader2, Play, Globe, Users, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
@@ -314,117 +314,140 @@ const Tvdetails = () => {
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
 
-      {/* Hero Section */}
-      <div className="relative h-[50vh] md:h-[75vh] flex items-end">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              window.innerWidth >= 768
-                ? Tvdetails?.images && Array.isArray(Tvdetails.images) && Tvdetails.images.length > 0
-                  ? `url(https://image.tmdb.org/t/p/original/${Tvdetails.images[Math.floor(Math.random() * Tvdetails.images.length)].file_path})`
-                  : `url(${posterImageUrl})`
-                : `url(${posterImageUrl})`,
-            filter: window.innerWidth >= 768 ? 'blur(2px) brightness(0.7)' : 'none'
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/60" />
-
-        <div className="relative z-10 w-full max-w-5xl mx-auto px-3 md:px-8 pb-6 md:pb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="flex flex-col md:flex-row items-center md:items-end gap-3 md:gap-10 bg-white/10 backdrop-blur-xl rounded-2xl md:rounded-3xl border-2 border-transparent bg-clip-padding shadow-2xl p-3 md:p-10"
+      {/* Hero Section - Modern Redesign */}
+      <div className="relative min-h-[70vh] md:min-h-[85vh] flex items-end">
+        {/* Dynamic Background with gradient overlays */}
+        <div className="absolute inset-0">
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
             style={{
-              boxShadow: '0 8px 32px 0 rgba(0,0,0,0.45)'
+              backgroundImage:
+                window.innerWidth >= 768
+                  ? Tvdetails?.images && Array.isArray(Tvdetails.images) && Tvdetails.images.length > 0
+                    ? `url(https://image.tmdb.org/t/p/original/${Tvdetails.images[Math.floor(Math.random() * Tvdetails.images.length)].file_path})`
+                    : `url(${posterImageUrl})`
+                  : `url(${posterImageUrl})`,
             }}
+          />
+          {/* Multi-layered gradient overlays for depth */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-transparent to-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
+          {/* Animated noise texture overlay for modern feel */}
+          <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
+            className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-12"
           >
-            <div className="hidden md:block">
-              <div className="flex-shrink-0 flex items-center justify-center w-auto md:-mt-32 md:w-auto md:mr-6 mb-0 md:mb-0">
-                {Tvdetails?.poster_path ? (
-                  <motion.img
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.7, delay: 0.2 }}
-                    src={posterThumbnailUrl}
-                    alt={Tvdetails?.name}
-                    className="w-16 h-24 md:w-48 md:h-72 lg:w-56 lg:h-80 object-cover rounded-xl md:rounded-2xl shadow-2xl border-2 md:border-4 border-white/30"
-                    style={{ boxShadow: '0 6px 32px 0 rgba(0,0,0,0.55)' }}
-                  />
-                ) : (
-                  <div className="w-16 h-24 md:w-48 md:h-72 lg:w-56 lg:h-80 bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center text-gray-400 rounded-xl md:rounded-2xl shadow-2xl border-2 md:border-4 border-white/30">
-                    <ImageOff className="w-6 h-6 md:w-10 md:h-12 mb-1 md:mb-2 opacity-60" />
-                    <span className="text-xs md:text-sm text-center px-2 md:px-4">No Image</span>
-                  </div>
-                )}
-              </div>
+            {/* Professional poster frame */}
+            <div className="w-full md:w-auto flex-shrink-0 flex justify-center md:justify-start md:-mt-20 md:mr-8 order-1 md:order-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                className="relative"
+              >
+                {/* Refined elegant frame */}
+                <div className="relative ring-1 ring-white/10 bg-white/5 rounded-2xl p-1.5 sm:p-2 shadow-2xl shadow-black/50">
+                  {Tvdetails?.poster_path ? (
+                    <img
+                      src={posterThumbnailUrl}
+                      alt={Tvdetails?.name}
+                      className="w-40 h-56 xs:w-48 xs:h-64 sm:w-52 sm:h-72 md:w-56 md:h-80 lg:w-64 lg:h-96 object-cover rounded-lg shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-40 h-56 xs:w-48 xs:h-64 sm:w-52 sm:h-72 md:w-56 md:h-80 lg:w-64 lg:h-96 bg-zinc-900/80 flex flex-col items-center justify-center text-gray-500 rounded-lg">
+                      <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                      <span className="text-xs text-center px-3">No Image</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </div>
 
-            <div className="flex-1 flex flex-col justify-end w-full px-2 md:px-0">
+            {/* Content section */}
+            <div className="flex-1 flex flex-col justify-end w-full text-center md:text-left order-2 md:order-none">
+              {/* Minimal glassmorphic badges */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.25 }}
-                className="flex flex-wrap items-center gap-1 md:gap-3 mb-1 md:mb-4"
+                transition={{ duration: 0.6, delay: 0.35 }}
+                className="flex flex-wrap justify-center md:justify-start items-center gap-2 md:gap-3 mb-4 md:mb-6"
               >
-                <div className="flex items-center gap-1 bg-black/70 px-2 md:px-3 py-1 rounded-full border border-white/20 shadow">
-                  <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-400 fill-current" />
-                  <span className="text-white font-bold text-xs md:text-sm">{showRating}</span>
+                {/* Rating badge - Glassmorphic */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  <span className="text-white font-semibold text-sm sm:text-base">{showRating}</span>
                 </div>
-                <div className="flex items-center gap-1 bg-black/70 px-2 md:px-3 py-1 rounded-full border border-white/20 shadow">
-                  <Calendar className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                  <span className="text-gray-200 text-xs md:text-sm">{showFirstAirDate}</span>
+
+                {/* First Air Date badge - Glassmorphic */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
+                  <Calendar className="w-4 h-4 text-green-600" />
+                  <span className="text-white/80 font-medium text-sm">
+                    {showFirstAirDate}
+                  </span>
                 </div>
               </motion.div>
 
+              {/* Title with enhanced typography */}
               <motion.h1
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.25 }}
-                className="text-xl md:text-3xl lg:text-5xl font-extrabold mb-2 md:mb-5 leading-tight drop-shadow-lg"
+                transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-4 md:mb-6 leading-tight tracking-tight text-white"
               >
-                {Tvdetails?.name}
+                <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+                  {Tvdetails?.name}
+                </span>
               </motion.h1>
 
+              {/* Genre chips - minimal glassmorphic */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="flex flex-wrap gap-1 md:gap-2 mb-3 md:mb-5"
+                transition={{ duration: 0.6, delay: 0.5 }}
+                className="flex flex-wrap justify-center md:justify-start gap-2 md:gap-2.5 mb-6 md:mb-8"
               >
                 {Tvdetails?.genres?.map((genre) => (
                   <span
                     key={genre.id}
-                    className="px-2 py-0.5 bg-zinc-900/80 rounded-full text-xs border border-zinc-700/50 shadow"
+                    className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-xs sm:text-sm font-medium text-white/80 transition-all duration-300 hover:bg-white/10 hover:text-white hover:border-white/20"
                   >
                     {genre.name}
                   </span>
                 ))}
               </motion.div>
 
+              {/* Action buttons */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.35 }}
-                className="flex flex-col xs:flex-row gap-2 xs:gap-3 w-full"
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
               >
                 <WatchedButtonInline />
                 <button
                   onClick={handleWatchlistToggle}
-                  className={`flex items-center gap-2 px-3 py-2 sm:px-6 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm md:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-[44px] shadow-lg ${isInWatchlist
-                    ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white shadow-green-500/25'
-                    : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-blue-500/25'
+                  className={`relative group flex items-center gap-3 px-6 py-3.5 sm:px-8 sm:py-4 rounded-2xl font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-[52px] shadow-xl overflow-hidden ${isInWatchlist
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-emerald-500/30'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
                     }`}
                 >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                   {isInWatchlist ? (
-                    <BookmarkCheck className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <BookmarkCheck className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
                   ) : (
-                    <Bookmark className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <Bookmark className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
                   )}
-                  <span className="hidden xs:inline sm:inline">
-                    {isInWatchlist ? 'Saved' : 'Watch Later'}
+                  <span className="relative z-10">
+                    {isInWatchlist ? 'Saved to Watchlist' : 'Add to Watchlist'}
                   </span>
                 </button>
               </motion.div>
@@ -434,34 +457,35 @@ const Tvdetails = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-3 md:px-4 py-6 md:py-8 space-y-6 md:space-y-8">
-
-        {/* Synopsis Section */}
+      <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
+        {/* Synopsis Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
         >
-          <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Synopsis</h2>
-          <p className="text-base md:text-lg text-gray-300 leading-relaxed">{Tvdetails?.overview}</p>
+          <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-white">Synopsis</h2>
+          <p className="text-base md:text-lg text-white/70 leading-relaxed">{Tvdetails?.overview}</p>
         </motion.section>
 
-        {/* Player Section */}
+        {/* Player Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
           ref={playerRef}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
         >
           <div className="flex items-center gap-3 mb-6">
-            <TvMinimalPlay className="w-6 h-6 md:w-8 md:h-8 text-red-500" />
-            <h2 className="text-xl md:text-2xl font-bold">
+            <div className="p-2 bg-red-500/20 rounded-lg">
+              <TvMinimalPlay className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-white">
               {selectedEpisode !== null ? `Watch Season ${selectedSeason} Episode ${selectedEpisode}` : 'Watch All Seasons'}
             </h2>
           </div>
-          <div className="rounded-2xl overflow-hidden shadow-2xl border-4 border-zinc-900/80">
+          <div className="rounded-xl overflow-hidden ring-1 ring-white/10">
             <div className="w-full" style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
               <iframe
                 src={
@@ -478,16 +502,7 @@ const Tvdetails = () => {
                 allowFullScreen
                 allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
                 title="TV Show Embed"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  border: 0,
-                  borderRadius: "1rem",
-                  background: "#000"
-                }}
+                className="absolute top-0 left-0 w-full h-full"
                 ref={el => {
                   if (el && typeof window !== "undefined") {
                     const handleFs = () => {
@@ -512,25 +527,26 @@ const Tvdetails = () => {
           </div>
         </motion.section>
 
-        {/* Seasons & Episodes Section */}
+        {/* Seasons & Episodes Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-4 md:p-8 border border-gray-700/50 shadow-xl"
+          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
         >
-          <div className="flex items-center justify-between mb-4 md:mb-8">
-            <div>
-              <h2 className="text-lg md:text-2xl font-extrabold tracking-tight text-white/90 mb-1">Seasons</h2>
-              <p className="text-xs md:text-sm text-zinc-400">
-                {selectedSeason !== null
-                  ? `Season ${selectedSeason} • ${Tvdetails?.seasons.find(s => s.season_number === selectedSeason)?.episode_count || 0} Episodes`
-                  : 'Select a season to view episodes'}
-              </p>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-orange-500/20 rounded-lg">
+              <TvMinimalPlay className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
             </div>
+            <h2 className="text-xl md:text-2xl font-bold text-white">Seasons</h2>
           </div>
+          <p className="text-xs md:text-sm text-white/50 mb-4 md:mb-6">
+            {selectedSeason !== null
+              ? `Season ${selectedSeason} • ${Tvdetails?.seasons.find(s => s.season_number === selectedSeason)?.episode_count || 0} Episodes`
+              : 'Select a season to view episodes'}
+          </p>
 
-          <div className="flex gap-1.5 md:gap-2 mb-4 md:mb-8 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent snap-x">
+          <div className="flex gap-2 mb-6 md:mb-8 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent snap-x">
             {Tvdetails?.seasons.map((season) => (
               <button
                 key={season.season_number}
@@ -538,14 +554,14 @@ const Tvdetails = () => {
                   setSelectedSeason(season.season_number);
                   setSelectedEpisode(null);
                 }}
-                className={`snap-start px-3 md:px-5 py-1.5 md:py-2.5 rounded-full font-medium flex-shrink-0 flex items-center gap-1 md:gap-2 transition-all duration-300 border text-xs md:text-sm
+                className={`snap-start px-4 py-2 rounded-full font-medium flex-shrink-0 flex items-center gap-2 transition-all duration-300 border text-sm
                   ${selectedSeason === season.season_number
-                    ? 'bg-gradient-to-r from-red-600 to-orange-500 border-orange-400 text-white shadow-lg shadow-orange-500/20 scale-105'
-                    : 'bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-800/60 border-transparent'
+                    ? 'bg-gradient-to-r from-orange-600 to-red-500 border-orange-400 text-white shadow-lg shadow-orange-500/20'
+                    : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border-white/10'
                   }`}
               >
                 <span>Season {season.season_number}</span>
-                <span className={`text-[10px] md:text-[11px] px-1.5 md:px-2 py-0.5 rounded-full ${selectedSeason === season.season_number ? 'bg-black/10 text-black/70' : 'bg-zinc-800 text-zinc-500'}`}>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full ${selectedSeason === season.season_number ? 'bg-black/20 text-white/80' : 'bg-white/10 text-white/40'}`}>
                   {season.episode_count}
                 </span>
               </button>
@@ -560,24 +576,24 @@ const Tvdetails = () => {
                 </div>
               )}
               {episodesError && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 md:p-4 text-red-400 text-center text-sm">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-center text-sm">
                   {episodesError}
                 </div>
               )}
               {!episodesLoading && !episodesError && episodes.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {episodes.map((episode) => (
                     <div
                       key={episode.id}
-                      className={`group relative flex items-center gap-3 md:gap-4 rounded-xl overflow-hidden shadow-lg cursor-pointer border transition-all duration-300
+                      className={`group relative flex items-center gap-4 rounded-xl overflow-hidden cursor-pointer border transition-all duration-300
                         ${selectedEpisode === episode.episode_number
-                          ? 'ring-2 ring-orange-500 bg-zinc-800/80 scale-[1.02] shadow-orange-500/20'
-                          : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/80'
+                          ? 'ring-2 ring-orange-500 bg-white/10'
+                          : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
                         }`}
                       onClick={() => setSelectedEpisode(episode.episode_number)}
                     >
                       {/* Thumbnail + Episode Number */}
-                      <div className="relative w-20 sm:w-28 md:w-40 flex-shrink-0 aspect-video overflow-hidden">
+                      <div className="relative w-28 sm:w-32 md:w-40 flex-shrink-0 aspect-video overflow-hidden">
                         {episode.still_url ? (
                           <img
                             src={episode.still_url}
@@ -585,38 +601,38 @@ const Tvdetails = () => {
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                           />
                         ) : (
-                          <div className="w-full h-full bg-zinc-800 flex flex-col items-center justify-center text-zinc-500">
-                            <ImageOff className="w-4 h-4 sm:w-6 sm:h-6 md:w-8 md:h-8 opacity-50" />
+                          <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center text-zinc-600">
+                            <ImageOff className="w-8 h-8" />
                           </div>
                         )}
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            <Play className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white fill-white ml-0.5" />
+                          <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
                           </div>
                         </div>
-                        <div className="absolute top-1 left-1 bg-black/60 backdrop-blur-sm rounded-sm px-1.5 py-0.5">
-                          <span className="text-[9px] sm:text-sm md:text-base font-bold text-white">{episode.episode_number}</span>
+                        <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-md px-2 py-1">
+                          <span className="text-sm font-bold text-white">{episode.episode_number}</span>
                         </div>
                       </div>
 
                       {/* Episode Details */}
-                      <div className="flex-1 min-w-0 p-2 md:p-3 flex flex-col justify-center">
-                        <h4 className="font-semibold text-xs sm:text-sm md:text-base text-white/90 truncate">
+                      <div className="flex-1 min-w-0 p-3 flex flex-col justify-center">
+                        <h4 className="font-semibold text-sm text-white/90 truncate">
                           {episode.name}
                         </h4>
-                        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 text-[10px] sm:text-xs md:text-sm text-zinc-500 mt-1">
+                        <div className="flex items-center gap-3 text-xs text-white/50 mt-1">
                           <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 md:w-4 md:h-4" />
+                            <Calendar className="w-3 h-3" />
                             {episode.air_date ? new Date(episode.air_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBA'}
                           </span>
                           {episode.runtime && (
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 md:w-4 md:h-4 text-blue-400" />
+                              <Clock className="w-3 h-3 text-blue-400" />
                               {episode.runtime}m
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] sm:text-xs md:text-sm text-zinc-400 line-clamp-2 mt-1.5 hidden sm:block">
+                        <p className="text-xs text-white/50 line-clamp-2 mt-2">
                           {episode.overview || 'No synopsis available.'}
                         </p>
                       </div>
@@ -624,12 +640,12 @@ const Tvdetails = () => {
                   ))}
                 </div>
               )}
-             </div>
-           )}
-         </motion.section>
+            </div>
+          )}
+        </motion.section>
 
-        {/* Show Info & Cast Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
+        {/* Show Info & Cast Grid - Modern Glassmorphic */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Show Info */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -637,26 +653,26 @@ const Tvdetails = () => {
             transition={{ duration: 0.5, delay: 0.9 }}
             className="lg:col-span-1"
           >
-            <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-gray-700/50 shadow-xl">
-              <h3 className="text-base md:text-lg font-bold mb-4 md:mb-6 flex items-center gap-2">
-                <Globe className="w-4 h-4 md:w-5 md:h-5 text-blue-400" />
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 h-full">
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
+                <Globe className="w-5 h-5 text-blue-400" />
                 Show Info
               </h3>
-              <dl className="space-y-3 md:space-y-4">
-                <div className="border-b border-gray-700/30 pb-2 md:pb-3">
-                  <dt className="text-gray-400 text-xs md:text-sm font-medium mb-1">Language</dt>
-                  <dd className="text-white font-medium text-sm md:text-base">{showLanguage}</dd>
+              <dl className="space-y-5">
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">Language</dt>
+                  <dd className="text-white font-semibold">{showLanguage}</dd>
                 </div>
-                <div className="border-b border-gray-700/30 pb-2 md:pb-3">
-                  <dt className="text-gray-400 text-xs md:text-sm font-medium mb-1">First Air Date</dt>
-                  <dd className="flex items-center gap-2 text-white font-medium text-sm md:text-base">
-                    <Calendar className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">First Air Date</dt>
+                  <dd className="flex items-center gap-2 text-white font-semibold">
+                    <Calendar className="w-4 h-4 text-green-400" />
                     {showFirstAirDate}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-gray-400 text-xs md:text-sm font-medium mb-1">Created By</dt>
-                  <dd className="text-white font-medium text-sm md:text-base">
+                  <dt className="text-white/50 text-sm font-medium mb-2">Created By</dt>
+                  <dd className="text-white font-semibold">
                     {creators.length > 0 ? creators.map(c => c.name).join(', ') : 'Unknown'}
                   </dd>
                 </div>
@@ -664,68 +680,116 @@ const Tvdetails = () => {
             </div>
           </motion.div>
 
-          {/* Cast Section - spanning 2 columns */}
+          {/* Cast Section - Modern Glassmorphic */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 1.0 }}
             className="lg:col-span-2"
           >
-            <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-4 md:p-8 border border-gray-700/50 shadow-xl h-full">
-              <h2 className="text-lg md:text-2xl font-bold mb-4 md:mb-6 text-gray-200">Cast</h2>
-              <div className="overflow-x-auto">
-                <div className="flex gap-3 md:gap-6 pb-4">
-                  {Tvdetails?.cast?.map((actor) => (
-                    <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0">
-                      <div className="bg-gradient-to-b from-gray-700/50 to-gray-800/50 hover:from-gray-600/50 hover:to-gray-700/50 transition-all duration-300 rounded-xl shadow-lg overflow-hidden group w-24 md:w-40 border border-gray-600/30">
-                        {actor.profile_path ? (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
-                            alt={actor.name}
-                            className="w-full h-32 md:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-32 md:h-48 bg-zinc-800 flex flex-col items-center justify-center text-gray-400">
-                            <ImageOff className="w-6 h-6 md:w-8 md:h-12 mb-1 md:mb-2" />
-                            <span className="text-xs text-center px-2">No Image</span>
-                          </div>
-                        )}
-                        <div className="p-2 md:p-4 text-center">
-                          <h3 className="font-bold text-xs md:text-sm text-gray-200 group-hover:text-yellow-400 transition-colors duration-300 mb-1 line-clamp-2">
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10 h-full">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-white">Top Cast</h2>
+              </div>
+              <div className="overflow-x-auto pb-2 custom-scrollbar">
+                <div className="flex gap-4 md:gap-5">
+                  {Tvdetails?.cast?.map((actor, idx) => (
+                    <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
+                        className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44"
+                      >
+                        {/* Image container with aspect ratio */}
+                        <div className="relative aspect-[3/4] overflow-hidden">
+                          {actor.profile_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
+                              alt={actor.name}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
+                              <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                              <span className="text-xs text-center px-2">No Photo</span>
+                            </div>
+                          )}
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                        </div>
+
+                        {/* Info */}
+                        <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
+                          <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
                             {actor.name}
                           </h3>
-                          <p className="text-xs text-gray-400 line-clamp-2 hidden md:block">{actor.role}</p>
+                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                            {actor.role || 'Unknown Role'}
+                          </p>
                         </div>
-                      </div>
+
+                        {/* Hover border glow */}
+                        <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
+                      </motion.div>
                     </Link>
                   ))}
                 </div>
               </div>
+
+              {/* Swipe hint for mobile */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 1.2 }}
+                className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
+              >
+                <span>Swipe to explore</span>
+                <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+                </div>
+              </motion.div>
             </div>
           </motion.div>
         </div>
 
-        {/* Reviews Section */}
+        {/* Reviews Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1.1 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-4 md:p-8 border border-gray-700/50 shadow-xl"
+          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
         >
-          <h2 className="text-lg md:text-2xl font-bold mb-4 md:mb-6 text-gray-200">User Reviews</h2>
-          <div className="space-y-3 md:space-y-4">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <MessageCircle className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-white">User Reviews</h2>
+          </div>
+          <div className="space-y-4">
             {Tvdetails && Array.isArray(Tvdetails.reviews) && Tvdetails.reviews.length > 0 ? (
               Tvdetails.reviews.map((review) => (
                 <div
                   key={review.id}
-                  className="bg-gradient-to-br from-gray-700/30 to-gray-800/30 backdrop-blur-sm rounded-xl p-4 md:p-6 border border-gray-600/30"
+                  className="bg-white/5 backdrop-blur-sm rounded-xl p-5 border border-white/10"
                 >
-                  <h3 className="font-semibold text-sm md:text-lg text-gray-200 mb-1 md:mb-2">{review.author}</h3>
-                  <p className="text-gray-300 text-sm md:text-base leading-relaxed">{review.content}</p>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {review.author.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-white">{review.author}</h3>
+                  </div>
+                  <p className="text-white/70 leading-relaxed">{review.content}</p>
                 </div>
               ))
             ) : (
-              <p className="text-gray-400 text-center py-6 md:py-8 text-sm md:text-base">No reviews available yet.</p>
+              <p className="text-white/50 text-center py-8">No reviews available yet.</p>
             )}
           </div>
         </motion.section>
