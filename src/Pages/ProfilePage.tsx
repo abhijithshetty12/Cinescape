@@ -181,17 +181,19 @@ const ProfilePage = () => {
   };
 
 
-  const RecommendationSection = ({
+const RecommendationSection = ({
     watchlist,
     history,
     favouriteActors,
     selectedGenres,
+    ratedMovies,
     onMediaClick,
   }: {
     watchlist: { id: string; title: string; posterPath: string; mediaType: string }[];
     history: { id: string; title: string; posterPath: string; mediaType: string }[];
     favouriteActors: { id: string; name: string; profilePath: string }[];
     selectedGenres: string[];
+    ratedMovies: { id: string; title: string; posterPath: string; rating: number }[];
     onMediaClick: (id: string, mediaType: string) => void;
   }) => {
     const [trendingMovies, setTrendingMovies] = useState<
@@ -209,6 +211,7 @@ const ProfilePage = () => {
       setLoading(true);
     };
 
+// Refresh recommendations when page becomes visible or gains focus
     useEffect(() => {
       let isMounted = true;
 
@@ -217,12 +220,44 @@ const ProfilePage = () => {
 
         let movieIds: string[] = [];
         let actorIds: string[] = [];
+        let watchedOrWatchlistIds = new Set<string>();
 
-        movieIds = [
-          ...watchlist.filter(m => m.mediaType === mediaType).map((m) => m.id),
-          ...history.filter(h => h.mediaType === mediaType).map((h) => h.id),
-        ].filter((v, i, arr) => arr.indexOf(v) === i);
+        // Build exclude set from history and watchlist (already watched or in watchlist)
+        history.forEach(h => {
+          if (h.mediaType === mediaType) {
+            watchedOrWatchlistIds.add(h.id);
+          }
+        });
+        watchlist.forEach(w => {
+          if (w.mediaType === mediaType) {
+            watchedOrWatchlistIds.add(w.id);
+          }
+        });
 
+        // Add highly-rated movies (7+ stars) as priority sources
+        const highlyRatedMovies = ratedMovies
+          .filter(m => m.rating >= 7)
+          .map(m => m.id);
+
+        // Get movie IDs from different sources with priority
+        const watchlistIds = watchlist
+          .filter(m => m.mediaType === mediaType)
+          .map(m => m.id);
+
+        const historyIds = history
+          .filter(h => h.mediaType === mediaType)
+          .map(h => h.id);
+
+        // Deduplicate while preserving priority order (highly rated first)
+        const priorityMovieIds = [...highlyRatedMovies];
+        watchlistIds.forEach(id => {
+          if (!priorityMovieIds.includes(id)) priorityMovieIds.push(id);
+        });
+        historyIds.forEach(id => {
+          if (!priorityMovieIds.includes(id)) priorityMovieIds.push(id);
+        });
+
+        movieIds = priorityMovieIds;
         actorIds = favouriteActors.map((a) => a.id);
 
         let recommended: any[] = [];
@@ -249,13 +284,37 @@ const ProfilePage = () => {
             'Western': 37,
           };
 
-          const genreIds = selectedGenres
-            .map(g => genreMap[g.trim()])
-            .filter(id => id !== undefined);
+          // Also collect genres from watched/rated content for better recommendations
+          const genreIdsSet = new Set<number>(
+            selectedGenres
+              .map(g => genreMap[g.trim()])
+              .filter(id => id !== undefined)
+          );
 
-          if (movieIds.length > 0) {
-            const MAX_MOVIE_SOURCES = Math.min(movieIds.length, 5);
-            const moviePromises = movieIds.slice(0, MAX_MOVIE_SOURCES).map(async (movieId) => {
+          // Fetch genres from rated movies
+          if (highlyRatedMovies.length > 0) {
+            const genreFetchPromises = highlyRatedMovies.slice(0, 3).map(async (movieId) => {
+              try {
+                const endpoint = mediaType === 'movie'
+                  ? `https://api.themoviedb.org/3/movie/${movieId}`
+                  : `https://api.themoviedb.org/3/tv/${movieId}`;
+                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+                const genres = res.data.genres || [];
+                genres.forEach((g: any) => genreIdsSet.add(g.id));
+                return genres;
+              } catch (err) {
+                return [];
+              }
+            });
+            await Promise.all(genreFetchPromises);
+          }
+
+          const genreIds = Array.from(genreIdsSet);
+
+          // Fetch recommendations from highly-rated movies first (highest priority)
+          if (highlyRatedMovies.length > 0) {
+            const MAX_MOVIE_SOURCES = Math.min(highlyRatedMovies.length, 5);
+            const moviePromises = highlyRatedMovies.slice(0, MAX_MOVIE_SOURCES).map(async (movieId) => {
               try {
                 const endpoint = mediaType === 'movie'
                   ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
@@ -269,10 +328,49 @@ const ProfilePage = () => {
             });
 
             const results = await Promise.all(moviePromises);
+            results.forEach(r => recommended.push(...r.slice(0, 12)));
+          }
+
+          // Fetch from watchlist
+          if (watchlistIds.length > 0 && recommended.length < 20) {
+            const watchlistPromises = watchlistIds.slice(0, 5).map(async (movieId) => {
+              try {
+                const endpoint = mediaType === 'movie'
+                  ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
+                  : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
+                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+                return res.data.results || [];
+              } catch (err) {
+                console.error(`Error fetching recommendations for ${movieId}:`, err);
+                return [];
+              }
+            });
+
+            const results = await Promise.all(watchlistPromises);
             results.forEach(r => recommended.push(...r.slice(0, 10)));
           }
 
-          if (actorIds.length > 0) {
+          // Fetch from history
+          if (historyIds.length > 0 && recommended.length < 20) {
+            const historyPromises = historyIds.slice(0, 5).map(async (movieId) => {
+              try {
+                const endpoint = mediaType === 'movie'
+                  ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
+                  : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
+                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+                return res.data.results || [];
+              } catch (err) {
+                console.error(`Error fetching recommendations for ${movieId}:`, err);
+                return [];
+              }
+            });
+
+            const results = await Promise.all(historyPromises);
+            results.forEach(r => recommended.push(...r.slice(0, 8)));
+          }
+
+          // Fetch from favorite actors
+          if (actorIds.length > 0 && recommended.length < 20) {
             const actorPromises = actorIds.slice(0, 10).map(async (actorId) => {
               try {
                 const endpoint = mediaType === 'movie'
@@ -290,6 +388,7 @@ const ProfilePage = () => {
             actorResults.forEach(r => recommended.push(...r.slice(0, 10)));
           }
 
+          // Fallback to genre-based discovery
           if (genreIds.length > 0 && recommended.length < 20) {
             const genrePromises = genreIds.slice(0, 3).map(async (genreId) => {
               try {
@@ -308,6 +407,7 @@ const ProfilePage = () => {
             genreResults.forEach(r => recommended.push(...r.slice(0, 8)));
           }
 
+          // Final fallback to popular content
           if (recommended.length === 0) {
             const fallbackUrl = mediaType === 'movie'
               ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
@@ -325,16 +425,19 @@ const ProfilePage = () => {
         const unique = new Map();
         recommended.forEach((m: any) => {
           if (m.id && !unique.has(m.id)) {
-            unique.set(m.id, {
-              id: m.id.toString(),
-              title: m.title || m.name || "",
-              posterPath: m.poster_path
-                ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
-                : "",
-              mediaType: m.media_type || mediaType,
-              overview: m.overview || "",
-              voteAverage: m.vote_average || 0,
-            });
+            // Filter out already watched or in watchlist
+            if (!watchedOrWatchlistIds.has(m.id.toString())) {
+              unique.set(m.id, {
+                id: m.id.toString(),
+                title: m.title || m.name || "",
+                posterPath: m.poster_path
+                  ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
+                  : "",
+                mediaType: m.media_type || mediaType,
+                overview: m.overview || "",
+                voteAverage: m.vote_average || 0,
+              });
+            }
           }
         });
 
@@ -352,7 +455,34 @@ const ProfilePage = () => {
       return () => {
         isMounted = false;
       };
-    }, [watchlist, history, favouriteActors, selectedGenres, mediaType, page]);
+    }, [watchlist, history, favouriteActors, selectedGenres, mediaType, page, ratedMovies]);
+
+    // Handle visibility change to refresh recommendations when user returns to page
+    useEffect(() => {
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          // User returned to the page, refresh recommendations
+          setTrendingMovies([]);
+          setPage(1);
+          setLoading(true);
+        }
+      };
+
+      const handleFocus = () => {
+        // User focused the window, refresh recommendations
+        setTrendingMovies([]);
+        setPage(1);
+        setLoading(true);
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleFocus);
+
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleFocus);
+      };
+    }, []);
 
 
     return (
@@ -570,11 +700,12 @@ const ProfilePage = () => {
                 <ReviewList userId={user?.uid} />
               </div>
             </motion.div>
-            <RecommendationSection
+<RecommendationSection
               watchlist={watchlist}
               history={history}
               favouriteActors={favouriteActors}
               selectedGenres={selectedGenres}
+              ratedMovies={ratedMovies}
               onMediaClick={handleMediaClick}
             />
           </div>
