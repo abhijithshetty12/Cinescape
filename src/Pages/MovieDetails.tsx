@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Star, Calendar, Clock, Play, Heart, Globe, DollarSign, Bookmark, ThumbsDown, ThumbsUp, ChevronLeft, ChevronRight, BookmarkCheck, TvMinimalPlay, ImageOff, Eye, EyeOff, Check, Plus, Loader2 } from 'lucide-react';
+import { Star, Calendar, Clock, Play, Heart, Globe, DollarSign, Bookmark, ThumbsDown, ThumbsUp, ChevronLeft, ChevronRight, BookmarkCheck, TvMinimalPlay, ImageOff, Eye, EyeOff, Check, Plus, Loader2, Users, Award } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/swiper-bundle.css';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -468,118 +468,144 @@ const MovieDetails = () => {
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
 
-      <div className="relative h-[60vh] md:h-[75vh] flex items-end">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              window.innerWidth >= 768
-                ? movieImages && movieImages.length > 0
-                  ? `url(https://image.tmdb.org/t/p/original/${movieImages[Math.floor(Math.random() * movieImages.length)].file_path})`
-                  : `url(${posterImageUrl})`
-                : `url(${posterImageUrl})`,
-            filter: window.innerWidth >= 768 ? 'blur(2px) brightness(0.7)' : 'none'
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/60" />
-
-
-        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 md:px-8 pb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="flex flex-col md:flex-row items-center md:items-end gap-4 md:gap-10 bg-white/10 backdrop-blur-xl rounded-3xl border-2 border-transparent bg-clip-padding shadow-2xl p-3 xs:p-4 md:p-10"
+      <div className="relative min-h-[70vh] md:min-h-[85vh] flex items-end">
+        {/* Dynamic Background with gradient overlays */}
+        <div className="absolute inset-0">
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
             style={{
-              boxShadow: '0 8px 32px 0 rgba(0,0,0,0.45)'
+              backgroundImage:
+                window.innerWidth >= 768
+                  ? movieImages && movieImages.length > 0
+                    ? `url(https://image.tmdb.org/t/p/original/${movieImages[Math.floor(Math.random() * movieImages.length)].file_path})`
+                    : `url(${posterImageUrl})`
+                  : `url(${posterImageUrl})`,
             }}
+          />
+          {/* Multi-layered gradient overlays for depth */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-transparent to-black/70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
+          {/* Animated noise texture overlay for modern feel */}
+          <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
+            className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-12"
           >
-            <div className="hidden md:block">
-              <div className="flex-shrink-0 flex items-center justify-center w-auto md:-mt-32 md:w-auto md:mr-6 mb-3 md:mb-0">
-                {movieDetails?.poster_path ? (
-                  <motion.img
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.7, delay: 0.2 }}
-                    src={posterThumbnailUrl}
-                    alt={movieTitle}
-                    className="w-20 h-28 xs:w-24 xs:h-32 sm:w-28 sm:h-40 md:w-48 md:h-72 lg:w-56 lg:h-80 object-cover rounded-2xl shadow-2xl border-4 border-white/30"
-                    style={{ boxShadow: '0 6px 32px 0 rgba(0,0,0,0.55)' }}
-                  />
-                ) : (
-                  <div className="w-20 h-28 xs:w-24 xs:h-32 sm:w-28 sm:h-40 md:w-48 md:h-72 lg:w-56 lg:h-80 bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center text-gray-400 rounded-2xl shadow-2xl border-4 border-white/30">
-                    <ImageOff className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 mb-2 md:mb-3 opacity-60" />
-                    <span className="text-xs sm:text-sm text-center px-2 md:px-4">No Image Available</span>
-                  </div>
-                )}
-              </div>
+            {/* Professional poster frame */}
+            <div className="w-full md:w-auto flex-shrink-0 flex justify-center md:justify-start md:-mt-20 md:mr-8 order-1 md:order-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                className="relative"
+              >
+                {/* Refined elegant frame */}
+                <div className="relative ring-1 ring-white/10 bg-white/5 rounded-2xl p-1.5 sm:p-2 shadow-2xl shadow-black/50">
+                  {movieDetails?.poster_path ? (
+                    <img
+                      src={posterThumbnailUrl}
+                      alt={movieTitle}
+                      className="w-40 h-56 xs:w-48 xs:h-64 sm:w-52 sm:h-72 md:w-56 md:h-80 lg:w-64 lg:h-96 object-cover rounded-lg shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-40 h-56 xs:w-48 xs:h-64 sm:w-52 sm:h-72 md:w-56 md:h-80 lg:w-64 lg:h-96 bg-zinc-900/80 flex flex-col items-center justify-center text-gray-500 rounded-lg">
+                      <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                      <span className="text-xs text-center px-3">No Image</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </div>
 
-            <div className="flex-1 flex flex-col justify-end w-full">
-              <div className="flex flex-wrap items-center gap-1.5 xs:gap-2 sm:gap-3 mb-2 xs:mb-4">
-                <div className="flex items-center gap-1.5 bg-black/70 px-3 py-1.5 rounded-full border border-white/20 shadow">
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                  <span className="text-white font-bold text-sm">{movieRating}</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-black/70 px-3 py-1.5 rounded-full border border-white/20 shadow">
-                  <Clock className="w-4 h-4 text-blue-400" />
-                  <span className="text-gray-300 text-sm">{movieRuntime} min</span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-black/70 px-3 py-1.5 rounded-full border border-white/20 shadow">
-                  <Calendar className="w-4 h-4 text-green-400" />
-                  <span className="text-gray-200 text-sm">{movieReleaseDate}</span>
-                </div>
-              </div>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.25 }}
-                className="text-3xl md:text-5xl lg:text-6xl font-extrabold mb-3 md:mb-5 leading-tight drop-shadow-lg"
-              >
-                {movieTitle}
-              </motion.h1>
-
+            {/* Content section */}
+            <div className="flex-1 flex flex-col justify-end w-full text-center md:text-left order-2 md:order-none">
+              {/* Minimal glassmorphic badges */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="flex flex-wrap gap-2 mb-5"
+                transition={{ duration: 0.6, delay: 0.35 }}
+                className="flex flex-wrap justify-center md:justify-start items-center gap-2 md:gap-3 mb-4 md:mb-6"
+              >
+                {/* Rating badge - Glassmorphic */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  <span className="text-white font-semibold text-sm sm:text-base">{movieRating}</span>
+                </div>
+
+                {/* Runtime badge - Glassmorphic */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span className="text-white/80 font-medium text-sm">{movieRuntime} min</span>
+                </div>
+
+                {/* Release date badge - Glassmorphic */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
+                  <Calendar className="w-4 h-4 text-green-600" />
+                  <span className="text-white/80 font-medium text-sm">
+                    {movieReleaseDate}
+                  </span>
+                </div>
+              </motion.div>
+
+              {/* Title with enhanced typography */}
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.4, ease: "easeOut" }}
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black mb-4 md:mb-6 leading-tight tracking-tight text-white"
+              >
+                <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+                  {movieTitle}
+                </span>
+              </motion.h1>
+
+              {/* Genre chips - minimal glassmorphic */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+                className="flex flex-wrap justify-center md:justify-start gap-2 md:gap-2.5 mb-6 md:mb-8"
               >
                 {movieDetails?.genres?.map((genre) => (
                   <span
                     key={genre.id}
-                    className="px-3 py-1 bg-zinc-900/80 rounded-full text-xs sm:text-sm border border-zinc-700/50 shadow"
+                    className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-xs sm:text-sm font-medium text-white/80 transition-all duration-300 hover:bg-white/10 hover:text-white hover:border-white/20"
                   >
                     {genre.name}
                   </span>
                 ))}
               </motion.div>
 
+              {/* Action buttons */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.35 }}
-                className="flex flex-col sm:flex-row gap-3 sm:gap-4"
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
               >
                 <WatchedButtonInline />
                 <button
                   onClick={handleWatchlistToggle}
-                  className={`flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-[44px] shadow-lg ${isInWatchlist
-                    ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white shadow-green-500/25'
-                    : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-blue-500/25'
+                  className={`relative group flex items-center gap-3 px-6 py-3.5 sm:px-8 sm:py-4 rounded-2xl font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-[52px] shadow-xl overflow-hidden ${isInWatchlist
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-emerald-500/30'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
                     }`}
                 >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                   {isInWatchlist ? (
-                    <BookmarkCheck className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <BookmarkCheck className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
                   ) : (
-                    <Bookmark className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Bookmark className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" />
                   )}
-                  <span className="hidden xs:inline sm:inline">
-                    {isInWatchlist ? 'Saved to Watchlist' : 'Add to Watchlist'}
-                  </span>
-                  <span className="xs:hidden sm:hidden">
+                  <span className="relative z-10">
                     {isInWatchlist ? 'Saved to Watchlist' : 'Add to Watchlist'}
                   </span>
                 </button>
@@ -593,10 +619,10 @@ const MovieDetails = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.7 }}
-        className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+        className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
       >
-        <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">Synopsis</h2>
-        <p className="text-base md:text-lg text-gray-300 leading-relaxed">{movieOverview}</p>
+        <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-white">Synopsis</h2>
+        <p className="text-base md:text-lg text-white/70 leading-relaxed">{movieOverview}</p>
       </motion.section>
 
       <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
@@ -604,13 +630,15 @@ const MovieDetails = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
         >
           <div className="flex items-center gap-3 mb-6">
-            <TvMinimalPlay className="w-6 h-6 md:w-8 md:h-8 text-red-500" />
-            <h2 className="text-xl md:text-2xl font-bold">Watch Now</h2>
+            <div className="p-2 bg-red-500/20 rounded-lg">
+              <TvMinimalPlay className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-white">Watch Now</h2>
           </div>
-          <div className="rounded-2xl overflow-hidden shadow-2xl border-4 border-zinc-900/80">
+          <div className="rounded-xl overflow-hidden ring-1 ring-white/10">
             <div className="w-full" style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
               <iframe
                 src={embedUrl}
@@ -620,16 +648,7 @@ const MovieDetails = () => {
                 allowFullScreen
                 allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
                 title="Movie Embed"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  border: 0,
-                  borderRadius: "1rem",
-                  background: "#000"
-                }}
+                className="absolute top-0 left-0 w-full h-full"
                 ref={el => {
                   if (el && typeof window !== "undefined") {
                     const handleFs = () => {
@@ -654,33 +673,33 @@ const MovieDetails = () => {
           </div>
         </motion.section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.8 }}
             className="lg:col-span-1"
           >
-            <div className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-              <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 h-full">
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
                 <Globe className="w-5 h-5 text-blue-400" />
                 Movie Info
               </h3>
-              <dl className="space-y-4">
-                <div className="border-b border-gray-700/30 pb-3">
-                  <dt className="text-gray-400 text-sm font-medium mb-1">Language</dt>
-                  <dd className="text-white font-medium">{movieLanguage}</dd>
+              <dl className="space-y-5">
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">Language</dt>
+                  <dd className="text-white font-semibold">{movieLanguage}</dd>
                 </div>
-                <div className="border-b border-gray-700/30 pb-3">
-                  <dt className="text-gray-400 text-sm font-medium mb-1">Box Office</dt>
-                  <dd className="flex items-center gap-2 text-white font-medium">
-                    <DollarSign className="w-4 h-4 text-green-400" />
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">Box Office</dt>
+                  <dd className="flex items-center gap-2 text-white font-semibold">
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
                     {movieBoxOffice}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-gray-400 text-sm font-medium mb-1">Director</dt>
-                  <dd className="text-white font-medium">{movieDirector}</dd>
+                  <dt className="text-white/50 text-sm font-medium mb-2">Director</dt>
+                  <dd className="text-white font-semibold">{movieDirector}</dd>
                 </div>
               </dl>
             </div>
@@ -700,11 +719,11 @@ const MovieDetails = () => {
                   768: { slidesPerView: 2 },
                   1024: { slidesPerView: 3 },
                 }}
-                className="rounded-2xl overflow-hidden"
+                className="rounded-xl overflow-hidden"
               >
                 {movieDetails?.trailers && movieDetails.trailers.length > 0 && (
                   <SwiperSlide>
-                    <div className="aspect-video rounded-xl overflow-hidden">
+                    <div className="aspect-video rounded-xl overflow-hidden ring-1 ring-white/10">
                       <iframe
                         className="w-full h-full"
                         src={`https://www.youtube.com/embed/${movieDetails.trailers[0].key}`}
@@ -718,11 +737,11 @@ const MovieDetails = () => {
                 )}
                 {movieImages.map((image) => (
                   <SwiperSlide key={image.file_path}>
-                    <div className="aspect-video rounded-xl overflow-hidden">
+                    <div className="aspect-video rounded-xl overflow-hidden ring-1 ring-white/10">
                       <img
                         src={`https://image.tmdb.org/t/p/w500${image.file_path}`}
                         alt="Movie backdrop"
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   </SwiperSlide>
@@ -736,48 +755,97 @@ const MovieDetails = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1.0 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+          className="relative bg-gradient-to-br from-gray-900/60 to-black/80 backdrop-blur-md rounded-3xl p-6 md:p-10 border border-white/5 shadow-2xl overflow-hidden"
         >
-          <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-200">Cast</h2>
-          <div className="overflow-x-auto">
-            <div className="flex gap-4 md:gap-6 pb-4">
-              {movieDetails?.cast?.map((actor) => (
-                <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0">
-                  <div className="bg-gradient-to-b from-gray-700/50 to-gray-800/50 hover:from-gray-600/50 hover:to-gray-700/50 transition-all duration-300 rounded-xl shadow-lg overflow-hidden group w-32 sm:w-40 border border-gray-600/30">
-                    {actor.profile_path ? (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
-                        alt={actor.name}
-                        className="w-full h-40 sm:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-40 sm:h-48 bg-zinc-800 flex flex-col items-center justify-center text-gray-400">
-                        <ImageOff className="w-8 h-8 sm:w-12 sm:h-12 mb-2" />
-                        <span className="text-xs text-center px-2">No Image</span>
-                      </div>
-                    )}
-                    <div className="p-3 sm:p-4 text-center">
-                      <h3 className="font-bold text-xs sm:text-sm text-gray-200 group-hover:text-yellow-400 transition-colors duration-300 mb-1 line-clamp-2">
+          {/* Gradient accent */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-pink-500/5 to-rose-500/5 rounded-full blur-3xl" />
+
+          <div className="flex items-center gap-4 mb-8 relative z-10">
+            <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center border border-white/10">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Top Cast</h2>
+          </div>
+
+          <div className="overflow-x-auto pb-2 custom-scrollbar">
+            <div className="flex gap-4 md:gap-5">
+              {movieDetails?.cast?.map((actor, idx) => (
+                <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
+                    className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44"
+                  >
+                    {/* Image container with aspect ratio */}
+                    <div className="relative aspect-[3/4] overflow-hidden">
+                      {actor.profile_path ? (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
+                          alt={actor.name}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
+                          <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                          <span className="text-xs text-center px-2">No Photo</span>
+                        </div>
+                      )}
+
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                    </div>
+
+                    {/* Info */}
+                    <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
+                      <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
                         {actor.name}
                       </h3>
-                      <p className="text-xs text-gray-400 line-clamp-2">{actor.role}</p>
+                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                        {actor.role || 'Unknown Role'}
+                      </p>
                     </div>
-                  </div>
+
+                    {/* Hover border glow */}
+                    <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
+                  </motion.div>
                 </Link>
               ))}
             </div>
           </div>
+
+          {/* Swipe hint for mobile */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+            className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
+          >
+            <span>Swipe to explore</span>
+            <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+            </div>
+          </motion.div>
         </motion.section>
 
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 1.02 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+          className="relative bg-gradient-to-br from-gray-900/60 to-black/80 backdrop-blur-md rounded-3xl p-6 md:p-10 border border-white/5 shadow-2xl overflow-hidden"
         >
-          <h2 className="text-xl md:text-2xl font-bold mb-6 text-gray-200">Crew</h2>
-          <div className="overflow-x-auto">
-            <div className="flex gap-4 md:gap-6 pb-4">
+          {/* Gradient accent */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl" />
+
+          <div className="flex items-center gap-4 mb-8 relative z-10">
+            <div className="w-10 h-10 rounded-xl bg-yellow-400 to-yellow-500/20 flex items-center justify-center border border-white/10">
+              <Award className="w-5 h-5 text-black" />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Crew</h2>
+          </div>
+
+          <div className="overflow-x-auto pb-2 custom-scrollbar">
+            <div className="flex gap-4 md:gap-5">
               {(() => {
                 const grouped: Record<string, any> = {};
                 crew.forEach((member) => {
@@ -807,39 +875,70 @@ const MovieDetails = () => {
                   return a.name.localeCompare(b.name);
                 });
 
-                return crewArr.map((member: any) => (
+                return crewArr.map((member: any, idx) => (
                   <Link
                     key={member.credit_id}
                     to={`/actor/${member.id}`}
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 group"
+                    style={{ animationDelay: `${idx * 0.05}s` }}
                   >
-                    <div className="bg-gradient-to-b from-gray-700/50 to-gray-800/50 hover:from-gray-600/50 hover:to-gray-700/50 transition-all duration-300 rounded-xl shadow-lg overflow-hidden group w-32 sm:w-40 border border-gray-600/30">
-                      {member.profile_path ? (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w500${member.profile_path}`}
-                          alt={member.name}
-                          className="w-full h-40 sm:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="w-full h-40 sm:h-48 bg-zinc-800 flex flex-col items-center justify-center text-gray-400">
-                          <ImageOff className="w-8 h-8 sm:w-12 sm:h-12 mb-2" />
-                          <span className="text-xs text-center px-2">No Image</span>
-                        </div>
-                      )}
-                      <div className="p-3 sm:p-4 text-center">
-                        <h3 className="font-bold text-xs sm:text-sm text-gray-200 group-hover:text-yellow-400 transition-colors duration-300 mb-1 line-clamp-2">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
+                      className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden group w-36 sm:w-44"
+                    >
+                      {/* Image container */}
+                      <div className="relative aspect-[3/4] overflow-hidden">
+                        {member.profile_path ? (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w500${member.profile_path}`}
+                            alt={member.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
+                            <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                            <span className="text-xs text-center px-2">No Photo</span>
+                          </div>
+                        )}
+
+                        {/* Gradient overlay on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
+                        <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
                           {member.name}
                         </h3>
-                        <p className="text-xs text-gray-400 line-clamp-2">
-                          {member.jobs.join(', ')}
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {member.jobs.slice(0, 2).join(', ')}
+                          {member.jobs.length > 2 && ` +${member.jobs.length - 2} more`}
                         </p>
                       </div>
-                    </div>
+
+                      {/* Hover glow effect */}
+                      <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
+                    </motion.div>
                   </Link>
                 ));
               })()}
             </div>
           </div>
+
+          {/* Swipe hint */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+            className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
+          >
+            <span>Swipe to explore</span>
+            <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+            </div>
+          </motion.div>
         </motion.section>
 
         {movieParts.length > 0 && (
@@ -847,8 +946,8 @@ const MovieDetails = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.05 }}
-          className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-2xl relative overflow-hidden"
-        >
+            className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-2xl relative overflow-hidden"
+          >
             {/* Gradient overlays for peek effect */}
             <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/60 to-transparent pointer-events-none z-10 md:hidden" />
             <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/60 to-transparent pointer-events-none z-10 md:hidden" />
@@ -866,11 +965,11 @@ const MovieDetails = () => {
             </div>
 
             <div className="relative">
-                <div className="flex gap-3 md:gap-4 pb-3 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-900/50 scrollbar-thumb-rounded overflow-x-auto scroll-smooth -mr-4 md:-mr-6 pr-4 md:pr-6">
+              <div className="flex gap-3 md:gap-4 pb-3 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-900/50 scrollbar-thumb-rounded overflow-x-auto scroll-smooth -mr-4 md:-mr-6 pr-4 md:pr-6">
                 {movieParts
                   .sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())
                   .map((part, index) => (
-                      <Link
+                    <Link
                       key={part.id}
                       to={`/movie/${part.id}`}
                       className="flex-shrink-0 snap-center w-32 md:w-40 lg:w-44 h-44 md:h-56 lg:h-64 group"
