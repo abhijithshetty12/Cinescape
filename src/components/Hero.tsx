@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { Play, Star, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Play, Star, Calendar, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
 interface Movie {
@@ -13,45 +14,64 @@ interface Movie {
   overview: string | null;
   id: number;
   trailers: { key: string }[];
-  media_type?: 'movie' | 'tv';
+  media_type?: "movie" | "tv";
 }
+
+const FADE_VARIANTS = {
+  enter: { opacity: 0, y: 24 },
+  center: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -16 },
+};
+
+const BG_VARIANTS = {
+  enter: { opacity: 0, scale: 1.06 },
+  center: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.97 },
+};
 
 const Hero = () => {
   const [currentMovie, setCurrentMovie] = useState(0);
   const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
-  const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
+  const [direction, setDirection] = useState(1);
+
+  const API_KEY = "859afbb4b98e3b467da9c99ac390e950";
   const TRENDING_MOVIES_URL = `https://api.themoviedb.org/3/trending/movie/week?api_key=${API_KEY}`;
   const POPULAR_TV_URL = `https://api.themoviedb.org/3/tv/popular?api_key=${API_KEY}`;
 
   useEffect(() => {
     const fetchTrendingContent = async () => {
       try {
-        const moviesResponse = await axios.get(TRENDING_MOVIES_URL);
+        const [moviesResponse, tvResponse] = await Promise.all([
+          axios.get(TRENDING_MOVIES_URL),
+          axios.get(POPULAR_TV_URL),
+        ]);
         const movies = moviesResponse.data.results.slice(0, 5);
-
-        const tvResponse = await axios.get(POPULAR_TV_URL);
         const tvShows = tvResponse.data.results.slice(0, 5);
 
-        const moviesWithTrailers = await Promise.all(movies.map(async (movie: Movie) => {
-          const trailerResponse = await axios.get(`https://api.themoviedb.org/3/movie/${movie.id}/videos?api_key=${API_KEY}`);
-          return { ...movie, trailers: trailerResponse.data.results, media_type: 'movie' as const };
-        }));
-
-        const tvWithTrailers = await Promise.all(tvShows.map(async (tv: Movie) => {
-          const trailerResponse = await axios.get(`https://api.themoviedb.org/3/tv/${tv.id}/videos?api_key=${API_KEY}`);
-          return { ...tv, trailers: trailerResponse.data.results, media_type: 'tv' as const };
-        }));
+        const [moviesWithTrailers, tvWithTrailers] = await Promise.all([
+          Promise.all(
+            movies.map(async (movie: Movie) => {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/movie/${movie.id}/videos?api_key=${API_KEY}`
+              );
+              return { ...movie, trailers: res.data.results, media_type: "movie" as const };
+            })
+          ),
+          Promise.all(
+            tvShows.map(async (tv: Movie) => {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/tv/${tv.id}/videos?api_key=${API_KEY}`
+              );
+              return { ...tv, trailers: res.data.results, media_type: "tv" as const };
+            })
+          ),
+        ]);
 
         const allContent: Movie[] = [];
         const maxLength = Math.max(tvWithTrailers.length, moviesWithTrailers.length);
-
         for (let i = 0; i < maxLength; i++) {
-          if (i < tvWithTrailers.length) {
-            allContent.push(tvWithTrailers[i]);
-          }
-          if (i < moviesWithTrailers.length) {
-            allContent.push(moviesWithTrailers[i]);
-          }
+          if (i < tvWithTrailers.length) allContent.push(tvWithTrailers[i]);
+          if (i < moviesWithTrailers.length) allContent.push(moviesWithTrailers[i]);
         }
 
         setTrendingMovies(allContent);
@@ -61,113 +81,201 @@ const Hero = () => {
     };
 
     fetchTrendingContent();
+  }, []);
+
+  useEffect(() => {
+    if (trendingMovies.length === 0) return;
     const timer = setInterval(() => {
+      setDirection(1);
       setCurrentMovie((prev) => (prev + 1) % trendingMovies.length);
     }, 8000);
     return () => clearInterval(timer);
   }, [trendingMovies.length]);
 
-  const prevMovie = () => {
+  const prevMovie = useCallback(() => {
+    setDirection(-1);
     setCurrentMovie((prev) => (prev === 0 ? trendingMovies.length - 1 : prev - 1));
-  };
+  }, [trendingMovies.length]);
 
-  const nextMovie = () => {
+  const nextMovie = useCallback(() => {
+    setDirection(1);
     setCurrentMovie((prev) => (prev + 1) % trendingMovies.length);
-  };
+  }, [trendingMovies.length]);
+
+  const goToMovie = useCallback(
+    (index: number) => {
+      setDirection(index > currentMovie ? 1 : -1);
+      setCurrentMovie(index);
+    },
+    [currentMovie]
+  );
 
   const movie: Movie | undefined = trendingMovies[currentMovie];
+  const backdropUrl = movie?.backdrop_path
+    ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}`
+    : "";
 
   return (
-    <div className="relative h-[70vh] min-h-[320px] sm:h-[90vh] sm:min-h-[500px] flex flex-col overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-black-900/20 to-purple-900/20 backdrop-blur-xl" />
+    <div className="relative h-[72vh] min-h-[360px] sm:h-[92vh] sm:min-h-[520px] flex flex-col overflow-hidden bg-black">
+      {/* ── Animated backdrop ── */}
+      <AnimatePresence mode="sync">
+        <motion.div
+          key={`bg-${currentMovie}`}
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url('${backdropUrl}')` }}
+          variants={BG_VARIANTS}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: 1.2, ease: "easeInOut" }}
+        />
+      </AnimatePresence>
+
+      {/* ── Cinematic gradient overlays ── */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-black/20" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+
+      {/* ── Red ambient glow at bottom-left ── */}
       <div
-        className="absolute inset-0 bg-cover bg-center transition-all duration-1000 gradient-mask glassmorphic-overlay"
+        className="absolute bottom-0 left-0 w-96 h-48 pointer-events-none"
         style={{
-          backgroundImage: `url('${movie?.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : ''}')`,
+          background:
+            "radial-gradient(ellipse at bottom left, rgba(220,38,38,0.18) 0%, transparent 70%)",
         }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/90 glassmorphic-overlay" />
-      </div>
+      />
 
-      {/* Deco gradient accents */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
+      {/* ── Thin red accent line ── */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-red-600/60 via-red-500/30 to-transparent" />
 
-      <div className="relative container mx-auto px-2 xs:px-4 flex-grow flex items-center">
-        <div className="max-w-full sm:max-w-2xl sm:ml-16 z-10">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 mb-3 sm:mb-5">
-            <div className="flex items-center gap-1 sm:gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 glassmorphic-card">
-              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
-              <span className="text-white font-bold text-xs sm:text-sm">
-                {movie?.vote_average} Rating
-              </span>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 glassmorphic-card">
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500" />
-              <span className="text-zinc-200 text-xs sm:text-sm">{movie?.release_date || movie?.first_air_date}</span>
-            </div>
-            <div className={`${movie?.media_type === 'tv' ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gradient-to-r from-orange-500 to-red-600'} px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 glassmorphic-card glassmorphic-gradient`}>
-              <span className="text-white font-bold text-xs sm:text-sm">
-                {movie?.media_type === 'tv' ? 'TV' : 'Movie'}
-              </span>
-            </div>
-          </div>
-          <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 text-white drop-shadow-lg leading-tight glassmorphic-text">
-            {movie?.title || movie?.name}
-          </h1>
-          <p className="text-zinc-300 text-base xs:text-lg mb-6 sm:mb-10 line-clamp-4 max-w-full sm:max-w-xl glassmorphic-text">
-            {movie?.overview}
-          </p>
-          <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-6 w-full max-w-xs xs:max-w-none">
-            <Link
-              to="#"
-              onClick={() => window.open(`https://www.youtube.com/watch?v=${movie?.trailers[0]?.key}`, '_blank')}
-              className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold flex items-center justify-center gap-2 shadow-lg hover:from-orange-600 hover:to-red-700 hover:scale-105 transition-all duration-300 no-underline text-base sm:text-lg glassmorphic-button glassmorphic-gradient"
-            >
-              <Play className="w-5 h-5" />
-              Watch Trailer
-            </Link>
-            <Link
-              to={movie?.media_type === 'tv' ? `/tv/${movie?.id}` : `/movie/${movie?.id}`}
-              className="bg-white/10 border border-white/20 backdrop-blur-md text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-full font-bold hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-lg no-underline text-base sm:text-lg flex items-center justify-center glassmorphic-button"
-              style={{
-                boxShadow: '0 4px 32px 0 rgba(0,0,0,0.25), 0 1.5px 8px 0 rgba(255,255,255,0.05) inset',
-                backdropFilter: 'blur(12px)'
-              }}
-            >
-              More Info
-            </Link>
-          </div>
-        </div>
+      {/* ── Main content ── */}
+      <div className="relative flex-grow flex items-center px-4 sm:px-8 lg:px-16 z-10">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`content-${currentMovie}`}
+            className="max-w-2xl ml-10 sm:ml-14 lg:ml-16"
+            variants={FADE_VARIANTS}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.55, ease: "easeOut" }}
+          >
+            {/* ── Badges ── */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+              {/* Rating badge */}
+              <div className="hero-glass-badge flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                <span className="text-white font-semibold text-xs sm:text-sm">
+                  {movie?.vote_average?.toFixed(1)} Rating
+                </span>
+              </div>
 
+              {/* Date badge */}
+              <div className="hero-glass-badge flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-green-600" />
+                <span className="text-zinc-200 text-xs sm:text-sm">
+                  {movie?.release_date || movie?.first_air_date}
+                </span>
+              </div>
+
+              {/* Media type badge */}
+              <div
+                className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg ${
+                  movie?.media_type === "tv"
+                    ? "bg-blue-600/80 text-white border border-blue-400/30"
+                    : "bg-red-600/80 text-white border border-red-400/30"
+                }`}
+                style={{
+                  boxShadow:
+                    movie?.media_type === "tv"
+                      ? "0 0 12px rgba(37,99,235,0.4)"
+                      : "0 0 12px rgba(220,38,38,0.4)",
+                }}
+              >
+                {movie?.media_type === "tv" ? "TV Series" : "Movie"}
+              </div>
+            </div>
+
+            {/* ── Title ── */}
+            <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 sm:mb-5 text-white leading-tight tracking-tight drop-shadow-2xl">
+              {movie?.title || movie?.name}
+            </h1>
+
+            {/* ── Overview ── */}
+            <p className="text-zinc-300 text-sm sm:text-base md:text-lg mb-7 sm:mb-10 line-clamp-3 max-w-xl leading-relaxed">
+              {movie?.overview}
+            </p>
+
+            {/* ── CTA Buttons ── */}
+            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-4">
+              {/* Watch Trailer — glowy red button */}
+              <button
+                onClick={() =>
+                  window.open(
+                    `https://www.youtube.com/watch?v=${movie?.trailers?.[0]?.key}`,
+                    "_blank"
+                  )
+                }
+                className="hero-btn-glow group relative flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base overflow-hidden"
+                aria-label="Watch Trailer"
+              >
+                {/* Shine sweep */}
+                <span className="hero-btn-shine" aria-hidden="true" />
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white relative z-10 group-hover:scale-110 transition-transform duration-200" />
+                <span className="relative z-10">Watch Trailer</span>
+              </button>
+
+              {/* More Info — glass button */}
+              <Link
+                to={
+                  movie?.media_type === "tv"
+                    ? `/tv/${movie?.id}`
+                    : `/movie/${movie?.id}`
+                }
+                className="hero-btn-glass group flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base no-underline"
+                aria-label="More Info"
+              >
+                <Info className="w-4 h-4 sm:w-5 sm:h-5 relative z-10 group-hover:text-red-400 transition-colors duration-200" />
+                <span>More Info</span>
+              </Link>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* ── Nav arrows ── */}
         {trendingMovies.length > 1 && (
           <>
             <button
               onClick={prevMovie}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer glassmorphic-button"
+              className="hero-nav-btn absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20"
               aria-label="Previous"
             >
-              <ChevronLeft className="w-6 h-6 text-white" />
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </button>
             <button
               onClick={nextMovie}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 text-white p-2 rounded-full shadow-lg transition-all duration-300 z-20 cursor-pointer glassmorphic-button"
+              className="hero-nav-btn absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20"
               aria-label="Next"
             >
-              <ChevronRight className="w-6 h-6 text-white" />
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </button>
           </>
         )}
       </div>
+
+      {/* ── Dot pagination ── */}
       {trendingMovies.length > 1 && (
-  <div className="absolute bottom-4 sm:bottom-8 flex gap-1.5 sm:gap-2 left-1/2 -translate-x-1/2 z-20">
-    {trendingMovies.map((_, index) => (
-      <button
-        key={index}
-        aria-label={`Go to slide ${index + 1}`}
-        aria-current={currentMovie === index}
-        onClick={() => setCurrentMovie(index)}
-        className={`h-2 rounded-full transition-all duration-300 ${currentMovie === index ? 'w-6 sm:w-8 bg-gradient-to-r from-orange-500 to-red-600 glassmorphic-dot-active' : 'w-2 sm:w-2 bg-white/50 glassmorphic-dot-inactive'
-          }`}
+        <div className="absolute bottom-5 sm:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {trendingMovies.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToMovie(index)}
+              aria-label={`Go to slide ${index + 1}`}
+              aria-current={currentMovie === index}
+              className={`h-2 rounded-full transition-all duration-400 ${
+                currentMovie === index
+                  ? "w-8 sm:w-10 bg-red-500 hero-dot-glow"
+                  : "w-2 bg-white/30 hover:bg-white/60"
+              }`}
             />
           ))}
         </div>

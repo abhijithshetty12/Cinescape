@@ -31,6 +31,98 @@
   }
 }
 
+/* ── Hero glassmorphic utilities ── */
+.hero-glass-badge {
+  @apply bg-white/[0.08] backdrop-blur-md border border-white/[0.12] px-3 py-1 rounded-full shadow-lg;
+  transition: background 0.2s, border-color 0.2s;
+}
+.hero-glass-badge:hover {
+  @apply bg-white/[0.14] border-white/20;
+}
+
+/* Glowy red CTA button */
+.hero-btn-glow {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  box-shadow:
+    0 0 20px rgba(220, 38, 38, 0.55),
+    0 0 50px rgba(220, 38, 38, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: box-shadow 0.25s ease, transform 0.2s ease;
+}
+.hero-btn-glow:hover {
+  box-shadow:
+    0 0 30px rgba(220, 38, 38, 0.75),
+    0 0 70px rgba(220, 38, 38, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transform: scale(1.04);
+}
+.hero-btn-glow:active {
+  transform: scale(0.98);
+}
+
+/* Shine sweep effect */
+.hero-btn-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  background-position: -100% 0;
+  transition: background-position 0s;
+}
+.hero-btn-glow:hover .hero-btn-shine {
+  background-position: 200% 0;
+  transition: background-position 0.5s ease;
+}
+
+/* Glass secondary button */
+.hero-btn-glass {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
+}
+.hero-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(220, 38, 38, 0.4);
+  box-shadow:
+    0 0 20px rgba(220, 38, 38, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transform: scale(1.04);
+}
+.hero-btn-glass:active {
+  transform: scale(0.98);
+}
+
+/* Navigation arrow buttons */
+.hero-nav-btn {
+  @apply bg-white/[0.07] backdrop-blur-md border border-white/[0.12] text-white p-2.5 rounded-full shadow-lg cursor-pointer;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+.hero-nav-btn:hover {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.45);
+  box-shadow: 0 0 18px rgba(220, 38, 38, 0.4);
+  transform: scale(1.08);
+}
+.hero-nav-btn:active {
+  transform: scale(0.95);
+}
+
+/* Active dot glow */
+.hero-dot-glow {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 0 18px rgba(239, 68, 68, 0.4);
+}
+
 .movie-card-hover {
   @apply transition-all duration-300;
 }
