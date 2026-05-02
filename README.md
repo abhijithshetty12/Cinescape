@@ -7,7 +7,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
 ![Firebase](https://img.shields.io/badge/Firebase-Database-FFFFFF?style=flat&logo=firebase&logoColor=orange)
 
-**Cinescape** is a high-performance movie discovery platform designed for cinephiles. Built with **React 18** and **TypeScript**, it provides a seamless interface to explore trending cinema, manage personal watchlists, and track viewing history.
+**Cinescape** is a high-performance movie discovery platform designed for cinephiles. Built with **React 18** and **TypeScript**, it provides a seamless interface to explore trending cinema, manage personal watchlists, and track viewing history. Cinescape leverages real-time data from TMDB API to offer comprehensive movie information, including trending movies, top-rated films, upcoming releases, TV shows, and actor profiles—making it the ultimate destination for movie enthusiasts to discover and track their favorite content.
 
 ---
 
@@ -46,10 +46,14 @@
 | :---: | :---: |
 | <img src="https://github.com/user-attachments/assets/b5c1e3a3-2056-41ef-9aa5-974b8816ee51" /> | <img src="https://github.com/user-attachments/assets/9c18e9e8-d394-49ef-87c9-e11fcc830bc7" /> |
 
-### Exploration & History
-| **Top Rated Collection** | **Viewing History** |
+### Exploration & Discovery
+| **Top Rated Collection** | **Explore Movies** |
 | :---: | :---: |
-| <img src="/screenshots/toprated.png" /> | <img src="https://github.com/user-attachments/assets/37e668ba-1a6d-4271-a215-5279ea8f19d9" /> |
+| <img src="/screenshots/toprated.png" /> | <img src="/screenshots/explore-page.png" /> |
+
+| **Advanced Filtering** | **Viewing History** |
+| :---: | :---: |
+| <img src="/screenshots/explore-page2.png" /> | <img src="https://github.com/user-attachments/assets/37e668ba-1a6d-4271-a215-5279ea8f19d9" /> |
 
 ---
 
