@@ -181,7 +181,7 @@ const ProfilePage = () => {
   };
 
 
-const RecommendationSection = ({
+  const RecommendationSection = ({
     watchlist,
     history,
     favouriteActors,
@@ -211,7 +211,7 @@ const RecommendationSection = ({
       setLoading(true);
     };
 
-// Refresh recommendations when page becomes visible or gains focus
+    // Refresh recommendations when page becomes visible or gains focus
     useEffect(() => {
       let isMounted = true;
 
@@ -494,7 +494,7 @@ const RecommendationSection = ({
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-            <Film className="w-5 h-5 text-red-600 shadow-lg shadow-red-500/25" />
+            <img src="/recommendation-icon.png" alt="Recommendations" className="w-9 h-10 shadow-lg" />
             Recommendations
           </h2>
         </div>
@@ -700,7 +700,7 @@ const RecommendationSection = ({
                 <ReviewList userId={user?.uid} />
               </div>
             </motion.div>
-<RecommendationSection
+            <RecommendationSection
               watchlist={watchlist}
               history={history}
               favouriteActors={favouriteActors}
