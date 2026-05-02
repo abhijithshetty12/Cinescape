@@ -44,11 +44,7 @@
 ### User Personalization
 | **Personal Profile** | **Watchlist Management** |
 | :---: | :---: |
-<<<<<<< HEAD
 | <img src="/screenshots/profile-page.png" /> | <img src="https://github.com/user-attachments/assets/9c18e9e8-d394-49ef-87c9-e11fcc830bc7" /> |
-=======
-| <img src="https://github.com/user-attachments/assets/b5c1e3a3-2056-41ef-9aa5-974b8816ee51" /> | <img src="/screenshots/watchlist.png" /> |
->>>>>>> afa601fbacce7f07b1d1c77f84f99764512c1dee
 
 ### Exploration & Discovery
 | **Top Rated Collection** | **Explore Movies** |
@@ -57,7 +53,7 @@
 
 | **Advanced Filtering** | **Viewing History** |
 | :---: | :---: |
-| <img src="/screenshots/explore-page2.png" /> | <img src="/screenshots/history.png" /> |
+| <img src="/screenshots/explore-page2.png" /> | <img src="https://github.com/user-attachments/assets/37e668ba-1a6d-4271-a215-5279ea8f19d9" /> |
 
 ---
 
