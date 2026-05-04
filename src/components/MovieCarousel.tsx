@@ -18,9 +18,15 @@ const MovieCarousel = ({ movies, mediaType }: { movies: any[]; mediaType?: 'movi
       prev === 0 ? Math.max(0, movies.length - visibleMovies) : prev - 1
     );
   };
+
   return (
-    <div className="relative group">
-      <div className="overflow-hidden">
+    <div className="relative group/carousel">
+      {/* Left edge fade */}
+      <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none rounded-l-xl" />
+      {/* Right edge fade */}
+      <div className="absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none rounded-r-xl" />
+
+      <div className="overflow-hidden rounded-xl">
         <div
           className="flex transition-transform duration-500 ease-in-out"
           style={{
@@ -49,27 +55,24 @@ const MovieCarousel = ({ movies, mediaType }: { movies: any[]; mediaType?: 'movi
         </div>
       </div>
 
-      {/* Navigation buttons - glowy with liquid glass */}
       {movies.length > visibleMovies && (
         <>
-          {/* Left arrow */}
+          {/* Left nav button */}
           <button
             onClick={prevSlide}
-            className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 glassmorphic-button liquid-glass group p-2.5 sm:p-3 rounded-full shadow-xl hover:shadow-orange-500/40 transition-all duration-300 z-10 flex items-center justify-center"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-2.5 rounded-full bg-black/80 backdrop-blur-md border border-white/[0.08] hover:border-red-500/40 hover:bg-red-950/70 hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300 group/btn opacity-0 group-hover/carousel:opacity-100"
             aria-label="Previous slide"
           >
-            <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-orange-500/20 to-transparent" />
-            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10 drop-shadow-lg group-hover:scale-110 transition-transform" />
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-300 group-hover/btn:text-red-400 transition-colors duration-200" />
           </button>
 
-          {/* Right arrow */}
+          {/* Right nav button */}
           <button
             onClick={nextSlide}
-            className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 glassmorphic-button liquid-glass group p-2.5 sm:p-3 rounded-full shadow-xl hover:shadow-orange-500/40 transition-all duration-300 z-10 flex items-center justify-center"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-2.5 rounded-full bg-black/80 backdrop-blur-md border border-white/[0.08] hover:border-red-500/40 hover:bg-red-950/70 hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300 group/btn opacity-0 group-hover/carousel:opacity-100"
             aria-label="Next slide"
           >
-            <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-orange-500/20 to-transparent" />
-            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white relative z-10 drop-shadow-lg group-hover:scale-110 transition-transform" />
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-300 group-hover/btn:text-red-400 transition-colors duration-200" />
           </button>
         </>
       )}

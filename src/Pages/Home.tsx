@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import Hero from "../components/Hero.tsx";
-import { Youtube, Clock, Star, TrendingUp, Bookmark, User, History } from "lucide-react";
+import { Youtube, Clock, Star, TrendingUp, Bookmark, User, History, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import MovieCarousel from "../components/MovieCarousel.tsx";
 import Loading from "../components/Loading.tsx";
@@ -189,175 +189,164 @@ const menuItems = [
             />
           ))}
         </div>
-        <section className="mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex flex-col xs:flex-row xs:items-center gap-3 xs:gap-4 w-full">
-              <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
-                <TrendingUp className="w-7 h-7 text-orange-500" />
-                Trending Now
-              </h2>
+        {/* ── Trending Now Section ── */}
+        <section className="mb-14">
+          <div className="flex items-start xs:items-center justify-between mb-6 gap-3">
+            {/* Left: accent bar + title + toggle */}
+            <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
+                  <TrendingUp className="w-6 h-6 text-orange-600" />
+                  Trending Now
+                </h2>
+              </div>
 
-              <div className="w-full xs:w-auto md:hidden mt-2">
+              {/* Mobile toggle */}
+              <div className="md:hidden ml-[19px] xs:ml-0">
                 <div
-                  className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-md rounded-full p-1 shadow"
-                  style={{
-                    WebkitBackdropFilter: 'blur(12px)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className="inline-flex items-center bg-white/[0.06] border border-white/[0.08] rounded-full p-1"
+                  style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
                 >
                   <button
                     onClick={() => handleMediaTypeChange('movie')}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${mediaType === 'movie'
-                      ? 'bg-red-600 text-white shadow'
-                      : 'text-gray-300'
-                      }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${mediaType === 'movie'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                      : 'text-zinc-400 hover:text-white'}`}
                   >
                     Movies
                   </button>
                   <button
                     onClick={() => handleMediaTypeChange('tv')}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${mediaType === 'tv'
-                      ? 'bg-red-600 text-white shadow'
-                      : 'text-gray-300'
-                      }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${mediaType === 'tv'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                      : 'text-zinc-400 hover:text-white'}`}
                   >
                     Series
                   </button>
                 </div>
               </div>
 
-              <div className="hidden md:flex items-center gap-2">
+              {/* Desktop animated toggle */}
+              <div className="hidden md:flex items-center">
                 <div
-                  className="flex items-center p-1 bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-fit shadow"
-                  style={{
-                    WebkitBackdropFilter: 'blur(12px)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className="inline-flex items-center bg-white/[0.06] border border-white/[0.08] rounded-full p-1"
+                  style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
                 >
-                  <div className="relative flex items-center rounded-full">
+                  <div className="relative flex items-center">
                     <button
                       onClick={() => handleMediaTypeChange('movie')}
-                      className={`relative z-10 px-4 py-2 font-semibold transition-colors duration-300 rounded-full bg-transparent ${mediaType === 'movie' ? 'text-white' : 'text-gray-400'
-                        }`}
+                      className={`relative z-10 px-4 py-1.5 text-sm font-semibold rounded-full transition-colors duration-200 ${mediaType === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Movies
                     </button>
                     <button
                       onClick={() => handleMediaTypeChange('tv')}
-                      className={`relative z-10 px-4 py-2 font-semibold transition-colors duration-300 rounded-full bg-transparent ${mediaType === 'tv' ? 'text-white' : 'text-gray-400'
-                        }`}
+                      className={`relative z-10 px-4 py-1.5 text-sm font-semibold rounded-full transition-colors duration-200 ${mediaType === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Series
                     </button>
                     <motion.div
-                      className="absolute inset-0 bg-red-600 rounded-full"
+                      className="absolute inset-y-0 bg-red-600 rounded-full shadow-lg shadow-red-900/50"
                       animate={{
-                        width: mediaType === 'movie' ? '85px' : '80px',
-                        x: mediaType === 'movie' ? 0 : 85,
+                        width: mediaType === 'movie' ? '82px' : '74px',
+                        x: mediaType === 'movie' ? 0 : 82,
                       }}
-                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
                     />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="w-full flex justify-end -mt-6 mb-4">
-              <Link
-                to="/trending"
-                className="inline-flex items-center font-bold uppercase tracking-wide text-yellow-500 hover:text-yellow-400 no-underline whitespace-nowrap text-xs sm:text-base transition-colors duration-200"
-              >
-                View All
-                <svg className="w-3 h-3 sm:w-4 sm:h-4 ml-1 z-10" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
+
+            {/* Right: View All */}
+            <Link
+              to="/trending"
+              className="flex items-center gap-0.5 text-xs sm:text-sm font-semibold text-orange-600 hover:text-orange-400 transition-colors duration-200 whitespace-nowrap flex-shrink-0"
+            >
+              View All
+              <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </Link>
           </div>
           <MovieCarousel movies={trending} mediaType={mediaType} />
         </section>
-        <section className="mb-12">
-          <div className="relative w-full">
-            <div className="flex flex-col xs:flex-row xs:items-center gap-3 xs:gap-4 w-full">
-              <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
-                <Clock className="w-6 h-6 text-blue-600" />
-                Upcoming
-              </h2>
 
-              <div className="w-full xs:w-auto md:hidden mt-2">
+        {/* ── Upcoming Section ── */}
+        <section className="mb-14">
+          <div className="flex items-start xs:items-center justify-between mb-6 gap-3">
+            {/* Left: accent bar + title + toggle */}
+            <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-white">
+                  <Clock className="w-6 h-6 text-blue-600 shadow-lg shadow-blue-900/40" />
+                  Upcoming
+                </h2>
+              </div>
+
+              {/* Mobile toggle */}
+              <div className="md:hidden ml-[19px] xs:ml-0">
                 <div
-                  className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-md rounded-full p-1 shadow"
-                  style={{
-                    WebkitBackdropFilter: 'blur(12px)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className="inline-flex items-center bg-white/[0.06] border border-white/[0.08] rounded-full p-1"
+                  style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
                 >
                   <button
                     onClick={() => handleUpcomingTypeChange('movie')}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${upcomingType === 'movie'
-                      ? 'bg-red-600 text-white shadow'
-                      : 'text-gray-300'
-                      }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${upcomingType === 'movie'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                      : 'text-zinc-400 hover:text-white'}`}
                   >
                     Movies
                   </button>
                   <button
                     onClick={() => handleUpcomingTypeChange('tv')}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${upcomingType === 'tv'
-                      ? 'bg-red-600 text-white shadow'
-                      : 'text-gray-300'
-                      }`}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200 ${upcomingType === 'tv'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-900/40'
+                      : 'text-zinc-400 hover:text-white'}`}
                   >
                     Series
                   </button>
                 </div>
               </div>
 
-              <div className="hidden md:flex items-center gap-2">
+              {/* Desktop animated toggle */}
+              <div className="hidden md:flex items-center">
                 <div
-                  className="flex items-center p-1 bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-fit shadow"
-                  style={{
-                    WebkitBackdropFilter: 'blur(12px)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className="inline-flex items-center bg-white/[0.06] border border-white/[0.08] rounded-full p-1"
+                  style={{ WebkitBackdropFilter: 'blur(16px)', backdropFilter: 'blur(16px)' }}
                 >
-                  <div className="relative flex items-center rounded-full">
+                  <div className="relative flex items-center">
                     <button
                       onClick={() => handleUpcomingTypeChange('movie')}
-                      className={`relative z-10 px-4 py-2 font-semibold transition-colors duration-300 rounded-full bg-transparent ${upcomingType === 'movie' ? 'text-white' : 'text-gray-400'
-                        }`}
+                      className={`relative z-10 px-4 py-1.5 text-sm font-semibold rounded-full transition-colors duration-200 ${upcomingType === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Movies
                     </button>
                     <button
                       onClick={() => handleUpcomingTypeChange('tv')}
-                      className={`relative z-10 px-4 py-2 font-semibold transition-colors duration-300 rounded-full bg-transparent ${upcomingType === 'tv' ? 'text-white' : 'text-gray-400'
-                        }`}
+                      className={`relative z-10 px-4 py-1.5 text-sm font-semibold rounded-full transition-colors duration-200 ${upcomingType === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Series
                     </button>
                     <motion.div
-                      className="absolute inset-0 bg-red-600 rounded-full"
+                      className="absolute inset-y-0 bg-red-600 rounded-full shadow-lg shadow-red-900/50"
                       animate={{
-                        width: upcomingType === 'movie' ? '85px' : '80px',
-                        x: upcomingType === 'movie' ? 0 : 85,
+                        width: upcomingType === 'movie' ? '82px' : '74px',
+                        x: upcomingType === 'movie' ? 0 : 82,
                       }}
-                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
                     />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="absolute justify-end w-full -mt top-0 mb-20 flex items-center">
-              <Link
-                to="/upcoming"
-                className="inline-flex items-center font-bold uppercase tracking-wide text-yellow-500 hover:text-yellow-400 no-underline whitespace-nowrap text-xs sm:text-base transition-colors duration-200"
-              >
-                View All
-                <svg className="w-3 h-3 sm:w-4 sm:h-4 ml-1 z-10" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
+
+            {/* Right: View All */}
+            <Link
+              to="/upcoming"
+              className="flex items-center gap-0.5 text-xs sm:text-sm font-semibold text-red-600 hover:text-red-400 transition-colors duration-200 whitespace-nowrap flex-shrink-0"
+            >
+              View All
+              <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </Link>
           </div>
           <MovieCarousel movies={upcomingMovies} mediaType={upcomingType} />
         </section>

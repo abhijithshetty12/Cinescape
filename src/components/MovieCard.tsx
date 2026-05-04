@@ -36,7 +36,7 @@ const genreMapping: Record<number, string> = {
   10770: "TV Movie",
   53: "Thriller",
   10752: "War",
-  37: "Western"
+  37: "Western",
 };
 
 const API_KEY = "859afbb4b98e3b467da9c99ac390e950";
@@ -52,7 +52,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
   first_air_date,
   genre_ids,
   genres,
-  media_type
+  media_type,
 }) => {
   const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -89,10 +89,13 @@ const MovieCard: React.FC<MovieCardProps> = ({
       const data = await res.json().catch(() => null);
       if (data && Array.isArray(data.results) && data.results.length) {
         const trailer =
-          data.results.find((v: any) => v.type === "Trailer" && v.site === "YouTube") ||
-          data.results.find((v: any) => v.site === "YouTube");
+          data.results.find(
+            (v: any) => v.type === "Trailer" && v.site === "YouTube"
+          ) || data.results.find((v: any) => v.site === "YouTube");
         if (trailer && trailer.key) {
-          setTrailerUrl(`https://www.youtube.com/embed/${trailer.key}?autoplay=1`);
+          setTrailerUrl(
+            `https://www.youtube.com/embed/${trailer.key}?autoplay=1`
+          );
           return;
         }
       }
@@ -108,65 +111,99 @@ const MovieCard: React.FC<MovieCardProps> = ({
   };
 
   const imagePath = backdrop_path || poster_path || "";
-  const imageSrc = imagePath ? `https://image.tmdb.org/t/p/w500${imagePath}` : "/placeholder-poster.png";
+  const imageSrc = imagePath
+    ? `https://image.tmdb.org/t/p/w500${imagePath}`
+    : "/placeholder-poster.png";
 
   const date = release_date || first_air_date || "";
   const year = date ? String(new Date(date).getFullYear()) : "N/A";
   const displayTitle = title || name || "Untitled";
-  const rating = typeof vote_average === "number" ? vote_average.toFixed(1) : "N/A";
+  const rating =
+    typeof vote_average === "number" ? vote_average.toFixed(1) : "N/A";
 
   const genreNames: string[] =
     Array.isArray(genre_ids) && genre_ids.length
       ? genre_ids.map((gid) => genreMapping[gid]).filter(Boolean)
       : Array.isArray(genres) && genres.length
-        ? genres.map((g) => g.name).filter(Boolean)
-        : [];
+      ? genres.map((g) => g.name).filter(Boolean)
+      : [];
 
   return (
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="group bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl hover:backdrop-blur-md hover:border-white/20 hover:ring-2 hover:ring-blue-500/30 transition-all duration-500 border border-white/10"
+      className="group relative rounded-2xl overflow-hidden border border-white/[0.07] bg-black/50 shadow-lg hover:shadow-xl hover:shadow-red-900/25 hover:border-red-500/25 hover:-translate-y-0.5 transition-all duration-500 cursor-pointer"
+      style={{
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+      }}
     >
-      <div className="relative aspect-[16/9]">
+      {/* Image section */}
+      <div className="relative aspect-[16/9] overflow-hidden">
         <img
           src={imageSrc}
           alt={displayTitle}
-          className="w-full h-full object-cover group-hover:scale-105 group-hover:brightness-110 transition-all duration-500"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
         />
-        <div className="absolute top-3 right-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-0.5 flex items-center gap-1 shadow-lg">
+
+        {/* Bottom gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
+
+        {/* Subtle red tint on hover */}
+        <div className="absolute inset-0 bg-red-900/0 group-hover:bg-red-900/10 transition-colors duration-500 pointer-events-none" />
+
+        {/* TMDB rating badge — top right */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-black/70 backdrop-blur-sm border border-white/[0.1] rounded-md px-2 py-0.5 shadow-md">
           <Star className="w-3 h-3 text-yellow-400 fill-current" />
-          <span className="text-white font-bold">{rating}</span>
+          <span className="text-white text-[11px] font-bold leading-none">
+            {rating}
+          </span>
         </div>
+
+        {/* User rating badge — top left */}
         {userRating !== null && (
-          <div className="absolute top-3 left-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-0.5 flex items-center gap-1 shadow-lg">
-            <span className="text-orange-400 text-xs font-bold">User: {userRating}</span>
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-red-950/80 backdrop-blur-sm border border-red-500/30 rounded-md px-2 py-0.5 shadow-md">
+            <span className="text-red-300 text-[11px] font-bold leading-none">
+              ★ {userRating}
+            </span>
           </div>
         )}
+
+        {/* Trailer iframe */}
         {trailerUrl && isPlaying && (
           <iframe
             src={trailerUrl}
-            className="absolute top-0 left-0 w-full h-full rounded-3xl"
+            className="absolute inset-0 w-full h-full"
             allow="autoplay; fullscreen"
             allowFullScreen
             title={displayTitle + " Trailer"}
           />
         )}
-        {/* Vignette overlay */}
-        <div className="absolute inset-0 bg-gradient-radial from-black/0 via-black/20 to-black/40 pointer-events-none" />
       </div>
-      <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 flex flex-col gap-2">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-bold text-lg text-white truncate">{displayTitle}</h3>
-          <span className="text-gray-400 text-sm">{year}</span>
+
+      {/* Info section */}
+      <div
+        className="px-3.5 py-3 flex flex-col gap-1.5"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(12,0,0,0.75), rgba(0,0,0,0.88))",
+        }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-sm text-white leading-snug truncate">
+            {displayTitle}
+          </h3>
+          <span className="text-zinc-600 text-xs flex-shrink-0 pt-0.5">
+            {year}
+          </span>
         </div>
+
         {genreNames.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {genreNames.slice(0, 2).map((gName, idx) => (
               <span
                 key={idx}
-                className="text-[10px] sm:text-xs px-2 py-0.5 bg-zinc-800/80 border border-zinc-700/50 rounded-full text-zinc-300 font-medium"
-
+                className="text-[10px] px-2 py-0.5 bg-red-950/50 border border-red-800/30 rounded-full text-red-300/80 font-medium"
               >
                 {gName}
               </span>
@@ -174,9 +211,11 @@ const MovieCard: React.FC<MovieCardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Inset red glow ring on hover */}
+      <div className="absolute inset-0 rounded-2xl ring-0 group-hover:ring-1 group-hover:ring-red-500/20 pointer-events-none transition-all duration-500" />
     </div>
   );
 };
 
 export default MovieCard;
-
