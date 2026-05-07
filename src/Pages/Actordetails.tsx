@@ -239,7 +239,7 @@ const Actordetails = () => {
                       aria-label={`${actorName} on YouTube`}
                       className="flex items-center justify-center"
                     >
-                      <img src="/yt-icon2.png" alt="YouTube" className="w-13 h-11 object-contain" />
+                      <img src="/yt-icon.png" alt="YouTube" className="w-13 h-11 object-contain" />
                     </a>
                   )}
                 </div>
