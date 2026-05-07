@@ -14,10 +14,11 @@ const BASE_POSTER_URL = 'https://image.tmdb.org/t/p/original/';
 const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
 
 const ProfilePage = () => {
-  const { user } = useContext(AuthContext);
-  const authContext = useContext(AuthContext);
+  const auth = useContext(AuthContext);
+  const user = auth?.user;
   const [username, setUsername] = useState(user?.username ?? '');
   const [selectedGenres, setSelectedGenres] = useState<string[]>(user?.preferences?.split(',') ?? []);
+
   const [ratedMovies, setRatedMovies] = useState<{ id: string; title: string; posterPath: string; rating: number }[]>([]);
   const navigate = useNavigate();
   const [isFileTooLarge, setIsFileTooLarge] = useState(false);
@@ -407,20 +408,48 @@ const ProfilePage = () => {
             genreResults.forEach(r => recommended.push(...r.slice(0, 8)));
           }
 
-          // Final fallback to popular content
+          // Blend Trending + Popular to keep recommendations fresh (and avoid empty lists)
+          // Trending (week)
+          try {
+            const trendingUrl = mediaType === 'movie'
+              ? `https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_API_KEY}`
+              : `https://api.themoviedb.org/3/trending/tv/week?api_key=${TMDB_API_KEY}`;
+            const trendingRes = await axios.get(trendingUrl);
+            if (trendingRes.data?.results) {
+              recommended.push(...trendingRes.data.results.slice(0, 15));
+            }
+          } catch (err) {
+            console.error('Error fetching trending content:', err);
+          }
+
+          // Popular
+          try {
+            const popularUrl = mediaType === 'movie'
+              ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
+              : `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
+            const popularRes = await axios.get(popularUrl);
+            if (popularRes.data?.results) {
+              recommended.push(...popularRes.data.results.slice(0, 15));
+            }
+          } catch (err) {
+            console.error('Error fetching popular content:', err);
+          }
+
+          // If still empty, final fallback to Popular (extra safety)
           if (recommended.length === 0) {
             const fallbackUrl = mediaType === 'movie'
               ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
               : `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
 
             const fallbackRes = await axios.get(fallbackUrl);
-            if (fallbackRes.data.results) {
-              recommended.push(...fallbackRes.data.results.slice(0, 15));
+            if (fallbackRes.data?.results) {
+              recommended.push(...fallbackRes.data.results.slice(0, 20));
             }
           }
         } catch (err) {
           console.error('Error fetching recommendations:', err);
         }
+
 
         const unique = new Map();
         recommended.forEach((m: any) => {
@@ -445,10 +474,11 @@ const ProfilePage = () => {
         const sorted = filtered.sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0));
 
         if (isMounted) {
-          setTrendingMovies(sorted.slice(0, 20));
+          setTrendingMovies(sorted.slice(0, 50));
           setLoading(false);
         }
-      };
+      }; 
+
 
       fetchRecommendations();
 
@@ -458,31 +488,40 @@ const ProfilePage = () => {
     }, [watchlist, history, favouriteActors, selectedGenres, mediaType, page, ratedMovies]);
 
     // Handle visibility change to refresh recommendations when user returns to page
+    // Also refresh periodically so recommendations keep updating.
     useEffect(() => {
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          // User returned to the page, refresh recommendations
-          setTrendingMovies([]);
-          setPage(1);
-          setLoading(true);
-        }
-      };
+      let intervalId: number | undefined;
 
-      const handleFocus = () => {
-        // User focused the window, refresh recommendations
+      const refreshNow = () => {
         setTrendingMovies([]);
         setPage(1);
         setLoading(true);
       };
 
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          refreshNow();
+        }
+      };
+
+      const handleFocus = () => {
+        refreshNow();
+      };
+
       document.addEventListener('visibilitychange', handleVisibilityChange);
       window.addEventListener('focus', handleFocus);
 
+      intervalId = window.setInterval(() => {
+        refreshNow();
+      }, 60 * 1000);
+
       return () => {
+        if (intervalId) window.clearInterval(intervalId);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('focus', handleFocus);
       };
     }, []);
+
 
 
     return (
