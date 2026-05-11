@@ -246,14 +246,14 @@ const Hero = () => {
           <>
             <button
               onClick={prevMovie}
-              className="hero-nav-btn absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20"
+              className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20"
               aria-label="Previous"
             >
               <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </button>
             <button
               onClick={nextMovie}
-              className="hero-nav-btn absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20"
+              className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20"
               aria-label="Next"
             >
               <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
