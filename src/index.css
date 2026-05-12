@@ -112,10 +112,6 @@
   background: rgba(220, 38, 38, 0.2);
   border-color: rgba(220, 38, 38, 0.45);
   box-shadow: 0 0 18px rgba(220, 38, 38, 0.4);
-  transform: scale(1.08);
-}
-.hero-nav-btn:active {
-  transform: scale(0.95);
 }
 
 /* Active dot glow */
