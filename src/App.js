@@ -10,6 +10,7 @@ import LoginPage from "./Pages/LoginPage.tsx";
 import ProfilePage from "./Pages/ProfilePage.tsx";
 import ActorProfilePage from "./Pages/ActorProfilePage.tsx";
 import ConditionalRoute from './components/ConditionalRoute.tsx';
+import ProtectedRoute from './components/ProtectedRoute.tsx';
 import Tvdetails from './Pages/Tvdetails.tsx'
 import FavActors from './Pages/FavActors.tsx'
 import Trending from './Pages/Trending.tsx';
@@ -27,25 +28,29 @@ const AppRoutes = () => {
       {location.pathname !== "/login" && <Navbar />}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/actors" element={<ActorProfilePage />} />
         <Route path="/" element={<ConditionalRoute />} />
-        <Route path="/explore" element={<Explore />} />
-        <Route path="/movie/:id" element={<MovieDetails />} />
-        <Route path="/actor/:id" element={<Actordetails />} />
-        <Route path="tv/:id" element={<Tvdetails />} />
-        <Route path="/top-rated" element={<Toprated />} />
-        <Route path="/fav-actors" element={<FavActors />} />
-        <Route path="/trending" element={<Trending />} />
-        <Route path="/watchlist" element={<Watchlist />} />
-        <Route path="/upcoming" element={<Upcoming />} />
-        <Route path="/search" element={<SearchResults />} />
-        <Route path="/history" element={<HistoryPage />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/actors" element={<ActorProfilePage />} />
+          <Route path="/explore" element={<Explore />} />
+          <Route path="/movie/:id" element={<MovieDetails />} />
+          <Route path="/actor/:id" element={<Actordetails />} />
+          <Route path="tv/:id" element={<Tvdetails />} />
+          <Route path="/top-rated" element={<Toprated />} />
+          <Route path="/fav-actors" element={<FavActors />} />
+          <Route path="/trending" element={<Trending />} />
+          <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/upcoming" element={<Upcoming />} />
+          <Route path="/search" element={<SearchResults />} />
+          <Route path="/history" element={<HistoryPage />} />
+        </Route>
       </Routes>
     </>
   );
 };
+
 
 function App() {
   return (

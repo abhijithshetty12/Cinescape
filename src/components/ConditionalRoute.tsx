@@ -3,13 +3,14 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 
 const ConditionalRoute = () => {
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
 
-  if (isAuthenticated) {
-    return <Navigate to="/home" />;
-  } else {
-    return <Navigate to="/login" />;
+  if (user) {
+    return <Navigate to="/home" replace />;
   }
+
+  return <Navigate to="/login" replace />;
 };
 
 export default ConditionalRoute;
+
