@@ -19,6 +19,7 @@ import {
   X,
   AlertCircle,
   Loader2,
+  Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
@@ -398,18 +399,16 @@ const HistoryPage = () => {
           <div className="relative flex items-center p-1 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-full shadow-lg shadow-black/20">
             <button
               onClick={() => handleMediaTypeChange('movie')}
-              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${
-                mediaType === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${mediaType === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
             >
               <Clapperboard className="w-4 h-4" />
               Movies
             </button>
             <button
               onClick={() => handleMediaTypeChange('tv')}
-              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${
-                mediaType === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${mediaType === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
             >
               <Tv className="w-4 h-4" />
               Series
@@ -473,11 +472,10 @@ const HistoryPage = () => {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2.5 backdrop-blur-xl border rounded-2xl text-sm font-medium transition-all duration-300 ${
-                showFilters
-                  ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                  : 'bg-white/[0.04] border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.15]'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2.5 backdrop-blur-xl border rounded-2xl text-sm font-medium transition-all duration-300 ${showFilters
+                ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                : 'bg-white/[0.04] border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.15]'
+                }`}
             >
               <Filter className="w-4 h-4" />
               Filters
@@ -501,11 +499,10 @@ const HistoryPage = () => {
                     <button
                       key={genre}
                       onClick={() => setSelectedGenre(genre)}
-                      className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
-                        selectedGenre === genre
-                          ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                          : 'bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.08] hover:border-white/[0.15]'
-                      }`}
+                      className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === genre
+                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                        : 'bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.08] hover:border-white/[0.15]'
+                        }`}
                     >
                       {genre}
                     </button>
@@ -586,6 +583,9 @@ const HistoryPage = () => {
 
                       {/* Bottom Gradient */}
                       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+                      <div className="absolute bottom-3 right-3 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 border border-emerald-300/40 shadow-[0_0_18px_rgba(16,185,129,0.55)]">
+                        <Check className="w-4 h-4 text-emerald-950" />
+                      </div>
                     </div>
 
                     {/* Info */}
