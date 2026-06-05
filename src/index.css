@@ -7,6 +7,29 @@
   body {
     @apply bg-black text-white;
   }
+
+  /* ── Global Immersive Scrollbars ── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full border-2 border-transparent bg-clip-padding transition-all duration-300;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/30;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  }
 }
 
 @layer utilities {
@@ -28,6 +51,36 @@
 
   .gradient-mask {
     mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  }
+
+  /* ── Custom Fluid Scrollbars ── */
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 2px;
+    width: 2px;
+    transition: all 0.3s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-white/[0.02] rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full border-transparent bg-clip-padding transition-all duration-300;
+  }
+
+  .custom-scrollbar:hover::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    @apply bg-white/20;
+  }
+
+  /* For Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 }
 

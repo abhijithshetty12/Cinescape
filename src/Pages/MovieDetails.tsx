@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Star, Calendar, Clock, Play, Heart, Globe, DollarSign, Bookmark, ThumbsDown, ThumbsUp, ChevronLeft, ChevronRight, BookmarkCheck, TvMinimalPlay, ImageOff, Eye, EyeOff, Check, Plus, Loader2, Users, Award, MessageCircle, MoreHorizontal } from 'lucide-react';
@@ -13,7 +13,7 @@ import { collection, addDoc, onSnapshot, query, orderBy, setDoc, doc, getDocs, d
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
 interface MovieDetails {
@@ -37,7 +37,38 @@ interface MovieDetails {
 
 const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
 
+const SpatialMediaCard = ({ children, containerRef, index }: { children: React.ReactNode, containerRef: React.RefObject<HTMLDivElement>, index: number }) => {
+  const itemRef = useRef<HTMLDivElement>(null);
+  const { scrollXProgress } = useScroll({
+    container: containerRef,
+    target: itemRef,
+    axis: "x",
+    offset: ["start end", "end start"]
+  });
+
+  const x = useTransform(scrollXProgress, [0, 1], [20, -20]);
+
+  return (
+    <motion.div
+      ref={itemRef}
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4, delay: 0.1 + index * 0.05 }}
+      className="flex-shrink-0"
+    >
+      <div className="relative overflow-hidden rounded-2xl group">
+        <motion.div style={{ x }} className="w-full h-full">
+          {children}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+};
+
 const MovieDetails = () => {
+  const castContainerRef = useRef<HTMLDivElement>(null);
+  const crewContainerRef = useRef<HTMLDivElement>(null);
+  const moviePartsContainerRef = useRef<HTMLDivElement>(null);
   const { id } = useParams<{ id: string }>();
   const movieId = id;
   const { user } = useAuth();
@@ -821,48 +852,45 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
             <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Top Cast</h2>
           </div>
 
-          <div className="overflow-x-auto pb-2 custom-scrollbar">
-            <div className="flex gap-4 md:gap-5">
+          <div ref={castContainerRef} className="overflow-x-auto pb-2 custom-scrollbar">
+            <div className="flex gap-4 md:gap-5 px-1">
               {movieDetails?.cast?.map((actor, idx) => (
-                <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
-                    className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44"
-                  >
-                    {/* Image container with aspect ratio */}
-                    <div className="relative aspect-[3/4] overflow-hidden">
-                      {actor.profile_path ? (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
-                          alt={actor.name}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
-                          <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
-                          <span className="text-xs text-center px-2">No Photo</span>
-                        </div>
-                      )}
+                <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0">
+                  <SpatialMediaCard containerRef={castContainerRef} index={idx}>
+                    <div className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44 h-full">
+                      {/* Image container with aspect ratio */}
+                      <div className="relative aspect-[3/4] overflow-hidden">
+                        {actor.profile_path ? (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
+                            alt={actor.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
+                            <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                            <span className="text-xs text-center px-2">No Photo</span>
+                          </div>
+                        )}
 
-                      {/* Gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                        {/* Gradient overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
+                        <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                          {actor.name}
+                        </h3>
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {actor.role || 'Unknown Role'}
+                        </p>
+                      </div>
+
+                      {/* Hover border glow */}
+                      <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
                     </div>
-
-                    {/* Info */}
-                    <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
-                      <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
-                        {actor.name}
-                      </h3>
-                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                        {actor.role || 'Unknown Role'}
-                      </p>
-                    </div>
-
-                    {/* Hover border glow */}
-                    <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
-                  </motion.div>
+                  </SpatialMediaCard>
                 </Link>
               ))}
             </div>
@@ -898,8 +926,8 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
             <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Crew</h2>
           </div>
 
-          <div className="overflow-x-auto pb-2 custom-scrollbar">
-            <div className="flex gap-4 md:gap-5">
+          <div ref={crewContainerRef} className="overflow-x-auto pb-2 custom-scrollbar">
+            <div className="flex gap-4 md:gap-5 px-1">
               {(() => {
                 const grouped: Record<string, any> = {};
                 crew.forEach((member) => {
@@ -933,48 +961,44 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
                   <Link
                     key={member.credit_id}
                     to={`/actor/${member.id}`}
-                    className="flex-shrink-0 group"
-                    style={{ animationDelay: `${idx * 0.05}s` }}
+                    className="flex-shrink-0"
                   >
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
-                      className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden group w-36 sm:w-44"
-                    >
-                      {/* Image container */}
-                      <div className="relative aspect-[3/4] overflow-hidden">
-                        {member.profile_path ? (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w500${member.profile_path}`}
-                            alt={member.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
-                            <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
-                            <span className="text-xs text-center px-2">No Photo</span>
-                          </div>
-                        )}
+                    <SpatialMediaCard containerRef={crewContainerRef} index={idx}>
+                      <div className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden group w-36 sm:w-44 h-full">
+                        {/* Image container */}
+                        <div className="relative aspect-[3/4] overflow-hidden">
+                          {member.profile_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w500${member.profile_path}`}
+                              alt={member.name}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
+                              <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                              <span className="text-xs text-center px-2">No Photo</span>
+                            </div>
+                          )}
 
-                        {/* Gradient overlay on hover */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          {/* Gradient overlay on hover */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        </div>
+
+                        {/* Info */}
+                        <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
+                          <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                            {member.name}
+                          </h3>
+                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                            {member.jobs.slice(0, 2).join(', ')}
+                            {member.jobs.length > 2 && ` +${member.jobs.length - 2} more`}
+                          </p>
+                        </div>
+
+                        {/* Hover glow effect */}
+                        <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
                       </div>
-
-                      {/* Info */}
-                      <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
-                        <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
-                          {member.name}
-                        </h3>
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                          {member.jobs.slice(0, 2).join(', ')}
-                          {member.jobs.length > 2 && ` +${member.jobs.length - 2} more`}
-                        </p>
-                      </div>
-
-                      {/* Hover glow effect */}
-                      <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
-                    </motion.div>
+                    </SpatialMediaCard>
                   </Link>
                 ));
               })()}
@@ -1021,59 +1045,63 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
             </div>
 
             <div className="relative">
-              <div className="flex gap-3 md:gap-4 pb-3 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-900/50 scrollbar-thumb-rounded overflow-x-auto scroll-smooth -mr-2 md:-mr-6 pr-2 md:pr-6">
+              <div ref={moviePartsContainerRef} className="flex gap-3 md:gap-4 pb-3 snap-x snap-mandatory custom-scrollbar overflow-x-auto scroll-smooth -mr-2 md:-mr-6 pr-2 md:pr-6 px-1">
                 {movieParts
                   .sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())
                   .map((part, index) => (
                     <Link
                       key={part.id}
                       to={`/movie/${part.id}`}
-                      className="flex-shrink-0 snap-center w-24 sm:w-32 md:w-36 lg:w-40 group"
+                      className="flex-shrink-0 snap-center"
                       tabIndex={0}
                       aria-label={`View ${part.title}`}
                     >
-                      <div className="w-full bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-xl overflow-hidden shadow-xl border border-gray-700/50 bg-gradient-to-b from-zinc-900/50 to-black/30 transition-all duration-300 group-hover:border-gray-600/50 group-hover:shadow-2xl group-hover:scale-[1.02]">
-                        {/* Poster */}
-                        {part.poster_path ? (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w500${part.poster_path}`}
-                            alt={part.title}
-                            loading="lazy"
-                            className="w-full aspect-[2/3] object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="w-full aspect-[2/3] flex items-center justify-center bg-gradient-to-b from-zinc-900 to-zinc-800">
-                            <ImageOff className="w-8 h-8 text-gray-500" />
-                          </div>
-                        )}
+                      <SpatialMediaCard containerRef={moviePartsContainerRef} index={index}>
+                        <div className="w-24 sm:w-32 md:w-36 lg:w-40 h-full group">
+                          <div className="w-full bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-xl overflow-hidden shadow-xl border border-gray-700/50 bg-gradient-to-b from-zinc-900/50 to-black/30 transition-all duration-300 group-hover:border-gray-600/50 group-hover:shadow-2xl group-hover:scale-[1.02]">
+                            {/* Poster */}
+                            {part.poster_path ? (
+                              <img
+                                src={`https://image.tmdb.org/t/p/w500${part.poster_path}`}
+                                alt={part.title}
+                                loading="lazy"
+                                className="w-full aspect-[2/3] object-cover transition-transform duration-500 group-hover:scale-110"
+                              />
+                            ) : (
+                              <div className="w-full aspect-[2/3] flex items-center justify-center bg-gradient-to-b from-zinc-900 to-zinc-800">
+                                <ImageOff className="w-8 h-8 text-gray-500" />
+                              </div>
+                            )}
 
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2">
-                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
-                            <Play className="w-4 h-4 text-white/90" />
-                            <span className="text-white text-xs font-semibold">View</span>
+                            {/* Overlay on hover */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2">
+                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
+                                <Play className="w-4 h-4 text-white/90" />
+                                <span className="text-white text-xs font-semibold">View</span>
+                              </div>
+                            </div>
+
+                            {/* Year & Rating Badge */}
+                            <div className="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-start pointer-events-none">
+                              <span className="bg-gradient-to-r from-gray-900/90 to-black/90 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white/20 shadow-lg">
+                                {part.release_date?.slice(0, 4) || 'TBA'}
+                              </span>
+                              {part.vote_average && (
+                                <span className="bg-gradient-to-r from-yellow-500/90 to-yellow-400/90 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-0.5">
+                                  <Star className="w-2.5 h-2.5 fill-current" />
+                                  {part.vote_average.toFixed(1)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-1.5 px-0.5">
+                            <h3 className="text-white font-bold text-[10px] leading-tight line-clamp-2 text-center group-hover:text-blue-300 transition-colors">
+                              {part.title}
+                            </h3>
                           </div>
                         </div>
-
-                        {/* Year & Rating Badge */}
-                        <div className="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-start pointer-events-none">
-                          <span className="bg-gradient-to-r from-gray-900/90 to-black/90 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white/20 shadow-lg">
-                            {part.release_date?.slice(0, 4) || 'TBA'}
-                          </span>
-                          {part.vote_average && (
-                            <span className="bg-gradient-to-r from-yellow-500/90 to-yellow-400/90 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-0.5">
-                              <Star className="w-2.5 h-2.5 fill-current" />
-                              {part.vote_average.toFixed(1)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-1.5 px-0.5">
-                        <h3 className="text-white font-bold text-[10px] leading-tight line-clamp-2 text-center group-hover:text-blue-300 transition-colors">
-                          {part.title}
-                        </h3>
-                      </div>
+                      </SpatialMediaCard>
                     </Link>
                   ))}
               </div>
