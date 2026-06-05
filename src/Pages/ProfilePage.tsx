@@ -9,6 +9,7 @@ import { User, ChevronRight, LogOut, Star, Heart, Settings, Film, Bookmark, Hist
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import BingeWatchStats from '../components/BingeWatchStats.tsx';
 
 const BASE_POSTER_URL = 'https://image.tmdb.org/t/p/original/';
 const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
@@ -23,7 +24,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const [isFileTooLarge, setIsFileTooLarge] = useState(false);
   const [watchlist, setWatchlist] = useState<{ id: string; title: string; posterPath: string; mediaType: string }[]>([]);
-  const [history, setHistory] = useState<{ id: string; title: string; posterPath: string; mediaType: string }[]>([]);
+  const [history, setHistory] = useState<{ id: string; title: string; posterPath: string; mediaType: string; genres: string[]; watchedDate: string }[]>([]);
   const [favouriteActors, setFavouriteActors] = useState<{ id: string; name: string; profilePath: string }[]>([]);
   const [historyFilter, setHistoryFilter] = useState<'movie' | 'tv'>('movie');
   const [watchlistFilter, setWatchlistFilter] = useState<'movie' | 'tv'>('movie');
@@ -87,6 +88,8 @@ const ProfilePage = () => {
             title: data.title || data.name || '',
             posterPath: `${BASE_POSTER_URL}${data.posterPath}`,
             mediaType: data.mediaType || 'movie',
+            genres: data.genres || [],
+            watchedDate: data.watchedDate || new Date().toISOString(),
           };
         });
         setHistory(updatedHistory);
@@ -722,6 +725,9 @@ const ProfilePage = () => {
               </div>
             </motion.div>
 
+            <BingeWatchStats history={history} />
+
+
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -739,6 +745,7 @@ const ProfilePage = () => {
                 <ReviewList userId={user?.uid} />
               </div>
             </motion.div>
+
             <RecommendationSection
               watchlist={watchlist}
               history={history}
