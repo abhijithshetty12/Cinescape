@@ -7,6 +7,8 @@ import Loading from "../components/Loading.tsx";
 import { AuthContext } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore'; // Import Firestore functions
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
 
 const Actordetails = () => {
   const { id } = useParams();
@@ -97,6 +99,28 @@ const Actordetails = () => {
         const docRef = await addDoc(favoritesRef, actorData);
         setIsFavorite(true);
         setFavoriteDocId(docRef.id);
+
+        // Easter Egg: Confetti Burst
+        const count = 200;
+        const defaults = {
+          origin: { y: 0.7 },
+          colors: ['#EF4444', '#EC4899', '#F43F5E', '#FB7185', '#D946EF']
+        };
+
+        const fire = (particleRatio: number, opts: any) => {
+          confetti({
+            ...defaults,
+            ...opts,
+            particleCount: Math.floor(count * particleRatio)
+          });
+        };
+
+        fire(0.25, { spread: 26, startVelocity: 55 });
+        fire(0.2, { spread: 60 });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+        fire(0.1, { spread: 120, startVelocity: 45 });
+
         setToast({ message: `${actor.name} added to favorites.`, type: 'success', isVisible: true });
       }
     } catch (error) {
@@ -165,30 +189,48 @@ const Actordetails = () => {
               </div>
             </div>
 
-            <button
+            <motion.button
               onClick={handleFavoriteToggle}
-              className={`group relative px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-full font-medium sm:font-semibold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-[44px] min-w-[44px] ${isFavorite
-                ? "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-lg shadow-red-500/25"
-                : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/25"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`group relative px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-full font-medium sm:font-semibold text-sm sm:text-base transition-all duration-300 min-h-[44px] min-w-[44px] shadow-lg ${isFavorite
+                ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25"
+                : "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25"
                 }`}
               aria-label={isFavorite ? `Remove ${actorName} from favorites` : `Add ${actorName} to favorites`}
             >
               <div className="flex items-center gap-1.5 sm:gap-2">
-                {isFavorite ? (
-                  <>
-                    <HeartOff className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
-                    <span className="hidden xs:inline sm:inline">Remove from Favorites</span>
-                    <span className="xs:hidden sm:hidden">Remove</span>
-                  </>
-                ) : (
-                  <>
-                    <Heart className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
-                    <span className="hidden xs:inline sm:inline">Add to Favorites</span>
-                    <span className="xs:hidden sm:hidden">Add</span>
-                  </>
-                )}
+                <AnimatePresence mode="wait">
+                  {isFavorite ? (
+                    <motion.div
+                      key="heart-on"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    >
+                      <HeartOff className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="heart-off"
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    >
+                      <Heart className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <span className="hidden xs:inline sm:inline">
+                  {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+                </span>
+                <span className="xs:hidden sm:hidden">
+                  {isFavorite ? "Remove" : "Favorite"}
+                </span>
               </div>
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>

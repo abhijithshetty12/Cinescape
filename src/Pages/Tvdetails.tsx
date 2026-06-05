@@ -7,10 +7,11 @@ import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
 import { collection, addDoc, getDocs, query, deleteDoc } from 'firebase/firestore';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
+import confetti from 'canvas-confetti';
 
 interface Tvdetails {
   id: number;
@@ -252,6 +253,18 @@ const Tvdetails = () => {
             mediaType: 'tv',
           });
           setIsInWatchlist(true);
+
+          // Easter Egg: Blue Confetti Burst for Watchlist
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.8 },
+            colors: ['#2563eb', '#3b82f6', '#60a5fa', '#1d4ed8'],
+            ticks: 200,
+            gravity: 1.2,
+            scalar: 1.2,
+          });
+
           setToast({
             message: 'TV show added to watchlist!',
             type: 'success',

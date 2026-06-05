@@ -13,7 +13,8 @@ import { collection, addDoc, onSnapshot, query, orderBy, setDoc, doc, getDocs, d
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
 
 interface MovieDetails {
   id: number;
@@ -42,6 +43,33 @@ const MovieDetails = () => {
   const { user } = useAuth();
   const [userReview, setUserReview] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
+
+  const handleRateMovie = (rating: number) => {
+    setUserRating(rating);
+    if (rating >= 4) {
+      // Star/Gold confetti for high ratings
+      const count = 100;
+      const defaults = {
+        origin: { y: 0.7 },
+        colors: ['#facc15', '#eab308', '#ca8a04', '#ffffff'],
+        ticks: 150,
+      };
+
+      const fire = (particleRatio: number, opts: any) => {
+        confetti({
+          ...defaults,
+          ...opts,
+          particleCount: Math.floor(count * particleRatio),
+          shapes: ['circle'],
+        });
+      };
+
+      fire(0.25, { spread: 26, startVelocity: 55 });
+      fire(0.2, { spread: 60 });
+      fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+    }
+  };
+
   const [movieReviews, setMovieReviews] = useState<{ author: string; content: string; likes?: number; dislikes?: number }[]>([]);
   const [movieDetails, setMovieDetails] = useState<MovieDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -103,6 +131,18 @@ const MovieDetails = () => {
       const result = await toggleWatched(movieData);
 
       if (result.success) {
+        if (!isWatched) {
+          // Green celebratory burst for marking as watched
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.8 },
+            colors: ['#10b981', '#34d399', '#6ee7b7', '#059669'],
+            ticks: 200,
+            gravity: 1.2,
+            scalar: 1.2,
+          });
+        }
         const message = isWatched
           ? `Removed ${movieData.title ?? movieData.name} from history`
           : `Saved ${movieData.title ?? movieData.name} to history`;
@@ -329,6 +369,18 @@ const MovieDetails = () => {
             posterPath: movieDetails?.poster_path,
           });
           setIsInWatchlist(true);
+
+          // Easter Egg: Blue Confetti Burst for Watchlist
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.8 },
+            colors: ['#2563eb', '#3b82f6', '#60a5fa', '#1d4ed8'],
+            ticks: 200,
+            gravity: 1.2,
+            scalar: 1.2,
+          });
+
           setToast({
             message: 'Movie added to watchlist!',
             type: 'success',
@@ -1076,13 +1128,13 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
                             >
                               {/* Left half button (half star) */}
                               <button
-                                onClick={() => setUserRating(starValue - 0.5)}
+                                onClick={() => handleRateMovie(starValue - 0.5)}
                                 className="absolute left-0 top-0 w-1/2 h-full z-20 hover:scale-110 transition-transform rounded-l-lg"
                                 aria-label={`Rate ${starValue - 0.5} stars`}
                               />
                               {/* Right half button (full star) */}
                               <button
-                                onClick={() => setUserRating(starValue)}
+                                onClick={() => handleRateMovie(starValue)}
                                 className="absolute right-0 top-0 w-1/2 h-full z-20 hover:scale-110 transition-transform rounded-r-lg"
                                 aria-label={`Rate ${starValue} stars`}
                               />
