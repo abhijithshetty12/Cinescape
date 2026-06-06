@@ -725,6 +725,8 @@ const ProfilePage = () => {
               </div>
             </motion.div>
 
+            <BingeWatchStats history={history} />
+
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -742,8 +744,7 @@ const ProfilePage = () => {
                 <ReviewList userId={user?.uid} />
               </div>
             </motion.div>
-
-            <BingeWatchStats history={history} />
+            
 
             <RecommendationSection
               watchlist={watchlist}
