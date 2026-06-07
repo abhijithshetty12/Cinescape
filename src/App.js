@@ -1,6 +1,7 @@
 import "./App.css";
 import Navbar from "./components/Navbar.tsx";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import Home from "./Pages/Home.tsx";
 import Explore from "./Pages/Explore.tsx";
 import MovieDetails from "./Pages/MovieDetails.tsx";
@@ -19,8 +20,10 @@ import Upcoming from "./Pages/Upcoming.tsx";
 import SearchResults from "./Pages/SearchResults.tsx";
 import HistoryPage from "./Pages/History.tsx";
 import License from "./components/License.tsx";
+import CommandMenu from "./components/CommandMenu.tsx";
+import DirectorsCut from "./Pages/DirectorsCut.tsx";
 
-const AppRoutes = () => {
+const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
   const location = useLocation();
 
   return (
@@ -45,6 +48,7 @@ const AppRoutes = () => {
           <Route path="/upcoming" element={<Upcoming />} />
           <Route path="/search" element={<SearchResults />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/directors-cut" element={<DirectorsCut />} />
         </Route>
       </Routes>
     </>
@@ -53,11 +57,55 @@ const AppRoutes = () => {
 
 
 function App() {
+  const [isCmdMenuOpen, setIsCmdMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+
+  // Theme is handled via a dataset attribute so Tailwind's `dark:` classes can be used if needed.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = isDark ? 'dark' : 'light';
+    // Optional: also set the Tailwind `dark` class for any `dark:*` usage.
+    root.classList.toggle('dark', isDark);
+  }, [isDark]);
+
+  const toggleDark = useCallback(() => {
+    setIsDark((v) => !v);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      const key = e.key?.toLowerCase();
+
+      if (mod && key === 'k') {
+        e.preventDefault();
+        setIsCmdMenuOpen(true);
+      }
+
+      if (e.key === 'Escape') {
+        setIsCmdMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-black text-white relative">
-        <AppRoutes />
-        <License/>
+        <AppRoutes
+          isCmdMenuOpen={isCmdMenuOpen}
+          setIsCmdMenuOpen={setIsCmdMenuOpen}
+          isDark={isDark}
+          toggleDark={toggleDark}
+        />
+        <CommandMenu
+          isOpen={isCmdMenuOpen}
+          onClose={() => setIsCmdMenuOpen(false)}
+        />
+        <License />
       </div>
     </BrowserRouter>
   );
