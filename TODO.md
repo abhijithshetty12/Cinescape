@@ -1,17 +1,10 @@
-# TODO - Director's Cut Interactive Deck
+# TODO - Watchlist Roulette
 
-- [ ] Add dependency for interactive graph rendering (vis-network)
-- [ ] Create `src/Pages/DirectorsCut.tsx`:
-  - [ ] Build graph UI (search + depth + render canvas)
-  - [ ] Fetch TMDB credits for selected person (director/actor)
-  - [ ] Build nodes/edges with collaboration weights
-  - [ ] Render with vis-network (pan/zoom, click nodes)
-  - [ ] Genre-based node color mapping
-  - [ ] Inspector panel for selected node
-- [x] Wire route in `src/App.js` to `/directors-cut`
+- [x] Inspect current Watchlist page implementation
+- [ ] Implement “Surprise Me” roulette in `src/Pages/Watchlist.tsx` (slot-machine style easing using framer-motion)
+- [ ] Trigger `canvas-confetti` burst when roulette lands
+- [ ] Highlight landed card and show an “Open” button (no auto-navigation)
+- [ ] Handle reduced-motion / empty watchlist cases
+- [ ] Build/test the project (`npm run build`)
 
-- [x] Add CommandMenu action (Cmd/Ctrl+K) to navigate to `/directors-cut`
-
-- [ ] Styling pass (match glassmorphic theme)
-- [ ] Build/test: `npm run build` and basic smoke test
 

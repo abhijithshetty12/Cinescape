@@ -1,26 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
+  AlertCircle,
   Bookmark,
+  Clapperboard,
+  Filter,
+  ImageOff,
+  Loader2,
   Search,
   SortAsc,
   SortDesc,
-  Filter,
-  ImageOff,
   Star,
-  Clapperboard,
-  Tv,
   TrendingUp,
+  Tv,
   X,
-  AlertCircle,
-  Loader2,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
 import axios from 'axios';
+import WatchlistRoulette from '../components/WatchlistRoulette.tsx';
+
 
 interface MediaItem {
   id: string;
@@ -55,6 +57,13 @@ const WatchlistPage = () => {
   const [fullWatchlist, setFullWatchlist] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showRoulette, setShowRoulette] = useState(false);
+
+  const reducedMotion = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+  }, []);
+
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
@@ -280,8 +289,30 @@ const WatchlistPage = () => {
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter Bar + Surprise Me */}
         <div className="flex flex-col md:flex-row gap-3 mb-6">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (!filteredAndSortedWatchlist.length) return;
+                setShowRoulette(true);
+              }}
+              disabled={filteredAndSortedWatchlist.length === 0}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border backdrop-blur-xl transition-all duration-300
+                ${
+                  filteredAndSortedWatchlist.length === 0
+                    ? 'bg-white/[0.03] border-white/[0.08] text-zinc-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-red-600/90 to-red-500/90 border-red-400/30 text-white hover:from-red-500 hover:to-red-400 hover:scale-[1.02] shadow-lg shadow-red-500/20'
+                }`}
+            >
+              <span className="inline-flex w-7 h-7 items-center justify-center rounded-xl bg-black/20 border border-white/10">
+                🎰
+              </span>
+              Surprise Me
+            </button>
+          </div>
+
           <div className="relative flex-1 max-w-lg">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4 transition-colors" />
             <input
@@ -405,11 +436,16 @@ const WatchlistPage = () => {
         >
           <AnimatePresence mode="popLayout">
             {filteredAndSortedWatchlist.map((item) => (
-              <motion.div key={item.id} variants={cardVariants} layout>
-                <Link to={`/${item.mediaType}/${item.movieId}`} className="group block">
-                  <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-500 hover:-translate-y-2">
-                    {/* Poster */}
-                    <div className="relative aspect-[2/3] overflow-hidden">
+                <motion.div
+                  key={item.id}
+                  variants={cardVariants}
+                  layout
+                  transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                >
+                  <Link to={`/${item.mediaType}/${item.movieId}`} className="group block">
+                    <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-red-500/10 hover:border-red-500/30">
+                      {/* Poster */}
+                      <div className="relative aspect-[2/3] overflow-hidden">
                       <img
                         src={`https://image.tmdb.org/t/p/w500${item.posterPath}`}
                         alt={item.title || item.name}
@@ -440,7 +476,7 @@ const WatchlistPage = () => {
                     </div>
 
                     {/* Info */}
-                    <div className="p-3.5">
+                  <div className="p-3.5">
                       <h2 className="text-sm font-bold text-white mb-1 line-clamp-2 group-hover:text-red-400 transition-colors duration-300">
                         {item.title || item.name}
                       </h2>
@@ -488,6 +524,16 @@ const WatchlistPage = () => {
           </motion.div>
         )}
       </div>
+
+      <AnimatePresence>
+        {showRoulette && (
+          <WatchlistRoulette
+            isOpen={showRoulette}
+            onClose={() => setShowRoulette(false)}
+            items={filteredAndSortedWatchlist as any}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
