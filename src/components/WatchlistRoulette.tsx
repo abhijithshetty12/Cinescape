@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, animate, useMotionValue, useSpring } from 'framer-motion';
 import { Star, X, Play, RotateCcw, TrendingUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useNavigate } from 'react-router-dom';
+
 
 interface Movie {
   id: string;
@@ -27,11 +28,25 @@ const CARD_WIDTH = 220;
 const GAP = 20;
 const TOTAL_CARD_WIDTH = CARD_WIDTH + GAP;
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+
+
+
 const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, items }) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<Movie | null>(null);
   const [showResult, setShowResult] = useState(false);
   const navigate = useNavigate();
+
+  const getPosterSrc = useCallback((m: Movie | null) => {
+    const posterPath = m?.posterPath;
+    if (!posterPath) return null;
+    // TMDB expects leading slash in posterPath
+    return `https://image.tmdb.org/t/p/w500${posterPath}`;
+  }, []);
 
   // Animation values
   const xOffset = useMotionValue(0);
@@ -54,6 +69,7 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
   }, [items]);
 
   const triggerConfetti = useCallback(() => {
+
     const end = Date.now() + 2 * 1000;
     const colors = ['#ef4444', '#ffffff', '#dc2626'];
 
@@ -80,6 +96,16 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
   }, []);
 
   const startSpin = useCallback(() => {
+    // Responsive sizing to keep alignment correct on mobile
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const isMobile = vw < 640;
+
+    const cardWidth = isMobile ? 160 : 220;
+    const gap = isMobile ? 12 : 20;
+    const totalCardWidth = cardWidth + gap;
+
+    const centerOffset = vw / 2 - cardWidth / 2;
+
     if (items.length === 0) return;
     
     setIsSpinning(true);
@@ -108,8 +134,8 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
       : endIdx;
 
     // Calculate center-aligned position
-    const centerOffset = window.innerWidth / 2 - CARD_WIDTH / 2;
-    const targetX = -(targetIndex * TOTAL_CARD_WIDTH) + centerOffset;
+    const targetX = -(targetIndex * totalCardWidth) + centerOffset;
+
 
     // Spin animation
     const controls = animate(0, targetX, {
@@ -187,7 +213,7 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
       )}
 
       {/* Spin Container */}
-      <div className="relative w-full h-[400px] flex items-center justify-center mt-10">
+      <div className="relative w-full h-[min(70vh,520px)] flex items-center justify-center">
         {/* Indicators */}
         <motion.div 
           style={{ scale: indicatorScale }}
@@ -212,28 +238,45 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
 
         {/* The Reel */}
         <motion.div 
-          className="flex gap-5 px-[50vw]"
+          className="flex gap-5 px-[12px]"
           style={{ x: xOffset }}
         >
-          {reelItems.map((item, idx) => (
-            <div 
-              key={`${item.id}-${idx}`}
-              className="relative shrink-0 w-[220px] h-[320px] rounded-2xl overflow-hidden bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300"
-              style={{
-                 opacity: isSpinning ? 0.7 : 1,
-                 scale: isSpinning ? 0.95 : 1
-              }}
-            >
-              <img 
-                src={`https://image.tmdb.org/t/p/w500${item.posterPath}`} 
-                alt={item.title || item.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60" />
-            </div>
-          ))}
+          {reelItems.map((item, idx) => {
+            const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+            const isMobile = vw < 640;
+            const w = isMobile ? 160 : 220;
+            const h = isMobile ? 260 : 320;
+
+            return (
+              <div 
+                key={`${item.id}-${idx}`}
+                className="relative shrink-0 overflow-hidden bg-zinc-900 border border-white/5 shadow-2xl transition-all duration-300 rounded-2xl"
+                style={{
+                  width: w,
+                  height: h,
+                  opacity: isSpinning ? 0.7 : 1,
+                  scale: isSpinning ? 0.95 : 1
+                }}
+              >
+                <img 
+                  src={getPosterSrc(item) ?? undefined}
+                  alt={item.title || item.name}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                {/* Fallback */}
+                {!getPosterSrc(item) && (
+                  <div className="w-full h-full bg-zinc-800" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60" />
+              </div>
+            );
+          })}
         </motion.div>
+
       </div>
 
       {/* Result Card */}
@@ -243,12 +286,27 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="absolute bottom-10 md:bottom-20 left-1/2 -translate-x-1/2 w-full max-w-lg px-6 z-[100]"
+            className="absolute -translate-x-1/2 -translate-y-1/2 w-full max-w-lg px-6 z-[100]"
           >
-            <div className="relative bg-zinc-900/40 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 md:p-10 shadow-2xl text-center overflow-hidden group">
-              {/* Animated corner accents */}
-              <div className="absolute top-0 left-0 w-20 h-20 border-t-2 border-l-2 border-red-500/30 rounded-tl-[2.5rem]" />
-              <div className="absolute bottom-0 right-0 w-20 h-20 border-b-2 border-r-2 border-red-500/30 rounded-br-[2.5rem]" />
+            <div className="relative bg-zinc-900/40 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-6 md:p-10 shadow-2xl text-center overflow-hidden group">
+
+              {/* Winner poster (was missing) */}
+              <div className="mx-auto mb-5 md:mb-7 w-[140px] h-[200px] sm:w-[180px] sm:h-[255px] rounded-2xl overflow-hidden bg-zinc-800 border border-white/5 shadow-2xl relative">
+                {getPosterSrc(winner) ? (
+                  <img
+                    src={getPosterSrc(winner) ?? undefined}
+                    alt={winner.title || winner.name}
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-zinc-800" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              </div>
               
               <motion.div
                 initial={{ scale: 0 }}
