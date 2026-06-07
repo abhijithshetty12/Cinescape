@@ -15,8 +15,11 @@ import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { enqueueWatchlistOp, registerWatchlistSync } from '../utils/watchlistQueue.ts';
+
 
 interface MovieDetails {
+
   id: number;
   title: string;
   overview: string;
@@ -376,31 +379,56 @@ const MovieDetails = () => {
     const auth = getAuth();
     const user = auth.currentUser;
 
-    if (user) {
-      const userId = user.uid;
-      const watchlistCollectionRef = collection(db, 'users', userId, 'watchlist');
+    if (!user) {
+      setToast({
+        message: 'Please log in to add to watchlist',
+        type: 'error',
+        isVisible: true,
+      });
+      return;
+    }
 
+    // Offline-first behavior: enqueue and optimistic UI.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       try {
-        const querySnapshot = await getDocs(query(watchlistCollectionRef, where('movieId', '==', movieDetails?.id)));
-        if (querySnapshot.docs.length > 0) {
-          const docToDelete = querySnapshot.docs[0];
-          await deleteDoc(docToDelete.ref);
-          setIsInWatchlist(false);
-          setToast({
-            message: 'Movie removed from watchlist!',
-            type: 'info',
-            isVisible: true,
-          });
-        } else {
-          await addDoc(watchlistCollectionRef, {
-            movieId: movieDetails?.id,
-            title: movieDetails?.title,
-            releaseDate: movieDetails?.release_date,
-            genres: movieDetails?.genres?.map((genre) => genre.name),
-            posterPath: movieDetails?.poster_path,
-          });
-          setIsInWatchlist(true);
+        const userId = user.uid;
+        const movieId = movieDetails?.id;
+        if (!movieId) return;
 
+        const willBeSaved = !isInWatchlist;
+        setIsInWatchlist(willBeSaved);
+
+        await enqueueWatchlistOp({
+          type: willBeSaved ? 'watchlist_add' : 'watchlist_remove',
+          userId,
+          movieId,
+          title: movieDetails?.title,
+          releaseDate: movieDetails?.release_date,
+          genres: movieDetails?.genres?.map((genre) => genre.name),
+          posterPath: movieDetails?.poster_path,
+          mediaType: 'movie',
+        });
+
+        // Request a background sync when supported; otherwise we rely on 'online' flush.
+        await registerWatchlistSync();
+
+        // Notify SW/client to attempt flushing when possible.
+        try {
+          if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            reg.active?.postMessage({ type: 'WATCHLIST_FLUSH' });
+          }
+        } catch {
+          // ignore
+        }
+
+        setToast({
+          message: willBeSaved ? 'Saved offline. Will sync when online.' : 'Removed offline. Will sync when online.',
+          type: 'info',
+          isVisible: true,
+        });
+
+        if (willBeSaved) {
           // Easter Egg: Blue Confetti Burst for Watchlist
           confetti({
             particleCount: 150,
@@ -411,29 +439,70 @@ const MovieDetails = () => {
             gravity: 1.2,
             scalar: 1.2,
           });
-
-          setToast({
-            message: 'Movie added to watchlist!',
-            type: 'success',
-            isVisible: true,
-          });
         }
       } catch (error) {
-        console.error('Error toggling watchlist: ', error);
+        console.error('Offline enqueue failed:', error);
         setToast({
-          message: 'Failed to update watchlist',
+          message: 'Failed to save offline',
           type: 'error',
           isVisible: true,
         });
       }
-    } else {
+      return;
+    }
+
+    // Online behavior: existing Firestore writes.
+    const userId = user.uid;
+    const watchlistCollectionRef = collection(db, 'users', userId, 'watchlist');
+
+    try {
+      const querySnapshot = await getDocs(query(watchlistCollectionRef, where('movieId', '==', movieDetails?.id)));
+      if (querySnapshot.docs.length > 0) {
+        const docToDelete = querySnapshot.docs[0];
+        await deleteDoc(docToDelete.ref);
+        setIsInWatchlist(false);
+        setToast({
+          message: 'Movie removed from watchlist!',
+          type: 'info',
+          isVisible: true,
+        });
+      } else {
+        await addDoc(watchlistCollectionRef, {
+          movieId: movieDetails?.id,
+          title: movieDetails?.title,
+          releaseDate: movieDetails?.release_date,
+          genres: movieDetails?.genres?.map((genre) => genre.name),
+          posterPath: movieDetails?.poster_path,
+        });
+        setIsInWatchlist(true);
+
+        // Easter Egg: Blue Confetti Burst for Watchlist
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.8 },
+          colors: ['#2563eb', '#3b82f6', '#60a5fa', '#1d4ed8'],
+          ticks: 200,
+          gravity: 1.2,
+          scalar: 1.2,
+        });
+
+        setToast({
+          message: 'Movie added to watchlist!',
+          type: 'success',
+          isVisible: true,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling watchlist: ', error);
       setToast({
-        message: 'Please log in to add to watchlist',
+        message: 'Failed to update watchlist',
         type: 'error',
         isVisible: true,
       });
     }
   };
+
 
   const handleRatingSubmit = async () => {
     if (!user) {

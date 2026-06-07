@@ -126,6 +126,15 @@ const WatchlistPage = () => {
     setLoading(true);
     setError(null);
 
+    // Offline fallback: we don't have a separate cached watchlist store yet,
+    // but the service worker offline shell will still let the page render.
+    // If you want a full offline snapshot cache, wire it to IndexedDB here.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setError('You are offline. Watchlist may be limited to previously loaded data.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const watchlistRef = collection(db, `users/${user.uid}/watchlist`);
       const q = query(watchlistRef, orderBy('releaseDate', 'desc'));
@@ -169,6 +178,7 @@ const WatchlistPage = () => {
       setLoading(false);
     }
   }, [user?.uid]);
+
 
   if (loading) return <Loading />;
 
