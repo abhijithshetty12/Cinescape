@@ -40,6 +40,8 @@ const Tvdetails = () => {
   const showId = id;
   const { user } = useAuth();
 
+
+
   const [Tvdetails, setTvdetails] = useState<Tvdetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,9 @@ const Tvdetails = () => {
     isVisible: false,
   });
   const playerRef = useRef<HTMLDivElement>(null);
+
+  const [activeGenreId, setActiveGenreId] = useState<number | null>(null);
+
 
   const languageMap: Record<string, string> = {
     en: 'English', kn: 'Kannada', te: 'Telugu', hi: 'Hindi', ta: 'Tamil', ml: 'Malayalam',
@@ -482,93 +487,223 @@ const Tvdetails = () => {
         </div>
       </div>
 
-      {/* Main Content */}
+        {/* Main Content (minimal, modern, pitch-black background) */}
       <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
-        {/* Synopsis Section - Modern Glassmorphic */}
+        {/* Vibe Chart */}
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.65 }}
+          className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 px-6 md:px-8 py-6 md:py-7"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-white">Vibe Chart</h2>
+            <p className="text-xs md:text-sm text-white/50">Hover a segment</p>
+          </div>
+
+          {(() => {
+            const genres = Tvdetails?.genres ?? [];
+            const safeCount = Math.max(genres.length, 1);
+            const segments = genres.map((g) => ({
+              id: g.id,
+              name: g.name,
+              // Use genre count weight (closer to real "analysis")
+              value: (genres.length ? 100 / genres.length : 0) * 1,
+            }));
+
+            const active = segments.find((s) => s.id === activeGenreId) ?? null;
+            const centerTitle = active ? active.name : 'Genre Mix';
+            const centerPct = active ? active.value : 100;
+
+            const size = 220;
+            const stroke = 22;
+            const r = (size / 2) - stroke;
+            const cx = size / 2;
+            const cy = size / 2;
+            const circumference = 2 * Math.PI * r;
+
+            const colors = [
+              '#FDE047', // bright yellow
+              '#FB7185', // bright pink/red-pink
+              '#60A5FA', // vivid blue
+              '#F97316', // orange
+              '#F472B6', // pink
+              '#38BDF8', // sky blue
+              '#FDBA74', // orange-peach
+              '#A78BFA', // violet for variety
+              '#FBBF24', // amber yellow
+            ];
+
+
+            let offset = 0;
+
+            return (
+              <div className="flex items-center gap-6 justify-center md:justify-start">
+                <div className="relative" style={{ width: size, height: size }}>
+                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Genre vibe donut chart">
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      fill="transparent"
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth={stroke}
+                    />
+
+                    {segments.map((seg, idx) => {
+                      const dash = (circumference * seg.value) / 100;
+                      const dashArray = `${dash} ${circumference - dash}`;
+                      const dashOffset = -(offset);
+                      offset += dash;
+                      const isActive = seg.id === activeGenreId;
+                      const color = colors[idx % colors.length];
+
+                      return (
+                        <circle
+                          key={seg.id}
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          fill="transparent"
+                          stroke={color}
+                          strokeWidth={stroke}
+                          strokeLinecap="butt"
+                          strokeDasharray={dashArray}
+                          strokeDashoffset={dashOffset}
+                          transform={`rotate(-90 ${cx} ${cy})`}
+                          style={{
+                            filter: isActive ? 'drop-shadow(0 0 14px rgba(255,255,255,0.28))' : 'none',
+                            opacity: activeGenreId == null || isActive ? 1 : 0.55,
+                            transition: 'opacity 180ms ease, filter 180ms ease, transform 180ms ease',
+                            transform: isActive ? 'translateY(-6px)' : 'translateY(0px)',
+                            transformOrigin: 'center',
+                          }}
+                          onMouseEnter={() => setActiveGenreId(seg.id)}
+                          onMouseLeave={() => setActiveGenreId(null)}
+                          onFocus={() => setActiveGenreId(seg.id)}
+                          onBlur={() => setActiveGenreId(null)}
+
+                          tabIndex={0}
+                          aria-label={`${seg.name}: ${seg.value.toFixed(1)}%`}
+                        />
+                      );
+                    })}
+                  </svg>
+
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                    <div className="text-white/70 text-[12px] md:text-sm">{centerTitle}</div>
+                    <div className="text-white font-extrabold text-3xl md:text-4xl leading-none mt-1">{centerPct.toFixed(1)}%</div>
+                  </div>
+                </div>
+
+                <div className="hidden md:block">
+                  <ul className="space-y-2">
+                    {segments.map((s, idx) => {
+                      const color = colors[idx % colors.length];
+                      const isActive = s.id === activeGenreId;
+                      return (
+                        <li key={s.id} className="flex items-center gap-3">
+                          <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: color, boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.08)` : 'none' }} />
+                          <button
+                            type="button"
+                            onMouseEnter={() => setActiveGenreId(s.id)}
+                            onMouseLeave={() => setActiveGenreId(null)}
+                            onFocus={() => setActiveGenreId(s.id)}
+                            onBlur={() => setActiveGenreId(null)}
+                            className={`text-sm ${isActive ? 'text-white font-semibold' : 'text-white/60 hover:text-white transition-colors'}`}
+                          >
+                            {s.name}
+                          </button>
+                          <span className={`ml-auto text-sm ${isActive ? 'text-white/90 font-semibold' : 'text-white/50'}`}>{s.value.toFixed(1)}%</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            );
+          })()}
+        </motion.section>
+
+        {/* Synopsis (no boxed section feel) */}
+        <motion.section
+
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.7 }}
-          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
+          className="px-1"
         >
-          <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-white">Synopsis</h2>
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-white">Synopsis</h2>
+            <div className="hidden md:block h-px flex-1 ml-6 bg-white/10" />
+          </div>
           <p className="text-base md:text-lg text-white/70 leading-relaxed">{Tvdetails?.overview}</p>
         </motion.section>
 
-        {/* Show Info & Cast Grid - Modern Glassmorphic */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Show Info */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.9 }}
-            className="lg:col-span-1"
-          >
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 h-full">
-              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
+        {/* Glassmorphic partition line: Show Info + Top Cast */}
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+          className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 px-6 md:px-8 py-5 md:py-6"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+            {/* Show Info */}
+            <div className="lg:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
                 <Globe className="w-5 h-5 text-blue-400" />
-                Show Info
-              </h3>
-              <dl className="space-y-5">
+                <h3 className="text-lg font-bold text-white">Show Info</h3>
+              </div>
+              <dl className="space-y-4">
                 <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">Language</dt>
-                  <dd className="text-white font-semibold">{showLanguage}</dd>
+                  <dt className="text-white/50 text-sm font-medium">Language</dt>
+                  <dd className="text-white font-semibold mt-1">{showLanguage}</dd>
                 </div>
                 <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">First Air Date</dt>
-                  <dd className="flex items-center gap-2 text-white font-semibold">
+                  <dt className="text-white/50 text-sm font-medium">First Air Date</dt>
+                  <dd className="flex items-center gap-2 text-white font-semibold mt-1">
                     <Calendar className="w-4 h-4 text-green-400" />
                     {showFirstAirDate}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-white/50 text-sm font-medium mb-2">Created By</dt>
-                  <dd className="text-white font-semibold">
-                    {creators.length > 0 ? creators.map(c => c.name).join(', ') : 'Unknown'}
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium">Created By</dt>
+                  <dd className="text-white font-semibold mt-1">
+                    {creators.length > 0 ? creators.map((c) => c.name).join(', ') : 'Unknown'}
                   </dd>
                 </div>
-
                 <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">Country</dt>
-                  <dd className="text-white font-semibold">
+                  <dt className="text-white/50 text-sm font-medium">Country</dt>
+                  <dd className="text-white font-semibold mt-1">
                     {Tvdetails?.country?.length ? Tvdetails.country.join(', ') : 'Unknown'}
                   </dd>
                 </div>
-
                 <div>
-                  <dt className="text-white/50 text-sm font-medium mb-2">Age Rating</dt>
-                  <dd className="text-white font-semibold">{Tvdetails?.age_rating || 'Unknown'}</dd>
+                  <dt className="text-white/50 text-sm font-medium">Age Rating</dt>
+                  <dd className="text-white font-semibold mt-1">{Tvdetails?.age_rating || 'Unknown'}</dd>
                 </div>
-
               </dl>
             </div>
-          </motion.div>
 
-          {/* Cast Section - Modern Glassmorphic */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 1.0 }}
-            className="lg:col-span-2"
-          >
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10 h-full">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+            {/* Top Cast */}
+            <div className="lg:col-span-2">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500/15 rounded-lg">
+                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
                 </div>
-                <h2 className="text-xl md:text-2xl font-bold text-white">Top Cast</h2>
+                <h2 className="text-lg md:text-xl font-bold text-white">Top Cast</h2>
               </div>
+
               <div className="overflow-x-auto pb-2 custom-scrollbar">
                 <div className="flex gap-4 md:gap-5">
                   {Tvdetails?.cast?.map((actor, idx) => (
                     <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
                       <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
-                        className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44"
+                        transition={{ duration: 0.35, delay: 0.08 + idx * 0.03 }}
+                        className="relative bg-gradient-to-b from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/[0.04] transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-lg overflow-hidden w-36 sm:w-44"
                       >
-                        {/* Image container with aspect ratio */}
                         <div className="relative aspect-[3/4] overflow-hidden">
                           {actor.profile_path ? (
                             <img
@@ -582,12 +717,9 @@ const Tvdetails = () => {
                               <span className="text-xs text-center px-2">No Photo</span>
                             </div>
                           )}
-
-                          {/* Gradient overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-70" />
                         </div>
 
-                        {/* Info */}
                         <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
                           <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
                             {actor.name}
@@ -596,20 +728,16 @@ const Tvdetails = () => {
                             {actor.role || 'Unknown Role'}
                           </p>
                         </div>
-
-                        {/* Hover border glow */}
-                        <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
                       </motion.div>
                     </Link>
                   ))}
                 </div>
               </div>
 
-              {/* Swipe hint for mobile */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 1.2 }}
+                transition={{ duration: 0.5, delay: 0.7 }}
                 className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
               >
                 <span>Swipe to explore</span>
@@ -618,8 +746,10 @@ const Tvdetails = () => {
                 </div>
               </motion.div>
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.section>
+
+
 
         {/* Player Section - Modern Glassmorphic */}
         <motion.section
