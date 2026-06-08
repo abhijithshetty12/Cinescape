@@ -28,7 +28,12 @@ interface Tvdetails {
   reviews: { id: string; author: string; content: string }[];
   trailers: any;
   images: { backdrops: { file_path: string }[] };
+
+  // Added fields for UI
+  country: string[];
+  age_rating: string;
 }
+
 
 const Tvdetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -177,7 +182,15 @@ const Tvdetails = () => {
             })) || [],
           trailers: showData.videos?.results || [],
           images: showData.images?.backdrops || [],
+
+          // Country + Age rating (best-effort; TMDB response may vary)
+          country: Array.isArray(showData.origin_country) ? showData.origin_country : [],
+          age_rating:
+            showData.content_ratings?.results?.[0]?.rating ||
+            showData.age_rating ||
+            'Unknown',
         });
+
 
         if (showData.seasons.length > 0) {
           const latestSeason = showData.seasons.reduce((max: any, s: any) =>
@@ -482,6 +495,132 @@ const Tvdetails = () => {
           <p className="text-base md:text-lg text-white/70 leading-relaxed">{Tvdetails?.overview}</p>
         </motion.section>
 
+        {/* Show Info & Cast Grid - Modern Glassmorphic */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Show Info */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 0.9 }}
+            className="lg:col-span-1"
+          >
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 h-full">
+              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
+                <Globe className="w-5 h-5 text-blue-400" />
+                Show Info
+              </h3>
+              <dl className="space-y-5">
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">Language</dt>
+                  <dd className="text-white font-semibold">{showLanguage}</dd>
+                </div>
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">First Air Date</dt>
+                  <dd className="flex items-center gap-2 text-white font-semibold">
+                    <Calendar className="w-4 h-4 text-green-400" />
+                    {showFirstAirDate}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-white/50 text-sm font-medium mb-2">Created By</dt>
+                  <dd className="text-white font-semibold">
+                    {creators.length > 0 ? creators.map(c => c.name).join(', ') : 'Unknown'}
+                  </dd>
+                </div>
+
+                <div className="pb-4 border-b border-white/10">
+                  <dt className="text-white/50 text-sm font-medium mb-2">Country</dt>
+                  <dd className="text-white font-semibold">
+                    {Tvdetails?.country?.length ? Tvdetails.country.join(', ') : 'Unknown'}
+                  </dd>
+                </div>
+
+                <div>
+                  <dt className="text-white/50 text-sm font-medium mb-2">Age Rating</dt>
+                  <dd className="text-white font-semibold">{Tvdetails?.age_rating || 'Unknown'}</dd>
+                </div>
+
+              </dl>
+            </div>
+          </motion.div>
+
+          {/* Cast Section - Modern Glassmorphic */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, delay: 1.0 }}
+            className="lg:col-span-2"
+          >
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10 h-full">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-blue-500/20 rounded-lg">
+                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-white">Top Cast</h2>
+              </div>
+              <div className="overflow-x-auto pb-2 custom-scrollbar">
+                <div className="flex gap-4 md:gap-5">
+                  {Tvdetails?.cast?.map((actor, idx) => (
+                    <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
+                        className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44"
+                      >
+                        {/* Image container with aspect ratio */}
+                        <div className="relative aspect-[3/4] overflow-hidden">
+                          {actor.profile_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
+                              alt={actor.name}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
+                              <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
+                              <span className="text-xs text-center px-2">No Photo</span>
+                            </div>
+                          )}
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                        </div>
+
+                        {/* Info */}
+                        <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
+                          <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                            {actor.name}
+                          </h3>
+                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                            {actor.role || 'Unknown Role'}
+                          </p>
+                        </div>
+
+                        {/* Hover border glow */}
+                        <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
+                      </motion.div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              {/* Swipe hint for mobile */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 1.2 }}
+                className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
+              >
+                <span>Swipe to explore</span>
+                <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+
         {/* Player Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
@@ -656,119 +795,6 @@ const Tvdetails = () => {
             </div>
           )}
         </motion.section>
-
-        {/* Show Info & Cast Grid - Modern Glassmorphic */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Show Info */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.9 }}
-            className="lg:col-span-1"
-          >
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 h-full">
-              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
-                <Globe className="w-5 h-5 text-blue-400" />
-                Show Info
-              </h3>
-              <dl className="space-y-5">
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">Language</dt>
-                  <dd className="text-white font-semibold">{showLanguage}</dd>
-                </div>
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">First Air Date</dt>
-                  <dd className="flex items-center gap-2 text-white font-semibold">
-                    <Calendar className="w-4 h-4 text-green-400" />
-                    {showFirstAirDate}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-white/50 text-sm font-medium mb-2">Created By</dt>
-                  <dd className="text-white font-semibold">
-                    {creators.length > 0 ? creators.map(c => c.name).join(', ') : 'Unknown'}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </motion.div>
-
-          {/* Cast Section - Modern Glassmorphic */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 1.0 }}
-            className="lg:col-span-2"
-          >
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10 h-full">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-white">Top Cast</h2>
-              </div>
-              <div className="overflow-x-auto pb-2 custom-scrollbar">
-                <div className="flex gap-4 md:gap-5">
-                  {Tvdetails?.cast?.map((actor, idx) => (
-                    <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.1 + idx * 0.05 }}
-                        className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44"
-                      >
-                        {/* Image container with aspect ratio */}
-                        <div className="relative aspect-[3/4] overflow-hidden">
-                          {actor.profile_path ? (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
-                              alt={actor.name}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
-                              <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
-                              <span className="text-xs text-center px-2">No Photo</span>
-                            </div>
-                          )}
-
-                          {/* Gradient overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
-                        </div>
-
-                        {/* Info */}
-                        <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
-                          <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
-                            {actor.name}
-                          </h3>
-                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                            {actor.role || 'Unknown Role'}
-                          </p>
-                        </div>
-
-                        {/* Hover border glow */}
-                        <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
-                      </motion.div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              {/* Swipe hint for mobile */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 1.2 }}
-                className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
-              >
-                <span>Swipe to explore</span>
-                <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
 
         {/* Reviews Section - Modern Glassmorphic */}
         <motion.section
