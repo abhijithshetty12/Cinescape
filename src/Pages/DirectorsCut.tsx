@@ -2,20 +2,20 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Network } from 'vis-network/standalone';
-
 import {
-  Film,
+  Clapperboard,
   Search,
   User,
   ChevronRight,
   Info,
-  Sparkles,
+  Sliders,
   X,
   AlertCircle,
+  TrendingUp,
+  Activity
 } from 'lucide-react';
 
 type MediaType = 'movie' | 'tv';
-
 type PersonKind = 'director' | 'actor';
 
 type TMDBPerson = {
@@ -45,18 +45,15 @@ type GraphEdge = {
 const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
 
 const palette = [
-  '#ef4444', // red
+  '#f43f5e', // rose
   '#f97316', // orange
-  '#f59e0b', // amber
-  '#eab308', // yellow
-  '#84cc16', // lime
-  '#22c55e', // green
-  '#14b8a6', // teal
+  '#eab308', // amber
+  '#10b981', // emerald
   '#06b6d4', // cyan
   '#3b82f6', // blue
   '#6366f1', // indigo
   '#8b5cf6', // violet
-  '#ec4899', // pink
+  '#d946ef', // fuchsia
 ];
 
 function hashStringToInt(s: string) {
@@ -69,14 +66,14 @@ function genreColor(genre: string) {
   const idx = hashStringToInt(genre.trim().toLowerCase()) % palette.length;
   const base = palette[idx];
   return {
-    background: `${base}`,
-    border: `${base}`,
-    highlight: { background: base, border: base },
+    background: `${base}20`,
+    border: `${base}80`,
+    highlight: { background: `${base}40`, border: base },
   };
 }
 
 function personNodeColor(kind: PersonKind) {
-  const base = kind === 'director' ? '#f97316' : '#60a5fa';
+  const base = kind === 'director' ? '#f43f5e' : '#3b82f6';
   return {
     background: base,
     border: base,
@@ -111,32 +108,18 @@ export default function DirectorsCut() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [inspector, setInspector] = useState<GraphNode | null>(null);
 
-
-
-  const getColorLegend = useMemo(() => {
-    return palette.slice(0, 6).map((c) => c);
-  }, []);
+  const getColorLegend = useMemo(() => palette.slice(0, 6), []);
 
   async function searchPerson(q: string): Promise<TMDBPerson[]> {
-    const url = `https://api.themoviedb.org/3/search/person?api_key=${API_KEY}&query=${encodeURIComponent(
-      q
-    )}&include_adult=false`;
+    const url = `https://api.themoviedb.org/3/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&include_adult=false`;
     type Resp = { results: { id: number; name: string }[] };
     const data = await fetchTMDBJSON<Resp>(url);
     return (data?.results ?? []).slice(0, 8).map((r) => ({ id: r.id, name: r.name }));
   }
 
   async function fetchDirectorGraph(personId: number) {
-    // Fetch director credits (as person credits). We'll treat movies/TV equally.
-    type CreditsResp = {
-      cast: any[];
-      crew: any[];
-      id: number;
-    };
-
     type CreditItem = {
       id: number;
       media_type: MediaType;
@@ -144,44 +127,26 @@ export default function DirectorsCut() {
       name?: string;
       release_date?: string;
       first_air_date?: string;
-      genre_ids?: number[];
-      genre_names?: string[];
-      known_for_department?: string;
-      character?: string;
       job?: string;
+      known_for_department?: string;
     };
 
-    type MovieCredits = {
-      cast: { id: number; name: string; character?: string; order?: number; profile_path?: string }[];
-      genres?: { id: number; name: string }[];
-    };
-
-    const credits = await fetchTMDBJSON<CreditsResp>(
+    const credits = await fetchTMDBJSON<{ crew: any[]; id: number }>(
       `https://api.themoviedb.org/3/person/${personId}/combined_credits?api_key=${API_KEY}`
     );
 
     const directed = (credits.crew ?? []).filter((c: CreditItem) => c.job === 'Director' || c.known_for_department === 'Directing');
-
-    // Take top credits for performance
     const picked = directed.slice(0, Math.max(8, depth * 6));
-
-    // Helper cache
-    const personCache = new Map<number, { id: number; name: string }>();
-    const titleByNode = new Map<string, { kind: 'title'; id: number; mediaType: MediaType; label: string; genres: string[] }>();
-
     const nodePeople = new Map<number, { kind: PersonKind; name: string }>();
-
-    // Edges: co-actor collaborations weighted by shared titles
     const edgeWeight = new Map<string, number>();
     const edgeByPair = new Map<string, { from: string; to: string }>();
 
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
 
-    // Root director node
-    const rootDirectorId = personId;
+    const rootId = `person:${personId}`;
     const directorLabel = selectedPerson?.name ?? 'Director';
-    const rootId = `person:${rootDirectorId}`;
+    
     nodes.push({
       id: rootId,
       label: directorLabel,
@@ -191,7 +156,6 @@ export default function DirectorsCut() {
       title: `${directorLabel}\nDirector`,
     });
 
-    // Fetch each title details for genres + cast
     for (let i = 0; i < picked.length; i++) {
       const c = picked[i] as CreditItem;
       const mediaType = c.media_type;
@@ -199,34 +163,18 @@ export default function DirectorsCut() {
       const titleId = c.id;
       const titleNodeId = `title:${mediaType}:${titleId}`;
 
-      // Limit nodes
       if (nodes.length > maxNodes) break;
-
-      const titleUrl = `https://api.themoviedb.org/3/${mediaType}/${titleId}?api_key=${API_KEY}&append_to_response=credits`;
 
       let titleData: any = null;
       try {
-        titleData = await fetchTMDBJSON<any>(titleUrl);
+        titleData = await fetchTMDBJSON<any>(`https://api.themoviedb.org/3/${mediaType}/${titleId}?api_key=${API_KEY}&append_to_response=credits`);
       } catch {
         continue;
       }
 
-      const genres = Array.isArray(titleData?.genres)
-        ? titleData.genres.map((g: any) => String(g?.name ?? '')).filter(Boolean)
-        : [];
-
+      const genres = Array.isArray(titleData?.genres) ? titleData.genres.map((g: any) => String(g?.name ?? '')).filter(Boolean) : [];
       const year = safeYear(c.release_date ?? c.first_air_date);
       const titleLabel = year ? `${title} (${year})` : title;
-
-      titleByNode.set(titleNodeId, {
-        kind: 'title',
-        id: titleId,
-        mediaType,
-        label: titleLabel,
-        genres,
-      });
-
-      // pick dominant genre color
       const dominant = genres[0] ?? 'Collaboration';
       const col = genreColor(dominant);
 
@@ -245,26 +193,21 @@ export default function DirectorsCut() {
         to: titleNodeId,
         value: 1,
         width: 1.5,
-        color: { color: '#f97316', opacity: 0.5 },
+        color: { color: '#f43f5e', opacity: 0.4 },
         title: 'Directed',
       });
 
-      const cast = (titleData?.credits?.cast ?? [])
-        .slice(0, 10)
-        .filter((m: any) => typeof m?.id === 'number' && m?.name);
-
-      // Add co-actor nodes + connect collaborations by pair
+      const cast = (titleData?.credits?.cast ?? []).slice(0, 10).filter((m: any) => typeof m?.id === 'number' && m?.name);
       const actorIds: number[] = [];
+
       for (const m of cast) {
         const actorId = m.id as number;
         actorIds.push(actorId);
-
         if (!nodePeople.has(actorId)) {
           nodePeople.set(actorId, { kind: 'actor', name: m.name });
         }
       }
 
-      // Create nodes for actors in this title
       for (const actorId of actorIds) {
         if (nodes.length >= maxNodes) break;
         if (nodes.some((n) => n.id === `person:${actorId}`)) continue;
@@ -280,7 +223,6 @@ export default function DirectorsCut() {
         });
       }
 
-      // Build pairwise edges among cast members
       for (let a = 0; a < actorIds.length; a++) {
         for (let b = a + 1; b < actorIds.length; b++) {
           const from = `person:${actorIds[a]}`;
@@ -292,24 +234,18 @@ export default function DirectorsCut() {
       }
     }
 
-    // Convert weighted edges into GraphEdge list
     for (const [key, w] of edgeWeight.entries()) {
       if (nodes.length > maxNodes) break;
-
-      if (w < Math.max(2, depth)) {
-        // Keep it readable: only stronger collaborations
-        continue;
-      }
+      if (w < Math.max(2, depth)) continue;
 
       const pair = edgeByPair.get(key)!;
-      const col = { color: '#a78bfa', opacity: 0.35 };
       edges.push({
         id: `edge:${pair.from}<->${pair.to}`,
         from: pair.from,
         to: pair.to,
         value: w,
-        width: Math.min(10, 1.2 + w * 1.1),
-        color: col,
+        width: Math.min(8, 1.2 + w * 1.0),
+        color: { color: '#8b5cf6', opacity: 0.3 },
         title: `Co-appeared ${w} times`,
       });
     }
@@ -318,24 +254,17 @@ export default function DirectorsCut() {
   }
 
   async function fetchActorGraph(personId: number) {
-    // Actor credits -> build titles and co-actors.
-    type CreditsResp = {
-      id: number;
-      cast: any[];
-    };
-
-    const credits = await fetchTMDBJSON<CreditsResp>(
+    const credits = await fetchTMDBJSON<{ id: number; cast: any[] }>(
       `https://api.themoviedb.org/3/person/${personId}/combined_credits?api_key=${API_KEY}`
     );
 
     const acting = (credits.cast ?? []).slice(0, Math.max(8, depth * 6));
-
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
 
-    // Root actor node
     const rootId = `person:${personId}`;
     const rootLabel = selectedPerson?.name ?? 'Actor';
+    
     nodes.push({
       id: rootId,
       label: rootLabel,
@@ -356,22 +285,16 @@ export default function DirectorsCut() {
       const title = c0.title ?? c0.name ?? 'Untitled';
       const titleNodeId = `title:${mediaType}:${titleId}`;
 
-      const titleUrl = `https://api.themoviedb.org/3/${mediaType}/${titleId}?api_key=${API_KEY}&append_to_response=credits`;
-
       let titleData: any = null;
       try {
-        titleData = await fetchTMDBJSON<any>(titleUrl);
+        titleData = await fetchTMDBJSON<any>(`https://api.themoviedb.org/3/${mediaType}/${titleId}?api_key=${API_KEY}&append_to_response=credits`);
       } catch {
         continue;
       }
 
-      const genres = Array.isArray(titleData?.genres)
-        ? titleData.genres.map((g: any) => String(g?.name ?? '')).filter(Boolean)
-        : [];
-
+      const genres = Array.isArray(titleData?.genres) ? titleData.genres.map((g: any) => String(g?.name ?? '')).filter(Boolean) : [];
       const year = safeYear(c0.release_date ?? c0.first_air_date);
       const titleLabel = year ? `${title} (${year})` : title;
-
       const dominant = genres[0] ?? 'Collaboration';
       const col = genreColor(dominant);
 
@@ -390,18 +313,14 @@ export default function DirectorsCut() {
         to: titleNodeId,
         value: 1,
         width: 1.5,
-        color: { color: '#60a5fa', opacity: 0.45 },
+        color: { color: '#3b82f6', opacity: 0.4 },
         title: 'Appeared in',
       });
 
-      const cast = (titleData?.credits?.cast ?? [])
-        .slice(0, 10)
-        .filter((m: any) => typeof m?.id === 'number' && m?.name);
-
+      const cast = (titleData?.credits?.cast ?? []).slice(0, 10).filter((m: any) => typeof m?.id === 'number' && m?.name);
       const actorIds: number[] = [personId];
       for (const m of cast) actorIds.push(m.id);
 
-      // nodes for co-actors
       const uniqueActorIds = Array.from(new Set(actorIds));
       for (const actorId of uniqueActorIds) {
         if (nodes.length >= maxNodes) break;
@@ -420,7 +339,6 @@ export default function DirectorsCut() {
         });
       }
 
-      // co-actor pair weights
       const castIdsOnly = cast.map((m: any) => m.id as number);
       for (let a = 0; a < castIdsOnly.length; a++) {
         for (let b = a + 1; b < castIdsOnly.length; b++) {
@@ -441,8 +359,8 @@ export default function DirectorsCut() {
         from: pair.from,
         to: pair.to,
         value: w,
-        width: Math.min(10, 1.2 + w * 1.1),
-        color: { color: '#a78bfa', opacity: 0.35 },
+        width: Math.min(8, 1.2 + w * 1.0),
+        color: { color: '#8b5cf6', opacity: 0.3 },
         title: `Co-appeared ${w} times`,
       });
     }
@@ -459,53 +377,30 @@ export default function DirectorsCut() {
 
   function renderGraph(nodes: GraphNode[], edges: GraphEdge[]) {
     if (!containerRef.current) return;
-
     destroyNetwork();
-
-    const datasetNodes = nodes.map((n) => ({
-      id: n.id,
-      label: n.label,
-      color: n.color,
-      shape: n.shape,
-      group: n.group,
-      title: n.title ?? n.label,
-    }));
-
-    const datasetEdges = edges.map((e) => ({
-      id: e.id,
-      from: e.from,
-      to: e.to,
-      value: e.value,
-      width: e.width,
-      color: e.color,
-      title: e.title,
-    }));
 
     const options: any = {
       autoResize: true,
       physics: {
         enabled: true,
-        stabilization: { iterations: 150 },
+        stabilization: { iterations: 120 },
         solver: 'barnesHut',
-        barnesHut: { springLength: 120, springConstant: 0.03, gravitationalConstant: -2500 },
+        barnesHut: { springLength: 140, springConstant: 0.04, gravitationalConstant: -3000 },
       },
-      interaction: {
-        hover: true,
-        multiselect: false,
-      },
+      interaction: { hover: true, multiselect: false },
       nodes: {
-        font: { color: '#fff', size: 14, face: 'Arial' },
+        font: { color: '#f4f4f5', size: 13, face: 'system-ui, -apple-system, sans-serif' },
+        borderWidth: 1.5,
+        shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 6, x: 0, y: 3 }
       },
       edges: {
         arrows: { to: { enabled: false } },
-        shadow: false,
+        smooth: { type: 'continuous', roundness: 0.4 },
       },
-      layout: {
-        improvedLayout: true,
-      },
+      layout: { improvedLayout: true },
     };
 
-    const net = new Network(containerRef.current, { nodes: datasetNodes, edges: datasetEdges }, options);
+    const net = new Network(containerRef.current, { nodes, edges }, options);
     networkRef.current = net;
 
     net.on('click', (params: any) => {
@@ -514,17 +409,10 @@ export default function DirectorsCut() {
       const found = nodes.find((n) => n.id === nodeId);
       if (found) {
         setInspector(found);
-        // subtle: re-enable physics stabilization by focusing
         try {
-          net.focus(nodeId, { scale: 1.1, animation: { duration: 350, easingFunction: 'easeInOutQuad' } });
-        } catch {
-          // ignore
-        }
+          net.focus(nodeId, { scale: 1.15, animation: { duration: 400, easingFunction: 'easeInOutCubic' } });
+        } catch { /* ignore */ }
       }
-    });
-
-    net.on('stabilizationIterationsDone', () => {
-      // nothing
     });
   }
 
@@ -532,14 +420,11 @@ export default function DirectorsCut() {
     setError(null);
     setInspector(null);
     setLoading(true);
-
     try {
       const graph = kind === 'director' ? await fetchDirectorGraph(p.id) : await fetchActorGraph(p.id);
-
-      const cappedNodes = graph.nodes.slice(0, maxNodes);
-      renderGraph(cappedNodes, graph.edges);
+      renderGraph(graph.nodes.slice(0, maxNodes), graph.edges);
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to build graph');
+      setError(e?.message ?? 'Failed to map graph infrastructure');
     } finally {
       setLoading(false);
     }
@@ -549,290 +434,287 @@ export default function DirectorsCut() {
     return () => destroyNetwork();
   }, []);
 
-  // Initial graph: based on default query
   useEffect(() => {
     let cancelled = false;
-
     async function init() {
-      setError(null);
       setLoading(true);
       try {
         const results = await searchPerson(query);
         const pick = results[0] ?? null;
         if (!pick || cancelled) return;
         setSelectedPerson(pick);
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         buildGraphForPerson(pick);
       } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message ?? 'Failed to init graph');
+        if (!cancelled) setError(e?.message ?? 'Initialization pipeline failure');
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-
     init();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, []);
 
   async function onSubmitSearch() {
+    if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
       const results = await searchPerson(query);
       const pick = results[0] ?? null;
       if (!pick) {
-        setError('No person found for that query. Try a different name.');
+        setError('Resource not found inside database.');
         return;
       }
       setSelectedPerson(pick);
       await buildGraphForPerson(pick);
     } catch (e: any) {
-      setError(e?.message ?? 'Search failed');
+      setError(e?.message ?? 'Search query interrupted');
     } finally {
       setLoading(false);
     }
   }
 
-  function parseNodeClickToLink(node: GraphNode | null) {
-    if (!node) return null;
-    if (node.id.startsWith('title:')) {
-      const [, mediaType, idStr] = node.id.split(':');
-      const idNum = Number(idStr);
-      if (!Number.isNaN(idNum)) {
-        if (mediaType === 'movie') return `/movie/${idNum}`;
-        if (mediaType === 'tv') return `/tv/${idNum}`;
-      }
+  const inspectorLink = useMemo(() => {
+    if (!inspector) return null;
+    if (inspector.id.startsWith('title:')) {
+      const [, mediaType, idStr] = inspector.id.split(':');
+      return `/${mediaType}/${idStr}`;
     }
-    if (node.id.startsWith('person:')) {
-      const idNum = Number(node.id.split(':')[1]);
-      if (!Number.isNaN(idNum)) return `/actor/${idNum}`;
+    if (inspector.id.startsWith('person:')) {
+      return `/actor/${inspector.id.split(':')[1]}`;
     }
     return null;
-  }
-
-  const inspectorLink = useMemo(() => parseNodeClickToLink(inspector), [inspector]);
+  }, [inspector]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 via-zinc-950 to-black pointer-events-none" />
-        <div className="absolute top-[-80px] right-[-80px] w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-120px] left-[-120px] w-96 h-96 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased font-sans selection:bg-rose-500/30 selection:text-white">
+      {/* Structural Ambient Mesh Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-rose-500/[0.03] rounded-full blur-[140px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/[0.02] rounded-full blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f23_1px,transparent_1px),linear-gradient(to_bottom,#1f1f23_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-[0.15]" />
+      </div>
 
-        <div className="relative container mx-auto px-4 pt-10 pb-8">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-500/10 border border-red-500/20 backdrop-blur-xl">
-                  <Film className="w-6 h-6 text-red-500" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">Director’s Cut</h1>
-                  <p className="text-zinc-400 text-sm md:text-base mt-1">Interactive lineage map: click nodes to trace collaborations.</p>
-                </div>
-              </div>
+      <div className="relative z-10 container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
+        {/* Upper Header Module */}
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-800/60 pb-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 shadow-inner group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <Clapperboard className="w-5 h-5 text-rose-500 relative z-10" />
             </div>
-
-            <div className="w-full lg:w-[420px]">
-              <div className="bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-3xl p-5 md:p-6 shadow-xl">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-red-400" />
-                    <span className="text-sm font-semibold text-white/90">Deck Controls</span>
-                  </div>
-                  {loading && (
-                    <span className="text-xs text-zinc-400 inline-flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Building…
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className="text-xs text-zinc-400">Target</label>
-                    <div className="relative mt-2">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4" />
-                      <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2.5 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/30 transition-all duration-300 text-sm"
-                        placeholder="Type a director or actor name…"
-                      />
-                      {query && (
-                        <button
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 transition-colors"
-                          onClick={() => setQuery('')}
-                          aria-label="Clear"
-                        >
-                          <X className="w-4 h-4 text-zinc-500" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setKind('director')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl text-sm font-semibold border transition-all duration-300 ${
-                        kind === 'director'
-                          ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                          : 'bg-white/[0.04] border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/[0.07]'
-                      }`}
-                    >
-                      <User className="w-4 h-4" />
-                      Director
-                    </button>
-                    <button
-                      onClick={() => setKind('actor')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl text-sm font-semibold border transition-all duration-300 ${
-                        kind === 'actor'
-                          ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
-                          : 'bg-white/[0.04] border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/[0.07]'
-                      }`}
-                    >
-                      <User className="w-4 h-4" />
-                      Actor
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-zinc-400">Depth</label>
-                      <input
-                        type="range"
-                        min={1}
-                        max={4}
-                        value={depth}
-                        onChange={(e) => setDepth(Number(e.target.value))}
-                        className="w-full accent-red-500"
-                      />
-                      <div className="mt-1 text-xs text-zinc-400">{depth}</div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-zinc-400">Max nodes</label>
-                      <input
-                        type="range"
-                        min={25}
-                        max={80}
-                        value={maxNodes}
-                        onChange={(e) => setMaxNodes(Number(e.target.value))}
-                        className="w-full accent-red-500"
-                      />
-                      <div className="mt-1 text-xs text-zinc-400">{maxNodes}</div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={onSubmitSearch}
-                    disabled={loading || !query.trim()}
-                    className="w-full mt-1 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm tracking-wide rounded-2xl shadow-xl shadow-red-500/20 border border-red-400/30 backdrop-blur-xl transition-all duration-300 hover:from-red-500 hover:to-red-400 hover:scale-[1.02] hover:shadow-red-500/30 disabled:opacity-60 disabled:cursor-not-allowed px-4 py-2.5"
-                  >
-                    Build Lineage
-                  </button>
-
-                  {error && (
-                    <div className="mt-2 rounded-2xl border border-red-500/20 bg-red-500/10 p-3 text-red-200 text-sm">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 mt-0.5" />
-                        <div>{error}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-2">
-                    <div className="text-xs text-zinc-400 mb-2">Genre colors (titles)</div>
-                    <div className="flex flex-wrap gap-2">
-                      {getColorLegend.map((c) => (
-                        <span key={c} className="w-4 h-4 rounded-full border border-white/10" style={{ background: c }} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white bg-clip-text">Director’s Cut</h1>
+              <p className="text-xs text-zinc-400 mt-0.5 font-medium tracking-wide">CINEMATIC INTERACTION ARCHITECTURE & LINEAGE</p>
             </div>
           </div>
+          
+          {loading && (
+            <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-zinc-900/60 border border-zinc-800 text-xs font-medium text-zinc-300 backdrop-blur-md">
+              <Activity className="w-3.5 h-3.5 text-rose-500 animate-spin" />
+              Compiling Node Relationships...
+            </div>
+          )}
+        </header>
 
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-            <div className="bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-3xl p-4 md:p-5 shadow-xl overflow-hidden">
-              <div className="flex items-center justify-between gap-4 mb-3">
-                <div className="flex items-center gap-2">
-                  <Info className="w-4 h-4 text-red-400" />
-                  <span className="text-sm font-semibold text-zinc-200">Lineage Canvas</span>
+        {/* Dynamic Bento Workspace */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Sidebar Panel - Controls & Query Engine */}
+          <aside className="lg:col-span-4 flex flex-col gap-6">
+            <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+              <div className="flex items-center gap-2 mb-5">
+                <Sliders className="w-4 h-4 text-rose-500" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Control Deck</h2>
+              </div>
+
+              <div className="space-y-5">
+                {/* Search Target Input */}
+                <div>
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Search Node Identity</label>
+                  <div className="relative mt-2 group">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4 group-focus-within:text-rose-500 transition-colors" />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="w-full pl-10 pr-10 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50 focus:border-rose-500/50 transition-all"
+                      placeholder="Enter identity name..."
+                    />
+                    {query && (
+                      <button
+                        onClick={() => setQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-200 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Perspective Switching Buttons */}
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={() => setKind('director')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
+                      kind === 'director'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.05)]'
+                        : 'bg-zinc-900/40 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" /> Director View
+                  </button>
+                  <button
+                    onClick={() => setKind('actor')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
+                      kind === 'actor'
+                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.05)]'
+                        : 'bg-zinc-900/40 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" /> Actor View
+                  </button>
+                </div>
+
+                {/* Linear Range Modifiers */}
+                <div className="space-y-4 bg-zinc-900/30 border border-zinc-800/40 rounded-xl p-3.5">
+                  <div>
+                    <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                      <span>Exploration Depth</span>
+                      <span className="text-zinc-200 font-mono text-xs">{depth} generations</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={4}
+                      value={depth}
+                      onChange={(e) => setDepth(Number(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                      <span>Saturation Boundary</span>
+                      <span className="text-zinc-200 font-mono text-xs">{maxNodes} units</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={25}
+                      max={80}
+                      value={maxNodes}
+                      onChange={(e) => setMaxNodes(Number(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Action Block */}
+                <button
+                  onClick={onSubmitSearch}
+                  disabled={loading || !query.trim()}
+                  className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-xs tracking-wider uppercase rounded-xl border border-rose-500/20 shadow-lg shadow-rose-950/20 hover:from-rose-500 hover:to-red-500 active:scale-[0.99] transition-all disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Generate Network Lineage
+                </button>
+
+                {error && (
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-200 text-xs leading-relaxed">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Categorization Legend Block */}
+            <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-4 shadow-xl">
+              <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <TrendingUp className="w-3 h-3 text-zinc-500" /> Metric Genre Distinctions
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {getColorLegend.map((c) => (
+                  <div
+                    key={c}
+                    className="w-6 h-6 rounded-md border border-white/5 shadow-inner transition-transform hover:scale-110 duration-300"
+                    style={{ background: `${c}25`, borderColor: `${c}60` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Network Visualizer Workspace Canvas */}
+          <main className="lg:col-span-8 grid grid-cols-1 md:grid-cols-12 gap-6">
+            
+            {/* Map Render Container */}
+            <div className="md:col-span-8 bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-4 flex flex-col shadow-2xl">
+              <div className="flex items-center justify-between border-b border-zinc-800/40 pb-3 mb-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
+                  <Info className="w-3.5 h-3.5 text-rose-500" /> Lineage Space Map
                 </div>
                 {selectedPerson && (
-                  <div className="text-xs text-zinc-400">
-                    Showing: <span className="text-zinc-200 font-semibold">{selectedPerson.name}</span>
+                  <div className="text-[11px] text-zinc-400 tracking-wide font-medium">
+                    Anchor: <span className="text-white font-semibold font-mono">{selectedPerson.name}</span>
                   </div>
                 )}
               </div>
 
               <div
                 ref={containerRef}
-                className="w-full h-[62vh] rounded-2xl border border-white/10 bg-black/20"
+                className="w-full h-[520px] bg-zinc-950/20 border border-zinc-900/60 rounded-xl overflow-hidden relative"
               />
-
-              <div className="mt-3 text-xs text-zinc-500">
-                Tip: click any node to zoom + inspect. Edges represent repeated collaborations (weighted).
+              <div className="mt-3 text-[11px] text-zinc-500 font-medium">
+                * Left-click nodes to stabilize positions and access inspection modules. Clusters determine heavy collaborative history metrics.
               </div>
             </div>
 
-            <div className="bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-3xl p-4 md:p-5 shadow-xl">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-2xl bg-white/[0.06] border border-white/[0.10] flex items-center justify-center">
-                  <Info className="w-4 h-4 text-zinc-200" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold">Inspector</div>
-                  <div className="text-xs text-zinc-500">Click a node</div>
-                </div>
-              </div>
-
-              {!inspector ? (
-                <div className="mt-6 text-sm text-zinc-400">
-                  <div className="inline-flex items-center gap-2 bg-white/[0.04] border border-white/[0.08] rounded-2xl px-3 py-2">
-                    <span className="w-2 h-2 rounded-full bg-red-400" />
-                    Waiting for selection…
+            {/* Side-Inspector Diagnostic Module */}
+            <div className="md:col-span-4 bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-5 flex flex-col justify-between shadow-2xl">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-zinc-800/40 pb-3">
+                  <div className="w-7 h-7 rounded-lg bg-zinc-900/80 border border-zinc-800 flex items-center justify-center">
+                    <Info className="w-3.5 h-3.5 text-zinc-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase text-zinc-300">Inspector</h3>
+                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Node Details</p>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div
-                    className="rounded-2xl border border-white/[0.10] bg-black/20 p-3"
-                    style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.03) inset' }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-white font-bold text-sm truncate">{inspector.label}</div>
-                        <div className="text-zinc-400 text-xs mt-1 break-words">
-                          {inspector.title ? inspector.title : inspector.id}
-                        </div>
+
+                {!inspector ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-center border border-dashed border-zinc-800 rounded-xl p-4 bg-zinc-900/10">
+                    <div className="w-2 h-2 rounded-full bg-zinc-700 animate-ping mb-3" />
+                    <span className="text-xs text-zinc-500 font-medium tracking-wide">Awaiting Canvas Selection Target</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-3.5 shadow-inner">
+                      <div className="text-white font-bold text-sm tracking-tight break-words">{inspector.label}</div>
+                      <div className="text-zinc-400 text-xs font-medium mt-1.5 leading-relaxed bg-zinc-950/40 border border-zinc-900 p-2 rounded border-l-2 border-l-rose-500 font-mono max-h-32 overflow-y-auto">
+                        {inspector.title ? inspector.title : `Node ID: ${inspector.id}`}
                       </div>
                     </div>
-                  </div>
 
-                  {inspectorLink && (
-                    <button
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl bg-gradient-to-r from-red-600 to-red-500 border border-red-400/30 text-white font-bold text-sm hover:from-red-500 hover:to-red-400 transition-all duration-300"
-                      onClick={() => navigate(inspectorLink)}
-                    >
-                      Open Details <ChevronRight className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  <div className="text-xs text-zinc-500 leading-relaxed">
-                    This deck blends director/actor filmography with collaboration paths. Increase depth for bigger graphs; reduce max nodes for speed.
+                    {inspectorLink && (
+                      <button
+                        onClick={() => navigate(inspectorLink)}
+                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white bg-zinc-800 border border-zinc-700/80 rounded-xl hover:bg-zinc-700 transition-all shadow-sm"
+                      >
+                        Deep Link Matrix <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              <div className="text-[10px] text-zinc-500 leading-relaxed pt-4 border-t border-zinc-800/40 mt-6 font-medium">
+                This architecture graphs full-scale cinematic lineage, indexing shared metadata, actors, and cross-over vectors dynamically.
+              </div>
             </div>
-          </div>
+
+          </main>
         </div>
       </div>
     </div>
   );
 }
-
