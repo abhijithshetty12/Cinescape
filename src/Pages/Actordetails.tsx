@@ -9,10 +9,13 @@ import { db } from '../firebase.ts';
 import { collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore'; // Import Firestore functions
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import GlassSweep from "../components/GlassSweep.tsx";
 
 const Actordetails = () => {
   const { id } = useParams();
-  const { user } = useContext(AuthContext);
+  const auth = useContext(AuthContext);
+  const user = auth?.user;
+
   const [actor, setActor] = useState<any>(null);
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -309,45 +312,18 @@ const Actordetails = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
           {movies.map((movie) => {
             const movieImageUrl = `https://image.tmdb.org/t/p/w300${movie.poster_path ?? ''}`;
-            const movieTitle = movie.title ?? 'Untitled';
-            const movieCharacter = movie.character ?? 'Unknown Role';
-            const movieYear = movie.release_date?.split("-")[0] ?? 'N/A';
-            const movieRating = movie.vote_average?.toFixed(1) ?? 'N/A';
+            const movieTitle = movie.title ?? "Untitled";
+            const movieCharacter = movie.character ?? "Unknown Role";
+            const movieYear = movie.release_date?.split("-")[0] ?? "N/A";
 
             return (
               <Link key={movie.id} to={`/movie/${movie.id}`}>
-                <div className="group bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl overflow-hidden border border-gray-700/30 hover:border-gray-600/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                  <div className="relative aspect-[2/3] overflow-hidden">
-                    {movie.poster_path ? (
-                      <img
-                        src={movieImageUrl}
-                        alt={`${movieTitle} poster`}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center text-gray-400">
-                        <ImageOff className="w-12 h-12 mb-2 opacity-60" />
-                        <span className="text-xs text-center px-2">No Image</span>
-                      </div>
-                    )}
-
-                    <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-lg flex items-center gap-1">
-                      <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                      <span className="text-white font-bold text-xs">{movieRating}</span>
-                    </div>
-                  </div>
-
-                  <div className="p-4">
-                    <h3 className="font-bold text-sm md:text-base text-white mb-1 line-clamp-2 transition-colors">
-                      {movieTitle}
-                    </h3>
-                    <p className="text-gray-400 text-xs md:text-sm mb-1">
-                      as {movieCharacter}
-                    </p>
-                    <p className="text-gray-500 text-xs font-medium">
-                      {movieYear}
-                    </p>
-                  </div>
+                <div className="h-full">
+<GlassSweep
+                    posterUrl={movie.poster_path ? movieImageUrl : "/placeholder-poster.png"}
+                    title={movieTitle}
+                    subtitle={`as ${movieCharacter} • ${movieYear}`}
+                  />
                 </div>
               </Link>
             );
