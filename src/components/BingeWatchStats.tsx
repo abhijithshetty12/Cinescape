@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, Radar
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { Flame, Brain, Clock, Users } from 'lucide-react';
+import { Flame, Brain, Clock, Users, Activity, Film, Tv } from 'lucide-react';
 import axios from 'axios';
 
 const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
@@ -21,14 +21,21 @@ interface BingeWatchStatsProps {
   history: HistoryItem[];
 }
 
-const COLORS = [
-  '#3b82f6', // blue
-  '#a855f7', // purple
-  '#ec4899', // pink
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#ef4444'  // red
-];
+const THEME_COLORS = {
+  blue: { main: '#3b82f6', glow: 'rgba(59,130,246,0.15)', grad: ['#2563eb', '#60a5fa'] },
+  purple: { main: '#a855f7', glow: 'rgba(168,85,247,0.15)', grad: ['#7c3aed', '#c084fc'] },
+  emerald: { main: '#10b981', glow: 'rgba(16,185,129,0.15)', grad: ['#059669', '#34d399'] },
+  pink: { main: '#ec4899', glow: 'rgba(236,72,153,0.15)', grad: ['#db2777', '#f472b6'] },
+};
+
+const BINGE_VARIANTS = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+  })
+};
 
 const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
   const [details, setDetails] = useState<Record<string, { runtime: number; director?: string }>>({});
@@ -36,9 +43,7 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
 
   useEffect(() => {
     const fetchExtraDetails = async () => {
-      // Fetch only for movies to get directors and exact runtimes
       const movieItems = history.filter(item => item.mediaType === 'movie' && !details[item.id]).slice(0, 15);
-      // For TV shows, we can just use defaults or fetch if needed, but movies are better for director stats
       const tvItems = history.filter(item => item.mediaType === 'tv' && !details[item.id]).slice(0, 10);
       
       const itemsToFetch = [...movieItems, ...tvItems];
@@ -67,7 +72,6 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
     }
   }, [history]);
 
-  // Analytics Processing
   const stats = useMemo(() => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -80,19 +84,16 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
     history.forEach(item => {
       const watchedDate = new Date(item.watchedDate);
       
-      // 1. Genres (30 days)
       if (watchedDate >= thirtyDaysAgo) {
         item.genres.forEach(genre => {
           genreCounts[genre] = (genreCounts[genre] || 0) + 1;
         });
       }
 
-      // 2. Time
       const runtime = details[item.id]?.runtime || (item.mediaType === 'movie' ? 100 : 45);
       if (item.mediaType === 'movie') movieMins += runtime;
       else tvMins += runtime;
 
-      // 3. Directors
       const director = details[item.id]?.director;
       if (director) {
         directorCounts[director] = (directorCounts[director] || 0) + 1;
@@ -119,10 +120,10 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-zinc-900/90 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-2xl">
-          <p className="text-xs font-bold text-zinc-400 uppercase tracking-tighter mb-1">{payload[0].name}</p>
-          <p className="text-sm font-bold text-white">
-            {payload[0].value} {payload[0].name === 'Movies' || payload[0].name === 'Series' ? 'Hours' : 'Items'}
+        <div className="bg-neutral-950/95 backdrop-blur-xl border border-white/10 px-4 py-3 rounded-lg shadow-[0_10px_30px_rgba(0,0,0,0.8)] min-w-[120px]">
+          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">{payload[0].name}</p>
+          <p className="text-sm font-black text-white">
+            {payload[0].value} {payload[0].name === 'Movies' || payload[0].name === 'Series' ? 'Hours' : 'Titles'}
           </p>
         </div>
       );
@@ -131,50 +132,76 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
   };
 
   return (
-    <div className="space-y-8 py-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 sm:gap-4">
+    <div className="space-y-8 py-6 max-w-7xl mx-auto px-1 select-none font-sans bg-black text-white">
+      
+      {/* ── Header Platform Module ── */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 p-6 rounded-2xl bg-gradient-to-b from-neutral-900/60 to-neutral-950/20 border border-white/5 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/20">
-            <Flame className="w-6 h-6 text-white animate-pulse" />
+          <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+            <Flame className="w-6 h-6 text-red-500 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white">Binge Insights</h2>
-            <p className="text-zinc-500 text-sm">Your cinematic habits visualized</p>
+            <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">Binge Analytics</h2>
+            <p className="text-neutral-500 text-xs tracking-wide">Algorithmic ingestion of your runtime metrics</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 sm:gap-6 px-4 sm:px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl w-full sm:w-auto justify-between sm:justify-start">
-          <div className="text-center sm:text-left">
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Total Time</p>
-            <p className="text-lg sm:text-xl font-black text-blue-400">{stats.totalHours}h</p>
+
+        {/* Global Key-Value Metas */}
+        <div className="grid grid-cols-3 gap-2 w-full lg:w-auto md:min-w-[420px]">
+          <div className="p-3 bg-neutral-900/40 border border-white/5 rounded-xl text-center md:text-left">
+            <div className="flex items-center gap-1.5 justify-center md:justify-start mb-1 text-neutral-500">
+              <Clock className="w-3 h-3" />
+              <span className="text-[9px] uppercase font-bold tracking-widest">Screen Time</span>
+            </div>
+            <p className="text-lg font-black text-blue-400">{stats.totalHours}<span className="text-xs font-normal text-neutral-500 ml-0.5">h</span></p>
           </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div className="text-center sm:text-left">
-            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Titles Watched</p>
-            <p className="text-lg sm:text-xl font-black text-purple-400">{history.length}</p>
+          
+          <div className="p-3 bg-neutral-900/40 border border-white/5 rounded-xl text-center md:text-left">
+            <div className="flex items-center gap-1.5 justify-center md:justify-start mb-1 text-neutral-500">
+              <Activity className="w-3 h-3" />
+              <span className="text-[9px] uppercase font-bold tracking-widest">Total Logs</span>
+            </div>
+            <p className="text-lg font-black text-purple-400">{history.length}</p>
+          </div>
+
+          <div className="p-3 bg-neutral-900/40 border border-white/5 rounded-xl text-center md:text-left">
+            <div className="flex items-center gap-1.5 justify-center md:justify-start mb-1 text-neutral-500">
+              <Film className="w-3 h-3" />
+              <span className="text-[9px] uppercase font-bold tracking-widest">Live State</span>
+            </div>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              Synced
+            </span>
           </div>
         </div>
       </div>
 
+      {/* ── Main Dashboard Grids ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Genre Bar Chart */}
+        
+        {/* Module 01: Top Genres */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative group bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-blue-500/30 transition-all duration-500"
+          custom={0} variants={BINGE_VARIANTS} initial="hidden" animate="visible"
+          className="bg-neutral-900/30 border border-white/5 rounded-2xl p-5 hover:border-blue-500/20 transition-all duration-300 relative overflow-hidden"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-              <Brain className="w-4 h-4 text-blue-400" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                <Brain className="w-3.5 h-3.5 text-blue-400" />
+              </div>
+              <h3 className="text-xs font-black text-neutral-300 uppercase tracking-widest">Genre DNA (30d)</h3>
             </div>
-            <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Top Genres (30d)</h3>
+            {loading && <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />}
           </div>
+
           <div className="h-[220px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.genres} layout="vertical" margin={{ left: 10, right: 30 }}>
+              <BarChart data={stats.genres} layout="vertical" margin={{ left: -15, right: 10 }}>
                 <defs>
-                  <linearGradient id="barGlow" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.2} />
+                  <linearGradient id="blueGlowGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={THEME_COLORS.blue.grad[0]} stopOpacity={1} />
+                    <stop offset="100%" stopColor={THEME_COLORS.blue.grad[1]} stopOpacity={0.15} />
                   </linearGradient>
                 </defs>
                 <XAxis type="number" hide />
@@ -183,16 +210,16 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
                   type="category" 
                   axisLine={false} 
                   tickLine={false} 
-                  width={90}
-                  tick={{ fill: '#71717a', fontSize: 10, fontWeight: 600 }} 
+                  width={85}
+                  tick={{ fill: '#a3a3a3', fontSize: 10, fontWeight: 700 }} 
                 />
-                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} content={<CustomTooltip />} />
+                <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} content={<CustomTooltip />} />
                 <Bar 
                   dataKey="value" 
-                  fill="url(#barGlow)" 
-                  radius={[0, 10, 10, 0]} 
-                  barSize={18}
-                  stroke="#3b82f6"
+                  fill="url(#blueGlowGrad)" 
+                  radius={[0, 4, 4, 0]} 
+                  barSize={14}
+                  stroke={THEME_COLORS.blue.main}
                   strokeWidth={1}
                 />
               </BarChart>
@@ -200,90 +227,111 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
           </div>
         </motion.div>
 
-        {/* Binge Time Pie */}
+        {/* Module 02: Time Allocation Split */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          className="relative group bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-purple-500/30 transition-all duration-500"
+          custom={1} variants={BINGE_VARIANTS} initial="hidden" animate="visible"
+          className="bg-neutral-900/30 border border-white/5 rounded-2xl p-5 hover:border-purple-500/20 transition-all duration-300 relative overflow-hidden"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-              <Clock className="w-4 h-4 text-purple-400" />
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+              <Clock className="w-3.5 h-3.5 text-purple-400" />
             </div>
-            <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Time Allocation</h3>
+            <h3 className="text-xs font-black text-neutral-300 uppercase tracking-widest">Allocation Matrix</h3>
           </div>
+
           <div className="h-[220px] w-full flex items-center justify-center relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
+                <defs>
+                  <linearGradient id="moviesGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={THEME_COLORS.blue.grad[0]} />
+                    <stop offset="100%" stopColor={THEME_COLORS.blue.grad[1]} />
+                  </linearGradient>
+                  <linearGradient id="seriesGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={THEME_COLORS.purple.grad[0]} />
+                    <stop offset="100%" stopColor={THEME_COLORS.purple.grad[1]} />
+                  </linearGradient>
+                </defs>
                 <Pie
                   data={stats.time}
                   cx="50%"
                   cy="50%"
-                  innerRadius={55}
-                  outerRadius={75}
-                  paddingAngle={8}
+                  innerRadius={62}
+                  outerRadius={76}
+                  paddingAngle={6}
                   dataKey="value"
                   stroke="none"
-                  animationBegin={200}
+                  animationDuration={600}
                 >
                   {stats.time.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.name === 'Movies' ? 'url(#moviesGrad)' : 'url(#seriesGrad)'} />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
-              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Movies/TV</p>
-              <p className="text-lg font-black text-white">Split</p>
+
+            {/* Middle Absolute Details Panel */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+              <div className="flex items-center gap-3 text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">
+                <span className="flex items-center gap-1"><Film className="w-2.5 h-2.5 text-blue-500" /> MV</span>
+                <span className="text-neutral-700">|</span>
+                <span className="flex items-center gap-1"><Tv className="w-2.5 h-2.5 text-purple-500" /> TV</span>
+              </div>
+              <p className="text-lg font-black text-white tracking-tighter">Distribution</p>
             </div>
           </div>
         </motion.div>
 
-        {/* Favorite Directors Radar */}
+        {/* Module 03: Favorite Directors */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="relative group bg-zinc-900/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-emerald-500/30 transition-all duration-500"
+          custom={2} variants={BINGE_VARIANTS} initial="hidden" animate="visible"
+          className="bg-neutral-900/30 border border-white/5 rounded-2xl p-5 hover:border-emerald-500/20 transition-all duration-300 relative overflow-hidden md:col-span-2 lg:col-span-1"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-              <Users className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
             </div>
-            <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">Favorite Directors</h3>
+            <h3 className="text-xs font-black text-neutral-300 uppercase tracking-widest">Auteur Fingerprint</h3>
           </div>
+
           <div className="h-[220px] w-full">
             {stats.directors.length >= 3 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={stats.directors}>
-                  <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                  <PolarAngleAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 8, fontWeight: 700 }} />
+                <RadarChart cx="50%" cy="50%" outerRadius="68%" data={stats.directors}>
+                  <PolarGrid stroke="rgba(255,255,255,0.04)" />
+                  <PolarAngleAxis dataKey="name" tick={{ fill: '#a3a3a3', fontSize: 9, fontWeight: 700 }} />
                   <Radar
-                    name="Films"
+                    name="Auteur Logs"
                     dataKey="value"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fill="#10b981"
-                    fillOpacity={0.4}
-                    dot={{ r: 4, fill: '#10b981' }}
+                    stroke={THEME_COLORS.emerald.main}
+                    strokeWidth={1.5}
+                    fill={`url(#emGrad)`}
+                    fillOpacity={0.25}
+                    dot={{ r: 3, fill: THEME_COLORS.emerald.main, strokeWidth: 1 }}
                   />
+                  <defs>
+                    <linearGradient id="emGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={THEME_COLORS.emerald.grad[0]} />
+                      <stop offset="100%" stopColor={THEME_COLORS.emerald.grad[1]} />
+                    </linearGradient>
+                  </defs>
                   <Tooltip content={<CustomTooltip />} />
                 </RadarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center mb-4 border border-white/5">
-                  <Users className="w-6 h-6 text-zinc-600" />
+              <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center mb-3 border border-white/5 shadow-inner">
+                  <Users className="w-5 h-5 text-neutral-600" />
                 </div>
-                <p className="text-zinc-500 text-xs leading-relaxed">
-                  Watch more movies to see your favorite directors' breakdown.
+                <p className="text-neutral-500 text-xs max-w-[200px] leading-relaxed font-medium">
+                  Gather deeper catalog data to generate auteur radar profiles.
                 </p>
               </div>
             )}
           </div>
         </motion.div>
+
       </div>
     </div>
   );
