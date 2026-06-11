@@ -258,11 +258,17 @@ const TopRated = () => {
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                               loading="lazy"
                             />
+                            
+                            {/* === GLASS SWEEP EFFECT === */}
+                            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+                              <div className="absolute top-0 -inset-full h-full w-1/2 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-none transition-opacity duration-300 group-hover:left-full group-hover:transition-all group-hover:duration-1000 group-hover:ease-out" />
+                            </div>
+
                             {/* Gradient Overlay */}
                             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                             
                             {/* Hover Info */}
-                            <div className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
+                            <div className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 z-20">
                               <p className="text-white/90 text-sm font-medium line-clamp-2 mb-2">
                                 {item.overview || "No description available."}
                               </p>
@@ -344,4 +350,3 @@ const TopRated = () => {
 };
 
 export default TopRated;
-
