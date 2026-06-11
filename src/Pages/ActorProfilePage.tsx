@@ -154,8 +154,8 @@ const ActorProfiles = () => {
             const rank = index + 1;
             const knownForItems = actor.known_for
               ? actor.known_for
-                  .filter((item) => item.title || item.name)
-                  .slice(0, 3)
+                .filter((item) => item.title || item.name)
+                .slice(0, 3)
               : [];
 
             return (
@@ -164,6 +164,10 @@ const ActorProfiles = () => {
                   to={`/actor/${actor.id}`}
                   className="group relative block bg-gradient-to-br from-zinc-900/90 to-zinc-800/70 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700/60 hover:border-orange-500/70"
                 >
+                  {/* Glass Sweep Sheen Reflection Layer */}
+                  <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden rounded-2xl">
+                    <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out bg-gradient-to-r from-transparent via-white/[0.08] to-transparent skew-x-[-18deg]" />
+                  </div>
                   {/* Rank Badge */}
                   <div className="absolute top-3 left-3 z-20">
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 shadow-md">
@@ -176,7 +180,7 @@ const ActorProfiles = () => {
                     <img
                       src={
                         actor.profile_path
-                          ? `https://image.tmdb.org/t/p/w500${actor.profile_path}`
+                          ? `https://image.tmdb.org/t/p/w780${actor.profile_path}`
                           : '/user-icon.jpg'
                       }
                       alt={actor.name}
@@ -214,9 +218,8 @@ const ActorProfiles = () => {
                       </div>
                     )}
                   </div>
-
-                  {/* Hover glow ring */}
-                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ring-1 ring-inset ring-orange-500/30" />
+                  {/* Subtle static micro-glow on perimeter border */}
+                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ring-1 ring-inset ring-white/[0.05]" />
                 </Link>
               </motion.div>
             );
@@ -241,4 +244,3 @@ const ActorProfiles = () => {
 };
 
 export default ActorProfiles;
-

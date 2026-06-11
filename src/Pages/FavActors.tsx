@@ -65,7 +65,7 @@ const FavoriteActorPage: React.FC = () => {
               id,
               name: data.name,
               profilePath: data.profile_path
-                ? `https://image.tmdb.org/t/p/w500${data.profile_path}`
+                ? `https://image.tmdb.org/t/p/w780${data.profile_path}`
                 : '',
             });
           }
