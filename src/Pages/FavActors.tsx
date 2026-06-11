@@ -216,21 +216,19 @@ const FavoriteActorPage: React.FC = () => {
           <div className="flex items-center bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2.5 rounded-xl transition-all duration-300 ${
-                viewMode === 'grid'
-                  ? 'bg-zinc-800 text-white shadow-md'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
+              className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'grid'
+                ? 'bg-zinc-800 text-white shadow-md'
+                : 'text-zinc-500 hover:text-zinc-300'
+                }`}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2.5 rounded-xl transition-all duration-300 ${
-                viewMode === 'list'
-                  ? 'bg-zinc-800 text-white shadow-md'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
+              className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'list'
+                ? 'bg-zinc-800 text-white shadow-md'
+                : 'text-zinc-500 hover:text-zinc-300'
+                }`}
             >
               <List className="w-4 h-4" />
             </button>
@@ -328,11 +326,13 @@ const FavoriteActorPage: React.FC = () => {
 
 
                         {/* Moving glossy highlight */}
-                        <div
-                          aria-hidden
-                          className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                        >
-                          <div className="absolute -left-10 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent blur-[1px]" style={{ animation: 'glassSweep 900ms ease-out forwards' }} />
+                        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                          <div
+                            className="absolute top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent -skew-x-12 blur-[1px]
+               -translate-x-[150%] 
+               group-hover:translate-x-[250%] 
+               transition-transform duration-1000 ease-out"
+                          />
                         </div>
 
                         {/* Hover Overlay (glass) */}
@@ -509,8 +509,3 @@ const FavoriteActorPage: React.FC = () => {
 };
 
 export default FavoriteActorPage;
-
-
-
-
-

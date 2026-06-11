@@ -319,8 +319,8 @@ const Actordetails = () => {
             return (
               <Link key={movie.id} to={`/movie/${movie.id}`}>
                 <div className="h-full">
-<GlassSweep
-                    posterUrl={movie.poster_path ? movieImageUrl : "/placeholder-poster.png"}
+                  <GlassSweep
+                    posterUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : "/placeholder-poster.png"}
                     title={movieTitle}
                     subtitle={`as ${movieCharacter} • ${movieYear}`}
                   />
