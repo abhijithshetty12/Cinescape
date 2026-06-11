@@ -6,7 +6,7 @@ import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
 import { AuthContext } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
-import { collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore'; // Import Firestore functions
+import { collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import GlassSweep from "../components/GlassSweep.tsx";
@@ -23,8 +23,7 @@ const Actordetails = () => {
   const [favoriteDocId, setFavoriteDocId] = useState<string | null>(null);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({ message: '', type: 'success', isVisible: false });
-  const sortedMovies = movies.sort((a, b) => b.release_date.localeCompare(a.release_date));
-
+  const noImageSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 150"><rect width="100%" height="100%" fill="%2327272a"/><g transform="translate(38, 50) scale(1)" stroke="%2371717a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 4.41A2 2 0 0 1 11 4h9a2 2 0 0 1 2 2v9a2 2 0 0 1-.42 1.15"/><path d="M16 16H4a2 2 0 0 1-2-2V6a2 2 0 0 1 .42-1.15"/><path d="m2 18 5.58-5.58a1 1 0 0 1 1.41 0l3.41 3.41"/><path d="m16 11.5 1-1a1 1 0 0 1 .18-.15"/></g><text x="50%" y="95" fill="%2371717a" font-size="6" font-family="sans-serif" text-anchor="middle" font-weight="500">No Image Available</text></svg>`;
   const tmdbAPIKey = "859afbb4b98e3b467da9c99ac390e950";
 
   useEffect(() => {
@@ -74,7 +73,7 @@ const Actordetails = () => {
       } catch (err: any) {
         console.error("Error fetching actor data:", err);
       } finally {
-        setLoading(false);
+        loading && setLoading(false);
       }
     };
 
@@ -103,7 +102,6 @@ const Actordetails = () => {
         setIsFavorite(true);
         setFavoriteDocId(docRef.id);
 
-        // Easter Egg: Confetti Burst
         const count = 200;
         const defaults = {
           origin: { y: 0.7 },
@@ -150,6 +148,7 @@ const Actordetails = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+      {/* Hero Header Section */}
       <div className="relative h-[350px] sm:h-[400px] md:h-[500px] mb-6 md:mb-8 lg:mb-12 rounded-xl md:rounded-2xl overflow-hidden shadow-xl md:shadow-2xl">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105"
@@ -238,6 +237,7 @@ const Actordetails = () => {
         </div>
       </div>
 
+      {/* Meta Grid Section */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
         <div className="lg:col-span-1">
           <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 shadow-xl">
@@ -303,26 +303,53 @@ const Actordetails = () => {
         </div>
       </div>
 
+      {/* Filmography Grid Section */}
       <section>
         <div className="flex items-center gap-3 mb-8">
           <h2 className="text-2xl md:text-3xl font-bold text-white">Filmography</h2>
-          <div className="h-px bg-gradient-to-r from-gray-600 to-transparent flex-1" />
+          <div className="h-px bg-gradient-to-r from-zinc-800 to-transparent flex-1" />
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
           {movies.map((movie) => {
-            const movieImageUrl = `https://image.tmdb.org/t/p/w300${movie.poster_path ?? ''}`;
             const movieTitle = movie.title ?? "Untitled";
             const movieCharacter = movie.character ?? "Unknown Role";
-            const movieYear = movie.release_date?.split("-")[0] ?? "N/A";
+
+            // Check if release_date exists and has content, otherwise flag it as unreleased
+            const hasYear = movie.release_date && movie.release_date.trim() !== "";
+            const movieYear = hasYear ? movie.release_date.split("-")[0] : "TBD";
 
             return (
-              <Link key={movie.id} to={`/movie/${movie.id}`}>
-                <div className="h-full">
+              <Link key={movie.id} to={`/movie/${movie.id}`} className="block h-full group">
+                <div className="h-full relative overflow-hidden rounded-2xl">
+
+                  {/* Adaptive Glassmorphic Year / Status Badge */}
+                  <div className="absolute top-3 right-3 z-30 pointer-events-none">
+                    <div
+                      className={`flex items-center justify-center h-6 px-2.5 rounded-lg backdrop-blur-md border shadow-md transition-colors duration-300 ${hasYear
+                        ? "bg-black/30 border-white/[0.08] group-hover:bg-black/40 group-hover:border-white/[0.15]"
+                        : "bg-amber-500/10 border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/30"
+                        }`}
+                    >
+                      <span
+                        className={`text-[10px] font-semibold tracking-wider transition-colors duration-300 ${hasYear
+                          ? "text-zinc-300 group-hover:text-white"
+                          : "text-amber-400 font-bold group-hover:text-amber-300"
+                          }`}
+                      >
+                        {movieYear}
+                      </span>
+                    </div>
+                  </div>
+
                   <GlassSweep
-                    posterUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : "/placeholder-poster.png"}
+                    posterUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : noImageSvg}
                     title={movieTitle}
-                    subtitle={`as ${movieCharacter} • ${movieYear}`}
+                    subtitle={
+                      <span className="block text-zinc-400 text-xs font-normal truncate mt-0.5">
+                        as {movieCharacter}
+                      </span>
+                    }
                   />
                 </div>
               </Link>
@@ -331,8 +358,8 @@ const Actordetails = () => {
         </div>
 
         <div className="flex flex-col items-center mt-12">
-          <div className="w-full h-px bg-gradient-to-r from-gray-600 via-gray-700 to-transparent mb-3" />
-          <span className="text-gray-400 text-sm font-medium tracking-wide">End of filmography</span>
+          <div className="w-full h-px bg-gradient-to-r from-zinc-800 via-zinc-700/40 to-transparent mb-3" />
+          <span className="text-zinc-500 text-xs uppercase tracking-widest font-medium">End of filmography</span>
         </div>
       </section>
 

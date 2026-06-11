@@ -3,9 +3,10 @@ import React from "react";
 export type GlassSweepProps = {
   posterUrl: string;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   href?: string;
   className?: string;
+
 };
 
 const GlassSweep: React.FC<GlassSweepProps> = ({
