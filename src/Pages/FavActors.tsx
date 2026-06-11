@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from 'framer-motion';
+
 import {
   Heart,
   Star,
@@ -27,6 +28,24 @@ interface Actor {
 }
 
 const FavoriteActorPage: React.FC = () => {
+  useEffect(() => {
+    // Inject keyframes for glass sweep once (only needed because we use inline style animation names).
+    const id = 'cinescape-glass-keyframes';
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(id)) return;
+
+    const style = document.createElement('style');
+    style.id = id;
+    style.innerHTML = `
+@keyframes glassSweep {
+  0% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  20% { opacity: 1; }
+  60% { opacity: 0.95; }
+  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+}`;
+    document.head.appendChild(style);
+
+  }, []);
   const { user } = useContext(AuthContext)!;
   const [favoriteActors, setFavoriteActors] = useState<Actor[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -267,7 +286,7 @@ const FavoriteActorPage: React.FC = () => {
                   >
                     <Link
                       to={`/actor/${actor.id}`}
-                      className="group block relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-red-500/10"
+                      className="group block relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/10"
                     >
                       {/* Rank Badge */}
                       <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1">
@@ -287,7 +306,7 @@ const FavoriteActorPage: React.FC = () => {
                           <img
                             src={actorImageUrl}
                             alt={`${actorName} profile`}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
                             loading="lazy"
                           />
                         ) : (
@@ -303,8 +322,21 @@ const FavoriteActorPage: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-4">
+                        {/* Glass layers (replace prior hover animation) */}
+                        {/* Subtle glass tint only (no dark overlay) */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+
+                        {/* Moving glossy highlight */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        >
+                          <div className="absolute -left-10 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent blur-[1px]" style={{ animation: 'glassSweep 900ms ease-out forwards' }} />
+                        </div>
+
+                        {/* Hover Overlay (glass) */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
                           <motion.div
                             initial={{ y: 10, opacity: 0 }}
                             whileHover={{ y: 0, opacity: 1 }}
@@ -317,17 +349,22 @@ const FavoriteActorPage: React.FC = () => {
 
                         {/* Bottom gradient always visible */}
                         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+
+                        {/* Corner highlight */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="absolute -top-8 -left-8 h-24 w-24 rounded-full bg-red-500/15 blur-2xl" />
+                        </div>
                       </div>
 
                       {/* Name */}
                       <div className="p-3 md:p-4">
-                        <h2 className="font-bold text-sm md:text-base text-white truncate group-hover:text-red-400 transition-colors duration-300">
+                        <h2 className="font-bold text-sm md:text-base text-white truncate transition-colors duration-300 group-hover:text-white">
                           {actorName}
                         </h2>
                       </div>
 
-                      {/* Hover glow ring */}
-                      <div className="absolute inset-0 rounded-2xl ring-2 ring-red-500/0 group-hover:ring-red-500/20 transition-all duration-500 pointer-events-none" />
+                      {/* Glass glow ring */}
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     </Link>
                   </motion.div>
                 );
@@ -371,7 +408,7 @@ const FavoriteActorPage: React.FC = () => {
                   >
                     <Link
                       to={`/actor/${actor.id}`}
-                      className="group flex items-center gap-4 bg-gradient-to-r from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-xl hover:shadow-red-500/5 p-3"
+                      className="group flex items-center gap-4 bg-gradient-to-r from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/5 p-3"
                     >
                       {/* Rank */}
                       <span className="text-zinc-600 font-bold text-sm w-6 text-center">
@@ -384,7 +421,7 @@ const FavoriteActorPage: React.FC = () => {
                           <img
                             src={actorImageUrl}
                             alt={`${actorName} profile`}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.08]"
                             loading="lazy"
                           />
                         ) : (
@@ -394,6 +431,16 @@ const FavoriteActorPage: React.FC = () => {
                             </span>
                           </div>
                         )}
+
+                        {/* Glass sweep */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        >
+                          <div className="absolute -left-6 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent blur-[1px]" style={{ animation: 'glassSweep 900ms ease-out forwards' }} />
+                        </div>
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
 
                       {/* Info */}
@@ -405,8 +452,8 @@ const FavoriteActorPage: React.FC = () => {
                       </div>
 
                       {/* Arrow */}
-                      <div className="p-2 rounded-xl bg-zinc-800/50 group-hover:bg-red-500/10 transition-colors duration-300">
-                        <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-red-400 transition-colors duration-300" />
+                      <div className="p-2 rounded-xl bg-zinc-800/50 group-hover:bg-white/10 transition-colors duration-300">
+                        <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-white/90 transition-colors duration-300" />
                       </div>
 
                       {/* Heart */}
@@ -462,4 +509,8 @@ const FavoriteActorPage: React.FC = () => {
 };
 
 export default FavoriteActorPage;
+
+
+
+
 
