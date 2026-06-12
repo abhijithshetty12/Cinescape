@@ -208,7 +208,7 @@ const TopRated = () => {
                 {media.map((item, index) => {
                   const title = item.title || item.name || "Untitled";
                   const poster = item.poster_path
-                    ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
+                    ? `https://image.tmdb.org/t/p/w780${item.poster_path}`
                     : "/path/to/default-image.jpg";
                   const dateStr = item.release_date || item.first_air_date || "";
                   const year = dateStr ? new Date(dateStr).getFullYear() : "N/A";

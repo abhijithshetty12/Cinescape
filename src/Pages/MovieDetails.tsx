@@ -144,7 +144,7 @@ const MovieDetails = () => {
   const movieLanguage =
     languageMap[movieDetails?.language ?? ''] || movieDetails?.language || 'Unknown'; const movieBoxOffice = movieDetails?.boxOffice ? `$${Number(movieDetails.boxOffice).toLocaleString()}` : 'N/A';
   const posterImageUrl = `https://image.tmdb.org/t/p/original/${movieDetails?.poster_path ?? ''}`;
-  const posterThumbnailUrl = `https://image.tmdb.org/t/p/w500/${movieDetails?.poster_path ?? ''}`;
+  const posterThumbnailUrl = `https://image.tmdb.org/t/p/w780/${movieDetails?.poster_path ?? ''}`;
   const embedUrl = `https://www.vidking.net/embed/movie/${movieId}?color=e50914&nextEpisode=true&episodeSelector=true`;
 
   const WatchedButtonInline = () => {
@@ -527,7 +527,7 @@ const MovieDetails = () => {
       if (!movieId) {
         throw new Error('Movie ID is undefined');
       }
-const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
+      const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
       await setDoc(ratingDocRef, {
         movieId: movieDetails?.id,
         title: movieDetails?.title,
@@ -893,7 +893,7 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
                   <SwiperSlide key={image.file_path}>
                     <div className="aspect-video rounded-xl overflow-hidden ring-1 ring-white/10">
                       <img
-                        src={`https://image.tmdb.org/t/p/w500${image.file_path}`}
+                        src={`https://image.tmdb.org/t/p/w780${image.file_path}`}
                         alt="Movie backdrop"
                         className="w-full h-full object-cover"
                       />
@@ -931,7 +931,7 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
                       <div className="relative aspect-[3/4] overflow-hidden">
                         {actor.profile_path ? (
                           <img
-                            src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
+                            src={`https://image.tmdb.org/t/p/w780${actor.profile_path}`}
                             alt={actor.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                           />
@@ -1038,7 +1038,7 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
                         <div className="relative aspect-[3/4] overflow-hidden">
                           {member.profile_path ? (
                             <img
-                              src={`https://image.tmdb.org/t/p/w500${member.profile_path}`}
+                              src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
                               alt={member.name}
                               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             />
@@ -1131,7 +1131,7 @@ const ratingDocRef = doc(db, `users/${userId}/ratings`, movieId);
                             {/* Poster */}
                             {part.poster_path ? (
                               <img
-                                src={`https://image.tmdb.org/t/p/w500${part.poster_path}`}
+                                src={`https://image.tmdb.org/t/p/w780${part.poster_path}`}
                                 alt={part.title}
                                 loading="lazy"
                                 className="w-full aspect-[2/3] object-cover transition-transform duration-500 group-hover:scale-110"

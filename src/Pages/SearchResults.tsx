@@ -149,7 +149,7 @@ const SearchResults = () => {
     const path = item.media_type === 'person'
       ? (item.profile_path || item.poster_path)
       : (item.poster_path || item.backdrop_path);
-    return path ? `https://image.tmdb.org/t/p/w500${path}` : null;
+    return path ? `https://image.tmdb.org/t/p/w780${path}` : null;
   };
 
   return (

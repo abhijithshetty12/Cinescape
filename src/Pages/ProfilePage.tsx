@@ -463,7 +463,7 @@ const ProfilePage = () => {
                 id: m.id.toString(),
                 title: m.title || m.name || "",
                 posterPath: m.poster_path
-                  ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
+                  ? `https://image.tmdb.org/t/p/w780${m.poster_path}`
                   : "",
                 mediaType: m.media_type || mediaType,
                 overview: m.overview || "",
