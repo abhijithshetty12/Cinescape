@@ -15,6 +15,7 @@ import {
   X,
   Play,
   Loader2,
+  ImageOff, // Added ImageOff Icon
 } from "lucide-react";
 import {
   fetchMediaByType,
@@ -87,6 +88,9 @@ const MovieCard = ({
   index: number;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Track specific image breaks separately so fallback layouts trigger neatly
+  const [imageErrors, setImageErrors] = useState<{ poster?: boolean; backdrop?: boolean }>({});
 
   return (
     <motion.div
@@ -101,21 +105,31 @@ const MovieCard = ({
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          {/* Poster Image */}
-          <img
-            src={movie.image}
-            alt={movie.title}
-            loading="lazy"
-            className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
-              isHovered && movie.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
-            }`}
-          />
+          {/* Main Poster Image */}
+          {movie.image && !imageErrors.poster ? (
+            <img
+              src={movie.image}
+              alt={movie.title}
+              loading="lazy"
+              onError={() => setImageErrors((prev) => ({ ...prev, poster: true }))}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
+                isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
+              }`}
+            />
+          ) : (
+            // Custom CSS/Tailwind fallback block matching UI aesthetics
+            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-zinc-900 to-zinc-950 text-zinc-500 px-4 text-center">
+              <ImageOff className="w-8 h-8 text-zinc-600 stroke-[1.5]" />
+              <span className="text-xs font-medium tracking-wide">No Image Available</span>
+            </div>
+          )}
 
           {/* Backdrop Reveal on Hover */}
-          {movie.backdrop && (
+          {movie.backdrop && !imageErrors.backdrop && (
             <img
               src={movie.backdrop}
               alt=""
+              onError={() => setImageErrors((prev) => ({ ...prev, backdrop: true }))}
               className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
                 isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
               }`}
@@ -181,19 +195,16 @@ const HeroBanner = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [heroImageError, setHeroImageError] = useState(false);
 
-  // Get all featured items (top rated with backdrops) or just single featured
   const featuredItems = useMemo(() => {
     if (!featured) return [];
-    // For now, we'll use the current featured item as the main one
-    // In a full implementation, you could pass an array of featured items
     return [featured];
   }, [featured]);
 
   const items = featuredItems;
   const current = items[currentIndex];
 
-  // Auto-rotate every 5 seconds
   useEffect(() => {
     if (items.length <= 1 || !isAutoPlaying) return;
 
@@ -212,18 +223,24 @@ const HeroBanner = ({
     setCurrentIndex((prev) => (prev + 1) % items.length);
   };
 
+  // Track key transitions to clear single failure state profiles
+  useEffect(() => {
+    setHeroImageError(false);
+  }, [currentIndex]);
+
   if (!current) return null;
+
+  const heroImageSrc = current.backdrop || current.image?.replace("w500", "original");
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="relative w-full h-[45vh] md:h-[55vh] lg:h-[70vh] overflow-hidden rounded-3xl mb-8 group"
+      className="relative w-full h-[45vh] md:h-[55vh] lg:h-[70vh] overflow-hidden rounded-3xl mb-8 group bg-zinc-950 border border-white/5"
       onMouseEnter={() => setIsAutoPlaying(false)}
       onMouseLeave={() => setIsAutoPlaying(true)}
     >
-      {/* Background Images with Ken Burns Effect */}
       <AnimatePresence mode="wait">
         <motion.div
           key={current.id}
@@ -233,14 +250,19 @@ const HeroBanner = ({
           transition={{ duration: 1, ease: "easeOut" }}
           className="absolute inset-0"
         >
-          <img
-            src={
-              current.backdrop ||
-              current.image.replace("w500", "original")
-            }
-            alt={current.title}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          {heroImageSrc && !heroImageError ? (
+            <img
+              src={heroImageSrc}
+              alt={current.title}
+              onError={() => setHeroImageError(true)}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-zinc-900 to-zinc-950 text-zinc-500">
+              <ImageOff className="w-12 h-12 text-zinc-700 stroke-[1.5]" />
+              <span className="text-sm font-medium tracking-wide">No Preview Image Available</span>
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
@@ -400,7 +422,6 @@ const MovieList = () => {
     []
   );
 
-  /* Load genres when media type changes */
   useEffect(() => {
     const loadGenres = async () => {
       const g = await fetchGenres(mediaType);
@@ -409,7 +430,6 @@ const MovieList = () => {
     loadGenres();
   }, [mediaType]);
 
-  /* Unified load function */
   const loadMedia = useCallback(
     async (currentPage: number, reset: boolean = false) => {
       if (loading) return;
@@ -447,17 +467,14 @@ const MovieList = () => {
     [mediaType, searchQuery, sortBy, selectedGenre, loading]
   );
 
-  /* Initial load */
   useEffect(() => {
     setInitialLoading(true);
     setMovies([]);
     setPage(1);
     setHasMore(true);
     loadMedia(1, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, searchQuery, sortBy, selectedGenre]);
 
-  /* Infinite scroll observer */
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
 
@@ -479,7 +496,6 @@ const MovieList = () => {
     return () => observerRef.current?.disconnect();
   }, [page, hasMore, loading, loadMedia]);
 
-  /* Close sort dropdown on outside click */
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
@@ -500,7 +516,6 @@ const MovieList = () => {
 
   const featured = useMemo(() => {
     if (movies.length === 0) return null;
-    // Pick the highest-rated item with a backdrop
     const withBackdrop = movies.filter((m) => m.backdrop);
     if (withBackdrop.length > 0) {
       return withBackdrop.reduce((best, curr) =>
@@ -532,10 +547,8 @@ const MovieList = () => {
   return (
     <div className="min-h-screen bg-zinc-950 pb-20">
       <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Hero Banner */}
         {!searchQuery && <HeroBanner featured={featured} mediaType={mediaType} />}
 
-        {/* Search Results Header */}
         {searchQuery && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -555,10 +568,8 @@ const MovieList = () => {
           </motion.div>
         )}
 
-        {/* Sticky Filter Bar */}
         <div className="sticky top-[72px] z-30 mb-8 -mx-4 px-4 py-3 bg-zinc-950/80 backdrop-blur-xl border-y border-white/5">
           <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-            {/* Media Type Toggle */}
             <div className="flex items-center p-1 bg-zinc-900/80 rounded-full w-fit border border-white/5">
               <div className="relative flex items-center">
                 <button
@@ -590,7 +601,6 @@ const MovieList = () => {
               </div>
             </div>
 
-            {/* Genre Chips */}
             {!searchQuery && genres.length > 0 && (
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
                 <button
@@ -623,7 +633,6 @@ const MovieList = () => {
               </div>
             )}
 
-            {/* Sort Dropdown */}
             {!searchQuery && (
               <div className="relative ml-auto" ref={sortRef}>
                 <button
@@ -673,7 +682,6 @@ const MovieList = () => {
           </div>
         </div>
 
-        {/* Section Title */}
         {!searchQuery && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -704,7 +712,6 @@ const MovieList = () => {
           </motion.div>
         )}
 
-        {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
           <AnimatePresence mode="popLayout">
             {movies.map((movie, index) => (
@@ -718,14 +725,12 @@ const MovieList = () => {
           </AnimatePresence>
         </div>
 
-        {/* Loading state for pagination */}
         {loading && movies.length > 0 && (
           <div className="flex justify-center mt-10">
             <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
           </div>
         )}
 
-        {/* No results */}
         {!loading && movies.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -743,11 +748,9 @@ const MovieList = () => {
           </motion.div>
         )}
 
-        {/* Infinite Scroll Sentinel */}
         <div ref={sentinelRef} className="h-10 mt-8" />
       </div>
 
-      {/* Skeleton shimmer animation style */}
       <style>{`
         .skeleton-shimmer {
           background: linear-gradient(
@@ -776,4 +779,3 @@ const MovieList = () => {
 };
 
 export default MovieList;
-
