@@ -169,9 +169,9 @@ const BingeWatchStats: React.FC<BingeWatchStatsProps> = ({ history }) => {
               <Film className="w-3 h-3" />
               <span className="text-[9px] uppercase font-bold tracking-widest">Live State</span>
             </div>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-              Synced
+            <span className="inline-flex items-center gap-2 text-[11px] font-bold text-amber-400 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+               Synced
             </span>
           </div>
         </div>

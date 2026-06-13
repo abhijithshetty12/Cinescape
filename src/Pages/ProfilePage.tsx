@@ -480,7 +480,7 @@ const ProfilePage = () => {
           setTrendingMovies(sorted.slice(0, 50));
           setLoading(false);
         }
-      }; 
+      };
 
 
       fetchRecommendations();
@@ -669,53 +669,79 @@ const ProfilePage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-xl"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+              // Premium Liquid Glass: High blur, low opacity background, double specular highlights, and deep ambient glow
+              className="bg-white/20 dark:bg-zinc-950/35 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/20 dark:border-white/10 shadow-[0_12px_40px_0_rgba(0,0,0,0.06)] dark:shadow-[0_16px_48px_0_rgba(0,0,0,0.45)] max-w-3xl w-full transition-all duration-300"
             >
-              <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <User className="w-6 h-6 text-yellow-500" />
-                Profile Information
-              </h2>
+              {/* Card Header with Glass Highlight Accent */}
+              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-black/5 dark:border-white/5">
+                <div className="p-2 rounded-xl bg-grey-500/10 border border-white/20 shadow-inner">
+                  <User className="w-5 h-5" />
+                </div>
+                <h2 className="text-xl font-semibold text-zinc-900 dark:text-white tracking-tight">
+                  Profile Information
+                </h2>
+              </div>
 
               <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                <div className="flex flex-col items-center gap-3">
+                {/* Avatar Left Column */}
+                <div className="flex flex-col items-center gap-4 group">
                   <div className="relative">
-                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-yellow-400 flex justify-center items-center bg-gray-700 shadow-2xl select-none overflow-hidden">
-                      <span className="text-5xl md:text-6xl font-bold text-white">
+                    {/* Outer Frosted Glass Decorative Ring */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-red-500/20 to-orange-500/20 blur-md opacity-70 group-hover:opacity-100 transition-opacity duration-300" />
+
+                    {/* Core Fluid Avatar Container */}
+                    <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-full border border-white/40 dark:border-white/10 flex justify-center items-center bg-gradient-to-br from-white/40 to-white/10 dark:from-zinc-900/50 dark:to-zinc-900/20 backdrop-blur-md shadow-2xl select-none overflow-hidden transition-transform duration-500 group-hover:scale-[1.02]">
+                      <span className="text-5xl md:text-6xl font-bold bg-gradient-to-br from-zinc-900 to-zinc-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent drop-shadow-sm">
                         {username ? username.charAt(0).toUpperCase() : 'U'}
                       </span>
                     </div>
                   </div>
-                  <div className="mt-2 text-center">
-                    <span className="block text-lg md:text-xl font-semibold text-white">{username || 'Anonymous User'}</span>
+
+                  <div className="text-center">
+                    <span className="block text-md font-medium text-zinc-800 dark:text-zinc-200 tracking-wide">
+                      {username || 'Anonymous User'}
+                    </span>
+                    <span className="block text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                      Cinescape Member
+                    </span>
                   </div>
                 </div>
 
+                {/* Form Right Column */}
                 <div className="flex-1 w-full space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter your username"
-                      className="w-full bg-gray-800/60 border border-yellow-400/30 text-white p-3 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-300 shadow"
-                    />
+                  <div className="relative">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                      Username
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Enter your username"
+                        // Smooth Frosted Glass Input Field
+                        className="w-full bg-black/5 dark:bg-zinc-900/30 backdrop-blur-md border border-black/10 dark:border-zinc-800/60 text-zinc-900 dark:text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500/40 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 transition-all duration-300 text-sm shadow-inner"
+                      />
+                    </div>
                   </div>
+
+                  {/* Action Button */}
                   <button
                     onClick={handleSave}
                     disabled={isLoading}
-                    className={`w-full md:w-auto px-8 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${isLoading
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black shadow-lg shadow-yellow-500/25'
+                    className={`w-full md:w-auto px-8 py-3 rounded-2xl font-medium text-sm transition-all duration-300 transform active:scale-95 border ${isLoading
+                      ? 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/5 text-zinc-400 cursor-not-allowed'
+                      : 'bg-zinc-900 dark:bg-white text-white dark:text-black border-zinc-900 dark:border-white hover:bg-zinc-800 dark:hover:bg-zinc-100 shadow-lg shadow-black/10 dark:shadow-white/5 hover:shadow-xl'
                       }`}
                   >
                     {isLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-                        Saving...
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-zinc-400 dark:border-zinc-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Saving Changes...</span>
                       </div>
                     ) : (
                       'Update Profile'
@@ -744,7 +770,7 @@ const ProfilePage = () => {
                 <ReviewList userId={user?.uid} />
               </div>
             </motion.div>
-            
+
 
             <RecommendationSection
               watchlist={watchlist}
@@ -916,60 +942,109 @@ const ProfilePage = () => {
               )}
             </motion.div>
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 backdrop-blur-xl rounded-2xl p-6 border border-yellow-500/20 shadow-xl shadow-yellow-500/5"
+              initial={{ opacity: 0, x: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+              className="bg-white/20 dark:bg-zinc-950/35 backdrop-blur-xl rounded-3xl p-5 md:p-6 border border-amber-500/10 dark:border-amber-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(212,163,89,0.05)] w-full transition-all duration-300"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                  Rated Movies
-                </h2>
-                <Link to="/top-rated" className="text-yellow-500 hover:text-yellow-400 transition-colors">
-                  <ChevronRight className="w-5 h-5" />
+              {/* Card Header */}
+              <div className="flex items-center justify-between mb-6 pb-3 border-b border-black/5 dark:border-amber-500/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <Star className="w-4 h-4 text-amber-500 dark:text-amber-400 fill-amber-500/20" />
+                  </div>
+                  <h2 className="text-md font-semibold bg-gradient-to-r from-zinc-900 to-amber-700 dark:from-white dark:to-amber-300 bg-clip-text text-transparent tracking-tight">
+                    Rated Movies
+                  </h2>
+                </div>
+
+                <Link
+                  to="/top-rated"
+                  className="group p-1.5 rounded-lg hover:bg-amber-500/5 border border-transparent hover:border-amber-500/20 text-zinc-400 hover:text-amber-500 dark:hover:text-amber-400 transition-all duration-300"
+                >
+                  <ChevronRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
                 </Link>
               </div>
 
+              {/* Empty State */}
               {ratedMovies.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-4">
-                    <Star className="w-8 h-8 text-yellow-600" />
+                <div className="flex flex-col items-center justify-center py-10 px-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/5 backdrop-blur-md border border-amber-500/10 flex items-center justify-center mb-3 shadow-inner">
+                    <Star className="w-5 h-5 text-amber-500/40" />
                   </div>
-                  <p className="text-zinc-500 text-center">No rated movies yet</p>
-                  <p className="text-zinc-600 text-xs text-center mt-1">Rate movies to see them here</p>
+                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-300 text-center">No rated movies yet</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center mt-0.5">Rate media elements across the app to see them here</p>
                 </div>
               ) : (
                 <div className="w-full">
-                  <div className="overflow-y-auto no-scrollbar max-h-[400px]">
-                    <div className="flex flex-col gap-3">
-                      {ratedMovies.map((movie, index) => (
+                  {/* Scrollable Container */}
+                  <div className="overflow-y-auto max-h-[380px] pr-1.5 space-y-2.5 custom-scrollbar scrollbar-thin scrollbar-thumb-amber-500/20">
+                    {ratedMovies.map((movie, index) => {
+
+                      // FIXED: Strictly using posterPath to satisfy the TS compiler definition
+                      const rawPath = movie.posterPath;
+                      let posterUrl = "";
+
+                      if (rawPath) {
+                        if (rawPath.startsWith('http')) {
+                          posterUrl = rawPath;
+                        } else if (rawPath.startsWith('//')) {
+                          posterUrl = `https:${rawPath}`;
+                        } else {
+                          // Appends the base TMDB string cleanly
+                          posterUrl = `https://image.tmdb.org/t/p/w185${rawPath.startsWith('/') ? '' : '/'}${rawPath}`;
+                        }
+                      }
+
+                      return (
                         <div
                           key={movie.id}
                           onClick={() => handleMediaClick(movie.id, 'movie')}
-                          className="group flex items-center justify-between bg-gradient-to-br from-zinc-900/80 to-black/80 backdrop-blur-xl rounded-xl p-3 border border-yellow-500/20 hover:border-yellow-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-yellow-500/20 cursor-pointer"
+                          className="group flex items-center gap-3 bg-black/5 dark:bg-zinc-900/20 hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.02] backdrop-blur-md rounded-2xl p-2.5 border border-transparent hover:border-amber-500/20 dark:hover:border-amber-500/10 transition-all duration-300 cursor-pointer shadow-inner"
                         >
-                          {/* Rank Badge */}
-                          <div className="bg-black/70 backdrop-blur-md border border-yellow-500/30 rounded-lg px-2 py-1">
-                            <span className="text-xs font-bold text-yellow-400">
-                              #{index + 1}
+                          {/* Rank Counter */}
+                          <div className="w-7 h-7 shrink-0 rounded-lg bg-black/5 dark:bg-zinc-900/50 flex items-center justify-center border border-black/5 dark:border-zinc-800">
+                            <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-200">
+                              {String(index + 1).padStart(2, '0')}
                             </span>
                           </div>
 
-                          <div className="flex-1 px-3">
-                            <h3 className="font-semibold text-sm truncate group-hover:text-yellow-400 transition-colors">
-                              {movie.title}
-                            </h3>
+                          {/* Poster Image Layer */}
+                          <div className="w-8 h-11 rounded-md bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950 overflow-hidden relative border border-black/10 dark:border-amber-500/10 shrink-0 shadow-sm flex items-center justify-center">
+                            {posterUrl ? (
+                              <img
+                                src={posterUrl}
+                                alt={movie.title}
+                                loading="lazy"
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                              />
+                            ) : (
+                              <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-amber-950/20 to-zinc-900 flex items-center justify-center">
+                                <span className="text-[9px] font-bold text-amber-500/30 uppercase tracking-tighter">Film</span>
+                              </div>
+                            )}
                           </div>
 
-                          {/* Rating Badge */}
-                          <div className="bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                          {/* Movie Details */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-xs md:text-sm text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors duration-200 truncate">
+                              {movie.title}
+                            </h3>
+                            {/* Safe optional fallback if date isn't directly inside this interface slice */}
+                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
+                              Movie
+                            </p>
+                          </div>
+
+                          {/* Gold Score Badge */}
+                          <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-bold shadow-sm group-hover:bg-amber-500 group-hover:text-black dark:group-hover:text-black group-hover:border-transparent transition-all duration-300">
                             <Star className="w-3 h-3 fill-current" />
-                            {movie.rating}
+                            <span>{movie.rating}</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

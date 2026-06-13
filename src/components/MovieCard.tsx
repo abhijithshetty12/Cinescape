@@ -112,7 +112,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
 
   const imagePath = backdrop_path || poster_path || "";
   const imageSrc = imagePath
-    ? `https://image.tmdb.org/t/p/w500${imagePath}`
+    ? `https://image.tmdb.org/t/p/w780${imagePath}`
     : "/placeholder-poster.png";
 
   const date = release_date || first_air_date || "";

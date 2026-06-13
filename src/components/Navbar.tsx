@@ -297,13 +297,21 @@ const Navbar = () => {
             </form>
           </div>
         </div>
+        {/* Mobile Menu Trigger Button */}
         <div className="md:hidden flex items-center">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="p-2 rounded-full bg-zinc-800 hover:bg-orange-500 transition-colors"
-            aria-label="Open menu"
+            className={`p-2.5 rounded-xl border transition-all duration-200 active:scale-95 ${isMenuOpen
+                ? 'bg-zinc-900 border-zinc-800 text-red-500 shadow-inner'
+                : 'bg-zinc-900/60 hover:bg-zinc-900 border-white/5 text-zinc-400 hover:text-zinc-100'
+              }`}
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
-            {isMenuOpen ? <X className="w-7 h-7 text-white" /> : <Menu className="w-7 h-7 text-white" />}
+            {isMenuOpen ? (
+              <X className="w-5 h-5 transition-transform duration-200 rotate-90 animate-in fade-in zoom-in-75" />
+            ) : (
+              <Menu className="w-5 h-5 transition-transform duration-200 animate-in fade-in zoom-in-75" />
+            )}
           </button>
         </div>
         <div className="hidden md:flex items-center gap-6">
@@ -314,17 +322,15 @@ const Navbar = () => {
                 <Link
                   key={item.label}
                   to={item.path}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                    isActive
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${isActive
                       ? 'bg-zinc-800 text-white shadow-lg shadow-black/20'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
-                  }`}
+                    }`}
                 >
                   {item.icon && (
                     <item.icon
-                      className={`w-4 h-4 transition-colors duration-300 ${
-                        isActive ? 'text-red-500' : 'text-zinc-500 group-hover:text-zinc-300'
-                      }`}
+                      className={`w-4 h-4 transition-colors duration-300 ${isActive ? 'text-red-500' : 'text-zinc-500 group-hover:text-zinc-300'
+                        }`}
                     />
                   )}
                   <span>{item.label}</span>
@@ -547,21 +553,18 @@ const Navbar = () => {
                 <Link
                   key={item.label}
                   to={item.path}
-                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 ${
-                    isActive
+                  className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 ${isActive
                       ? 'bg-zinc-800/80 text-white border border-zinc-700/50 shadow-lg shadow-black/10'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40 border border-transparent'
-                  }`}
+                    }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <div className={`p-2 rounded-xl ${
-                    isActive ? 'bg-red-500/10' : 'bg-zinc-800/50'
-                  }`}>
+                  <div className={`p-2 rounded-xl ${isActive ? 'bg-red-500/10' : 'bg-zinc-800/50'
+                    }`}>
                     {item.icon && (
                       <item.icon
-                        className={`w-5 h-5 transition-colors duration-300 ${
-                          isActive ? 'text-red-500' : 'text-zinc-500'
-                        }`}
+                        className={`w-5 h-5 transition-colors duration-300 ${isActive ? 'text-red-500' : 'text-zinc-500'
+                          }`}
                       />
                     )}
                   </div>
