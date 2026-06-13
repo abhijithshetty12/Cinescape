@@ -19,7 +19,11 @@
 * **🎭 Talent Profiles**: Detailed insights into actors, including full filmographies.
 * **❤️ Favorites Management**: Save and organize your preferred actors and movies.
 * **🕒 History Tracking**: Keep a log of your recently viewed titles.
+* **📊 Binge Watch Stats (Binge Analytics)**: Visualize your viewing habits—30-day genre trends, screen time, runtime split, and favorite directors.
+* **🎲 Watchlist Roulette**: Spin through your watchlist to pick your next “winner pick” with an animated roulette + confetti moment.
+* **🎬 Director’s Cut (Lineage Graph)**: Explore cinematic connections using an interactive director/actor network graph powered by TMDB relationships.
 * **📱 Responsive UI**: Fully optimized for desktop, tablet, and mobile devices.
+
 
 ---
 
