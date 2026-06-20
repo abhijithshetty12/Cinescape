@@ -3,10 +3,9 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
-import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, getDocs, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
   History as HistoryIcon,
-  Calendar,
   Search,
   SortAsc,
   SortDesc,
@@ -15,26 +14,13 @@ import {
   Star,
   Clapperboard,
   Tv,
-  TrendingUp,
   X,
   AlertCircle,
-  Loader2,
   Check,
+  Calendar,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
-
-export interface WatchedItemData {
-  movieId: number;
-  title?: string;
-  name?: string;
-  posterPath: string;
-  releaseDate?: string;
-  first_air_date?: string;
-  genres: string[];
-  mediaType: 'movie' | 'tv';
-  rating?: number;
-}
 
 interface WatchedItem {
   id: string;
@@ -50,135 +36,17 @@ interface WatchedItem {
   rating?: number;
 }
 
-export const addToHistory = async (userId: string, itemData: WatchedItemData) => {
-  try {
-    const historyRef = collection(db, `users/${userId}/history`);
-
-    const existingQuery = query(
-      historyRef,
-      where('movieId', '==', itemData.movieId),
-      where('mediaType', '==', itemData.mediaType)
-    );
-    const existingDocs = await getDocs(existingQuery);
-
-    if (!existingDocs.empty) {
-      await deleteDoc(existingDocs.docs[0].ref);
-    }
-
-    await addDoc(historyRef, {
-      ...itemData,
-      watchedDate: new Date().toISOString(),
-    });
-
-    const watchlistRef = collection(db, `users/${userId}/watchlist`);
-    const watchlistQuery = query(watchlistRef, where('movieId', '==', itemData.movieId));
-    const watchlistDocs = await getDocs(watchlistQuery);
-    if (!watchlistDocs.empty) {
-      await deleteDoc(watchlistDocs.docs[0].ref);
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error adding to history:', error);
-    return { success: false, error };
-  }
-};
-
-export const removeFromHistory = async (userId: string, movieId: number, mediaType: 'movie' | 'tv') => {
-  try {
-    const historyRef = collection(db, `users/${userId}/history`);
-    const q = query(
-      historyRef,
-      where('movieId', '==', movieId),
-      where('mediaType', '==', mediaType)
-    );
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      await deleteDoc(querySnapshot.docs[0].ref);
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error removing from history:', error);
-    return { success: false, error };
-  }
-};
-
-export const checkIfWatched = async (userId: string, movieId: number, mediaType: 'movie' | 'tv') => {
-  try {
-    const historyRef = collection(db, `users/${userId}/history`);
-    const q = query(
-      historyRef,
-      where('movieId', '==', movieId),
-      where('mediaType', '==', mediaType)
-    );
-    const querySnapshot = await getDocs(q);
-
-    return !querySnapshot.empty;
-  } catch (error) {
-    console.error('Error checking watched status:', error);
-    return false;
-  }
-};
-
-export const useWatchedStatus = (movieId: number, mediaType: 'movie' | 'tv') => {
-  const { user } = useAuth();
-  const [isWatched, setIsWatched] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      if (user?.uid) {
-        const watched = await checkIfWatched(user.uid, movieId, mediaType);
-        setIsWatched(watched);
-      }
-    };
-
-    checkStatus();
-  }, [user?.uid, movieId, mediaType]);
-
-  const toggleWatched = async (movieData: WatchedItemData) => {
-    if (!user?.uid) return { success: false, error: 'User not authenticated' };
-
-    setLoading(true);
-    try {
-      let result;
-      if (isWatched) {
-        result = await removeFromHistory(user.uid, movieId, mediaType);
-        if (result.success) {
-          setIsWatched(false);
-        }
-      } else {
-        result = await addToHistory(user.uid, movieData);
-        if (result.success) {
-          setIsWatched(true);
-        }
-      }
-      return result;
-    } catch (error) {
-      return { success: false, error };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { isWatched, loading, toggleWatched };
-};
-
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.06,
-    },
+    transition: { staggerChildren: 0.04, delayChildren: 0.05 },
   },
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } },
 };
 
 const HistoryPage = () => {
@@ -191,10 +59,11 @@ const HistoryPage = () => {
   const [selectedGenre, setSelectedGenre] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [ratingsCache, setRatingsCache] = useState<{ [key: string]: number }>({});
+
   const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
 
   const history = fullHistory.filter((item) => item.mediaType === mediaType);
-
   const availableGenres = ['All', ...new Set(history.flatMap((item) => item.genres))];
 
   const filteredAndSortedHistory = history
@@ -216,37 +85,9 @@ const HistoryPage = () => {
     setSearchTerm('');
   };
 
-  const toggleSortOrder = () => {
-    setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'));
-  };
-
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.style.display = 'none';
     e.currentTarget.nextElementSibling?.classList.remove('hidden');
-  };
-
-  const fetchAndCacheRating = async (item: WatchedItem) => {
-    try {
-      const endpoint =
-        item.mediaType === 'movie'
-          ? `https://api.themoviedb.org/3/movie/${item.movieId}?api_key=${API_KEY}`
-          : `https://api.themoviedb.org/3/tv/${item.movieId}?api_key=${API_KEY}`;
-      const res = await axios.get(endpoint);
-      return res.data.vote_average;
-    } catch (error) {
-      console.error('Error fetching rating:', error);
-      return NaN;
-    }
-  };
-
-  const [ratingsCache, setRatingsCache] = useState<{ [key: string]: number }>({});
-
-  const getRating = (item: WatchedItem) => {
-    const cacheKey = `${item.mediaType}_${item.movieId}`;
-    if (ratingsCache[cacheKey] !== undefined) {
-      return ratingsCache[cacheKey];
-    }
-    return null;
   };
 
   useEffect(() => {
@@ -258,74 +99,78 @@ const HistoryPage = () => {
     setLoading(true);
     setError(null);
 
-    try {
-      const historyRef = collection(db, `users/${user.uid}/history`);
-      const q = query(historyRef, orderBy('watchedDate', 'desc'));
+    const historyRef = collection(db, `users/${user.uid}/history`);
+    const q = query(historyRef, orderBy('watchedDate', 'desc'));
 
-      const unsubscribe = onSnapshot(
-        q,
-        async (snapshot) => {
-          const fetchedHistory = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              movieId: data.movieId || 0,
-              title: data.title || '',
-              name: data.name || '',
-              posterPath: data.posterPath || '',
-              releaseDate: data.releaseDate || '',
-              first_air_date: data.first_air_date || '',
-              genres: Array.isArray(data.genres) ? data.genres : [],
-              mediaType: data.mediaType || 'movie',
-              watchedDate: data.watchedDate || new Date().toISOString(),
-              rating: data.rating || undefined,
-            };
-          });
+    const unsubscribe = onSnapshot(
+      q,
+      async (snapshot) => {
+        const fetchedHistory = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            movieId: data.movieId || 0,
+            title: data.title || '',
+            name: data.name || '',
+            posterPath: data.posterPath || '',
+            releaseDate: data.releaseDate || '',
+            first_air_date: data.first_air_date || '',
+            genres: Array.isArray(data.genres) ? data.genres : [],
+            mediaType: data.mediaType || 'movie',
+            watchedDate: data.watchedDate || new Date().toISOString(),
+            rating: data.rating || undefined,
+          };
+        });
 
-          const itemsWithRatings = await Promise.all(
-            fetchedHistory.map(async (item) => {
-              const rating = await fetchAndCacheRating(item);
-              const cacheKey = `${item.mediaType}_${item.movieId}`;
-              setRatingsCache((prev) => ({ ...prev, [cacheKey]: rating }));
-              return { ...item, rating };
+        setFullHistory(fetchedHistory);
+        setLoading(false);
+
+        const uniqueItemsToFetch = fetchedHistory.filter(
+          item => ratingsCache[`${item.mediaType}_${item.movieId}`] === undefined
+        );
+
+        if (uniqueItemsToFetch.length > 0) {
+          const updates: { [key: string]: number } = {};
+          await Promise.all(
+            uniqueItemsToFetch.map(async (item) => {
+              try {
+                const endpoint = `https://api.themoviedb.org/3/${item.mediaType}/${item.movieId}?api_key=${API_KEY}`;
+                const res = await axios.get(endpoint);
+                updates[`${item.mediaType}_${item.movieId}`] = res.data.vote_average || 0;
+              } catch (err) {
+                updates[`${item.mediaType}_${item.movieId}`] = 0;
+              }
             })
           );
-
-          setFullHistory(itemsWithRatings);
-          setLoading(false);
-        },
-        (error) => {
-          console.error('Error fetching history:', error);
-          setError('Failed to load watch history. Please try again.');
-          setLoading(false);
+          setRatingsCache((prev) => ({ ...prev, ...updates }));
         }
-      );
+      },
+      (error) => {
+        console.error('Error fetching history:', error);
+        setError('Failed to load watch history. Please try again.');
+        setLoading(false);
+      }
+    );
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up history listener:', error);
-      setError('Failed to connect to database. Please check your connection.');
-      setLoading(false);
-    }
-  }, [user?.uid, API_KEY]);
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   if (loading) return <Loading />;
 
   if (error) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center px-4">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900/90 to-black/90 border border-red-500/20 p-10 max-w-md w-full text-center backdrop-blur-2xl shadow-2xl shadow-red-900/10">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-orange-500 to-red-600" />
-          <div className="mx-auto w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
-            <AlertCircle className="w-10 h-10 text-red-500" />
+      <div className="min-h-[75vh] flex items-center justify-center px-4 bg-zinc-950">
+        <div className="relative overflow-hidden rounded-3xl bg-zinc-900/30 border border-red-500/10 p-8 max-w-sm w-full text-center backdrop-blur-2xl shadow-2xl">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5">
+            <AlertCircle className="w-6 h-6 text-red-500" />
           </div>
-          <h3 className="text-2xl font-bold text-white mb-2">Error Loading History</h3>
-          <p className="text-zinc-400 mb-8 leading-relaxed">{error}</p>
+          <h3 className="text-lg font-bold text-white mb-2 tracking-tight">Error Loading History</h3>
+          <p className="text-zinc-400 mb-6 text-xs leading-relaxed">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="group relative px-8 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm tracking-wide rounded-2xl shadow-xl shadow-red-500/20 border border-red-400/30 backdrop-blur-xl transition-all duration-300 hover:from-red-500 hover:to-red-400 hover:scale-105 hover:shadow-red-500/30 overflow-hidden"
+            className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-red-600/10"
           >
-            Retry
+            Retry Connection
           </button>
         </div>
       </div>
@@ -334,313 +179,292 @@ const HistoryPage = () => {
 
   if (!user) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center px-4">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900/90 to-black/90 border border-white/10 p-10 max-w-md w-full text-center backdrop-blur-2xl shadow-2xl">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500" />
-          <div className="mx-auto w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-6">
-            <HistoryIcon className="w-10 h-10 text-zinc-400" />
+      <div className="min-h-[75vh] flex items-center justify-center px-4 bg-zinc-950">
+        <div className="relative overflow-hidden rounded-3xl bg-zinc-900/20 border border-white/[0.05] p-8 max-w-sm w-full text-center backdrop-blur-2xl shadow-2xl">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.08] flex items-center justify-center mb-5">
+            <HistoryIcon className="w-6 h-6 text-zinc-400" />
           </div>
-          <h3 className="text-2xl font-bold text-white mb-2">Sign In Required</h3>
-          <p className="text-zinc-400 mb-8 leading-relaxed">Please sign in to view your watch history.</p>
+          <h3 className="text-lg font-bold text-white mb-2 tracking-tight">Sign In Required</h3>
+          <p className="text-zinc-400 mb-6 text-xs leading-relaxed">Access your personalized timeline analytics and cloud history data.</p>
           <Link
             to="/login"
-            className="inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm tracking-wide rounded-2xl shadow-xl shadow-red-500/20 border border-red-400/30 backdrop-blur-xl transition-all duration-300 hover:from-red-500 hover:to-red-400 hover:scale-105 hover:shadow-red-500/30"
+            className="block w-full py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold text-xs rounded-xl transition-all text-center shadow-lg shadow-red-600/10"
           >
-            Sign In
+            Sign In Account
           </Link>
         </div>
       </div>
     );
   }
 
-  const totalMovies = fullHistory.filter((i) => i.mediaType === 'movie').length;
-  const totalSeries = fullHistory.filter((i) => i.mediaType === 'tv').length;
-
   return (
-    <div className="min-h-screen pb-12">
-      {/* Header Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 via-zinc-950 to-zinc-950 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative container mx-auto px-4 pt-10 pb-8">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-16 antialiased selection:bg-red-500/30">
+      <div className="relative border-b border-white/[0.04] bg-gradient-to-b from-zinc-900/30 to-transparent backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-red-500/20 to-orange-500/10 border border-red-500/20 backdrop-blur-xl">
-                  <HistoryIcon className="w-6 h-6 text-red-500" />
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-xl shadow-inner">
+                  <HistoryIcon className="w-5 h-5 text-red-500" />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">History</h1>
+                <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+                  Watch History
+                </h1>
               </div>
-              <p className="text-zinc-400 text-sm md:text-base ml-[3.25rem]">
-                Your personal viewing journey, chronologically organized.
+              <p className="text-zinc-400 text-xs md:text-sm font-medium">
+                Your architectural cinematic footprint, curated dynamically.
               </p>
             </div>
 
-            {/* Stats Pills */}
-            <div className="flex items-center gap-3 ml-[3.25rem] md:ml-0">
-              <div className="flex items-center gap-2 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-full px-4 py-2">
-                <Clapperboard className="w-4 h-4 text-orange-400" />
-                <span className="text-sm font-medium text-zinc-200">{totalMovies} Movies</span>
+            <div className="flex items-center gap-2.5 bg-zinc-900/40 border border-white/[0.04] p-1.5 rounded-2xl w-fit backdrop-blur-md">
+              <div className="text-[11px] font-medium bg-white/[0.02] border border-white/[0.04] rounded-xl px-3.5 py-2 text-zinc-400 flex items-center gap-2">
+                <Clapperboard className="w-4 h-4 text-orange-400/90" />
+                <span className="text-white font-bold text-xs">{fullHistory.filter(i => i.mediaType === 'movie').length}</span> Movies
               </div>
-              <div className="flex items-center gap-2 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-full px-4 py-2">
-                <Tv className="w-4 h-4 text-cyan-400" />
-                <span className="text-sm font-medium text-zinc-200">{totalSeries} Series</span>
+              <div className="text-[11px] font-medium bg-white/[0.02] border border-white/[0.04] rounded-xl px-3.5 py-2 text-zinc-400 flex items-center gap-2">
+                <Tv className="w-4 h-4 text-cyan-400/90" />
+                <span className="text-white font-bold text-xs">{fullHistory.filter(i => i.mediaType === 'tv').length}</span> Series
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4">
-        {/* Tab Switcher */}
-        <div className="flex items-center justify-center md:justify-start mb-8">
-          <div className="relative flex items-center p-1 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-full shadow-lg shadow-black/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="relative flex items-center p-1.5 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-2xl w-full md:w-fit backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.15)] overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-tr before:from-white/[0.02] before:via-transparent before:to-white/[0.05] before:pointer-events-none">
             <button
               onClick={() => handleMediaTypeChange('movie')}
-              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${mediaType === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 font-bold text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${mediaType === 'movie'
+                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
                 }`}
             >
-              <Clapperboard className="w-4 h-4" />
-              Movies
+              {mediaType === 'movie' && (
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+              )}
+
+              {mediaType === 'movie' && (
+                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              )}
+              <Clapperboard className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${mediaType === 'movie' ? 'scale-105' : 'group-hover:scale-105'}`} />
+              <span className="relative z-10">Movies</span>
             </button>
             <button
               onClick={() => handleMediaTypeChange('tv')}
-              className={`relative z-10 flex items-center gap-2 px-6 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${mediaType === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 font-bold text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${mediaType === 'tv'
+                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
                 }`}
             >
-              <Tv className="w-4 h-4" />
-              Series
+              {mediaType === 'tv' && (
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+              )}
+
+              {mediaType === 'tv' && (
+                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              )}
+              <Tv className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${mediaType === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
+              <span className="relative z-10">Series</span>
             </button>
-            <motion.div
-              className="absolute inset-y-1 bg-gradient-to-r from-red-600 to-red-500 rounded-full shadow-lg shadow-red-500/20"
-              layoutId="history-tab"
-              initial={false}
-              animate={{
-                width: mediaType === 'movie' ? '118px' : '113px',
-                x: mediaType === 'movie' ? 4 : 122,
-              }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            />
-          </div>
-        </div>
-
-        {/* Filter Bar */}
-        <div className="flex flex-col md:flex-row gap-3 mb-6">
-          <div className="relative flex-1 max-w-lg">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4 transition-colors" />
-            <input
-              type="text"
-              placeholder={`Search ${mediaType === 'movie' ? 'movies' : 'series'}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-10 py-2.5 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/30 transition-all duration-300 text-sm"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <X className="w-3.5 h-3.5 text-zinc-500 hover:text-white" />
-              </button>
-            )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSortOrder}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.15] transition-all duration-300 text-sm font-medium"
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={sortOrder}
-                  initial={{ opacity: 0, rotate: -90 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  exit={{ opacity: 0, rotate: 90 }}
-                  transition={{ duration: 0.2 }}
+          <div className="flex items-center gap-2.5 w-full md:w-auto">
+            <div className="relative flex-1 md:w-72">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/70 z-10 w-3.5 h-3.5 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search index titles..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-9 py-2 bg-zinc-900/40 border border-white/[0.04] rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-red-500/30 focus:bg-zinc-900/80 transition-all backdrop-blur-md"
+              />
+
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-zinc-500 hover:text-white transition-colors p-1"
                 >
-                  {sortOrder === 'newest' ? (
-                    <SortDesc className="w-4 h-4" />
-                  ) : (
-                    <SortAsc className="w-4 h-4" />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-              {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+              className="p-2 bg-zinc-900/40 border border-white/[0.04] rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900/80 transition-all backdrop-blur-md aspect-square flex items-center justify-center"
+              title={sortOrder === 'newest' ? "Sort Oldest First" : "Sort Newest First"}
+            >
+              {sortOrder === 'newest' ? <SortDesc className="w-4 h-4" /> : <SortAsc className="w-4 h-4" />}
             </button>
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2.5 backdrop-blur-xl border rounded-2xl text-sm font-medium transition-all duration-300 ${showFilters
-                ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                : 'bg-white/[0.04] border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.15]'
-                }`}
+              className={`p-2 border rounded-xl transition-all backdrop-blur-md aspect-square flex items-center justify-center ${showFilters ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-900/40 border-white/[0.04] text-zinc-400 hover:text-white hover:bg-zinc-900/80'}`}
             >
               <Filter className="w-4 h-4" />
-              Filters
             </button>
           </div>
         </div>
 
-        {/* Genre Chips */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
-              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-              animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
-              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden mb-6"
             >
-              <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-4">
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  {availableGenres.map((genre) => (
-                    <button
-                      key={genre}
-                      onClick={() => setSelectedGenre(genre)}
-                      className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === genre
-                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                        : 'bg-white/[0.04] border-white/[0.08] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.08] hover:border-white/[0.15]'
-                        }`}
-                    >
-                      {genre}
-                    </button>
-                  ))}
-                </div>
+              <div className="p-3 bg-zinc-900/20 border border-white/[0.03] rounded-xl flex flex-wrap gap-2 max-h-40 overflow-y-auto backdrop-blur-md">
+                {availableGenres.map((genre) => (
+                  <button
+                    key={genre}
+                    onClick={() => setSelectedGenre(genre)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${selectedGenre === genre ? 'bg-red-500/10 border border-red-500/30 text-red-400' : 'bg-white/[0.02] border-white/[0.04] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'}`}
+                  >
+                    {genre}
+                  </button>
+                ))}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Empty State */}
-        {filteredAndSortedHistory.length === 0 && !loading && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-20"
-          >
-            <div className="w-24 h-24 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-6">
-              <HistoryIcon className="w-10 h-10 text-zinc-600" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">
-              No {mediaType === 'movie' ? 'movies' : 'series'} watched yet
-            </h3>
-            <p className="text-zinc-500 text-sm mb-8 max-w-xs text-center">
-              Your {mediaType === 'movie' ? 'movie' : 'series'} history is empty. Start watching to build your timeline!
-            </p>
-            <Link
-              to="/trending"
-              className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm rounded-2xl shadow-xl shadow-red-500/20 border border-red-400/30 backdrop-blur-xl transition-all duration-300 hover:from-red-500 hover:to-red-400 hover:scale-105 hover:shadow-red-500/30"
-            >
-              <TrendingUp className="w-4 h-4" />
-              Discover {mediaType === 'movie' ? 'Movies' : 'TV Shows'}
+        {filteredAndSortedHistory.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 rounded-3xl border border-dashed border-white/[0.04] bg-zinc-900/10 backdrop-blur-sm">
+            <HistoryIcon className="w-7 h-7 text-zinc-600 mb-3 stroke-[1.5]" />
+            <p className="text-zinc-400 text-xs font-semibold tracking-wide">Timeline Index Clean</p>
+            <Link to="/" className="text-xs text-red-500 font-medium mt-1.5 hover:text-red-400 transition-colors underline underline-offset-4">
+              Explore Trending Catalogs
             </Link>
-          </motion.div>
+          </div>
         )}
 
-        {/* Grid */}
         <motion.div
-          key={`${mediaType}-${selectedGenre}-${searchTerm}-${sortOrder}`}
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-5"
         >
-          <AnimatePresence mode="popLayout">
-            {filteredAndSortedHistory.map((item) => (
-              <motion.div key={item.id} variants={cardVariants} layout>
-                <Link to={`/${item.mediaType}/${item.movieId}`} className="group block">
-                  <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-500 hover:-translate-y-2">
-                    {/* Poster */}
-                    <div className="relative aspect-[2/3] overflow-hidden">
-                      <img
-                        src={`https://image.tmdb.org/t/p/w500${item.posterPath}`}
-                        alt={item.title || item.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        onError={handleImageError}
-                        loading="lazy"
-                      />
-                      <div className="hidden w-full h-full bg-zinc-900 flex flex-col items-center justify-center text-zinc-500">
-                        <ImageOff className="w-10 h-10 mb-2" />
-                        <span className="text-xs text-center px-2">No Image</span>
-                      </div>
+          {filteredAndSortedHistory.map((item) => {
+            const cacheKey = `${item.mediaType}_${item.movieId}`;
+            const displayRating = ratingsCache[cacheKey] ?? item.rating;
 
-                      {/* Media Type Badge */}
-                      <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-0.5">
-                        <span className="text-[10px] font-bold text-white uppercase tracking-wide">
-                          {item.mediaType === 'movie' ? 'Movie' : 'Series'}
+            return (
+              <motion.div key={item.id} variants={cardVariants} layout className="w-full">
+                <Link to={`/${item.mediaType}/${item.movieId}`} className="group flex flex-col h-full">
+                  <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/[0.05] shadow-lg group-hover:border-red-500/30 transition-all duration-500 group-hover:shadow-red-950/20">
+                    <img
+                      src={`https://image.tmdb.org/t/p/w780${item.posterPath}`}
+                      alt={item.title || item.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-[0.25,1,0.5,1]"
+                      onError={handleImageError}
+                      loading="lazy"
+                    />
+                    <div className="hidden absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center text-zinc-600">
+                      <ImageOff className="w-5 h-5 mb-1.5 stroke-[1.5]" />
+                      <span className="text-[10px] tracking-wide">Image Unavailable</span>
+                    </div>
+
+                    <div className="absolute top-2.5 left-2.5 px-2 py-0.5 bg-black/60 text-[9px] uppercase tracking-widest text-zinc-300 font-bold rounded-md backdrop-blur-md border border-white/[0.04]">
+                      {item.mediaType}
+                    </div>
+
+                    <div className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-black/60 text-[10px] font-extrabold text-white flex items-center gap-1 rounded-md backdrop-blur-md border border-white/[0.04]">
+                      <Star className="w-2.5 h-2.5 text-yellow-500 fill-current" />
+                      {displayRating ? displayRating.toFixed(1) : '—'}
+                    </div>
+
+                    <div className="absolute bottom-2.5 right-2.5 w-5 h-5 rounded-md bg-emerald-500/90 flex items-center justify-center shadow-md backdrop-blur-sm border border-emerald-400/20 transition-transform duration-300 group-hover:scale-110">
+                      <Check className="w-3 h-3 text-zinc-950 stroke-[3.5]" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 px-1 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h2 className="text-xs font-bold text-zinc-200 line-clamp-1 group-hover:text-red-400 transition-colors duration-300 tracking-tight">
+                        {item.title || item.name}
+                      </h2>
+                      <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium mt-1">
+                        <Calendar className="w-2.5 h-2.5 opacity-60" />
+                        <span>
+                          {new Date(item.watchedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
-                      </div>
-
-                      {/* Rating Badge */}
-                      <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-2 py-0.5 flex items-center gap-1">
-                        <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                        <span className="text-white text-xs font-bold">
-                          {item.rating && !isNaN(item.rating) ? item.rating.toFixed(1) : 'N/A'}
-                        </span>
-                      </div>
-
-                      {/* Bottom Gradient */}
-                      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-                      <div className="absolute bottom-3 right-3 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 border border-emerald-300/40 shadow-[0_0_18px_rgba(16,185,129,0.55)]">
-                        <Check className="w-4 h-4 text-emerald-950" />
                       </div>
                     </div>
 
-                    {/* Info */}
-                    <div className="p-3.5">
-                      <h2 className="text-sm font-bold text-white mb-1 line-clamp-2 group-hover:text-red-400 transition-colors duration-300">
-                        {item.title || item.name}
-                      </h2>
-                      <p className="text-xs text-zinc-500 mb-3">
-                        Watched {new Date(item.watchedDate).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.genres.slice(0, 2).map((genre) => (
-                          <span
-                            key={genre}
-                            className="text-[10px] px-2 py-0.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full text-zinc-300 font-medium"
-                          >
-                            {genre}
-                          </span>
-                        ))}
-                        {item.genres.length > 2 && (
-                          <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded-full text-zinc-500">
-                            +{item.genres.length - 2}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex gap-1 mt-2.5 overflow-hidden">
+                      {item.genres.slice(0, 2).map(g => (
+                        <span key={g} className="text-[9px] font-semibold px-2 py-0.5 bg-white/[0.02] border border-white/[0.04] rounded text-zinc-400 truncate max-w-[80px]">
+                          {g}
+                        </span>
+                      ))}
+                      {item.genres.length > 2 && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-zinc-900/60 border border-white/[0.02] rounded text-zinc-500 shrink-0">
+                          +{item.genres.length - 2}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Link>
               </motion.div>
-            ))}
-          </AnimatePresence>
+            );
+          })}
         </motion.div>
-
-        {/* Footer Count */}
-        {filteredAndSortedHistory.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-10 text-center"
-          >
-            <div className="inline-flex items-center gap-2 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-full px-5 py-2">
-              <span className="text-zinc-500 text-sm">
-                Showing <span className="text-zinc-300 font-semibold">{filteredAndSortedHistory.length}</span>{' '}
-                {mediaType === 'movie' ? 'movies' : 'series'}
-              </span>
-            </div>
-          </motion.div>
-        )}
       </div>
     </div>
   );
 };
 
 export default HistoryPage;
+
+export const useWatchedStatus = (movieId: number, mediaType: 'movie' | 'tv') => {
+  const { user } = useAuth();
+  const [isWatched, setIsWatched] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const checkStatus = async () => {
+      if (user?.uid) {
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const historyRef = collection(db, `users/${user.uid}/history`);
+        const q = query(historyRef, where('movieId', '==', movieId), where('mediaType', '==', mediaType));
+        const querySnapshot = await getDocs(q);
+        if (active) {
+          setIsWatched(!querySnapshot.empty);
+        }
+      }
+    };
+    checkStatus();
+    return () => { active = false; };
+  }, [user?.uid, movieId, mediaType]);
+
+  const toggleWatched = async (movieData: any) => {
+    if (!user?.uid) return { success: false, error: 'User not authenticated' };
+    setLoading(true);
+    try {
+      const { collection, query, where, getDocs, addDoc, deleteDoc } = await import('firebase/firestore');
+      const historyRef = collection(db, `users/${user.uid}/history`);
+      const q = query(historyRef, where('movieId', '==', movieId), where('mediaType', '==', mediaType));
+      const querySnapshot = await getDocs(q);
+
+      if (isWatched) {
+        if (!querySnapshot.empty) await deleteDoc(querySnapshot.docs[0].ref);
+        setIsWatched(false);
+      } else {
+        if (!querySnapshot.empty) await deleteDoc(querySnapshot.docs[0].ref);
+        await addDoc(historyRef, { ...movieData, watchedDate: new Date().toISOString() });
+        setIsWatched(true);
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { isWatched, loading, toggleWatched };
+};
