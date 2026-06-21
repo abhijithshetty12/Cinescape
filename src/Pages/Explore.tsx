@@ -15,7 +15,7 @@ import {
   X,
   Play,
   Loader2,
-  ImageOff, // Added ImageOff Icon
+  ImageOff,
 } from "lucide-react";
 import {
   fetchMediaByType,
@@ -25,7 +25,6 @@ import {
 } from "../api.ts";
 import Loading from "../components/Loading.tsx";
 
-/* ─── Circular Rating Badge ─── */
 const CircularRating = ({ rating }: { rating: number }) => {
   const percentage = Math.round((rating / 10) * 100);
   const radius = 18;
@@ -65,7 +64,6 @@ const CircularRating = ({ rating }: { rating: number }) => {
   );
 };
 
-/* ─── Skeleton Card ─── */
 const SkeletonCard = () => (
   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900/80 border border-white/5">
     <div className="absolute inset-0 skeleton-shimmer" />
@@ -77,7 +75,6 @@ const SkeletonCard = () => (
   </div>
 );
 
-/* ─── Movie Card ─── */
 const MovieCard = ({
   movie,
   mediaType,
@@ -88,8 +85,7 @@ const MovieCard = ({
   index: number;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
-  // Track specific image breaks separately so fallback layouts trigger neatly
+
   const [imageErrors, setImageErrors] = useState<{ poster?: boolean; backdrop?: boolean }>({});
 
   return (
@@ -105,42 +101,35 @@ const MovieCard = ({
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          {/* Main Poster Image */}
           {movie.image && !imageErrors.poster ? (
             <img
               src={movie.image}
               alt={movie.title}
               loading="lazy"
               onError={() => setImageErrors((prev) => ({ ...prev, poster: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
-                isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
-              }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
+                }`}
             />
           ) : (
-            // Custom CSS/Tailwind fallback block matching UI aesthetics
             <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-zinc-900 to-zinc-950 text-zinc-500 px-4 text-center">
               <ImageOff className="w-8 h-8 text-zinc-600 stroke-[1.5]" />
               <span className="text-xs font-medium tracking-wide">No Image Available</span>
             </div>
           )}
 
-          {/* Backdrop Reveal on Hover */}
           {movie.backdrop && !imageErrors.backdrop && (
             <img
               src={movie.backdrop}
               alt=""
               onError={() => setImageErrors((prev) => ({ ...prev, backdrop: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
-                isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
-              }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
+                }`}
             />
           )}
 
-          {/* Gradient Overlays */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
           <div className="absolute inset-0 bg-gradient-to-br from-red-900/0 to-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-          {/* Top Badges */}
           <div className="absolute top-3 right-3 z-10">
             <CircularRating rating={movie.rating} />
           </div>
@@ -153,7 +142,6 @@ const MovieCard = ({
             </div>
           )}
 
-          {/* Hover Content */}
           <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
             <div className="transform transition-all duration-500 translate-y-2 group-hover:translate-y-0">
               <h3 className="text-white font-bold text-base md:text-lg leading-tight mb-2 line-clamp-2 drop-shadow-lg">
@@ -185,7 +173,6 @@ const MovieCard = ({
   );
 };
 
-/* ─── Hero Banner Slideshow ─── */
 const HeroBanner = ({
   featured,
   mediaType,
@@ -223,7 +210,6 @@ const HeroBanner = ({
     setCurrentIndex((prev) => (prev + 1) % items.length);
   };
 
-  // Track key transitions to clear single failure state profiles
   useEffect(() => {
     setHeroImageError(false);
   }, [currentIndex]);
@@ -266,12 +252,10 @@ const HeroBanner = ({
         </motion.div>
       </AnimatePresence>
 
-      {/* Gradient Overlays */}
       <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950/60" />
 
-      {/* Content */}
       <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8 lg:p-12">
         <AnimatePresence mode="wait">
           <motion.div
@@ -282,7 +266,6 @@ const HeroBanner = ({
             transition={{ duration: 0.5, delay: 0.2 }}
             className="max-w-3xl"
           >
-            {/* Badges */}
             <div className="flex items-center gap-2.5 md:gap-3 mb-3 flex-wrap">
               <span className="px-3 py-1 bg-red-600/90 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-wider shadow-lg shadow-red-900/30">
                 {mediaType === "movie" ? "Featured Movie" : "Featured Series"}
@@ -300,19 +283,16 @@ const HeroBanner = ({
               )}
             </div>
 
-            {/* Title */}
             <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold text-white mb-3 leading-tight drop-shadow-xl">
               {current.title}
             </h1>
 
-            {/* Overview */}
             {current.overview && (
               <p className="text-white/70 text-sm md:text-base line-clamp-2 mb-5 max-w-2xl">
                 {current.overview}
               </p>
             )}
 
-            {/* Actions */}
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 to={
@@ -339,7 +319,6 @@ const HeroBanner = ({
         </AnimatePresence>
       </div>
 
-      {/* Navigation Arrows */}
       {items.length > 1 && (
         <>
           <button
@@ -359,25 +338,22 @@ const HeroBanner = ({
         </>
       )}
 
-      {/* Dots Indicator */}
       {items.length > 1 && (
         <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 md:gap-2 z-20">
           {items.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
-              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${
-                currentIndex === index
-                  ? "w-6 md:w-8 bg-red-600"
-                  : "w-2 bg-white/40 hover:bg-white/60"
-              }`}
+              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${currentIndex === index
+                ? "w-6 md:w-8 bg-red-600"
+                : "w-2 bg-white/40 hover:bg-white/60"
+                }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
         </div>
       )}
 
-      {/* Progress Bar */}
       {items.length > 1 && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20">
           <motion.div
@@ -393,7 +369,6 @@ const HeroBanner = ({
   );
 };
 
-/* ─── Main Component ─── */
 const MovieList = () => {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get("search");
@@ -574,18 +549,16 @@ const MovieList = () => {
               <div className="relative flex items-center">
                 <button
                   onClick={() => handleMediaTypeChange("movie")}
-                  className={`relative z-10 px-4 py-2 text-sm font-semibold transition-colors duration-300 rounded-full flex items-center gap-2 ${
-                    mediaType === "movie" ? "text-white" : "text-zinc-500"
-                  }`}
+                  className={`relative z-10 px-4 py-2 text-sm font-semibold transition-colors duration-300 rounded-full flex items-center gap-2 ${mediaType === "movie" ? "text-white" : "text-zinc-500"
+                    }`}
                 >
                   <Clapperboard className="w-4 h-4" />
                   Movies
                 </button>
                 <button
                   onClick={() => handleMediaTypeChange("tv")}
-                  className={`relative z-10 px-4 py-2 text-sm font-semibold transition-colors duration-300 rounded-full flex items-center gap-2 ${
-                    mediaType === "tv" ? "text-white" : "text-zinc-500"
-                  }`}
+                  className={`relative z-10 px-4 py-2 text-sm font-semibold transition-colors duration-300 rounded-full flex items-center gap-2 ${mediaType === "tv" ? "text-white" : "text-zinc-500"
+                    }`}
                 >
                   <Tv className="w-4 h-4" />
                   Series
@@ -605,11 +578,10 @@ const MovieList = () => {
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
                 <button
                   onClick={() => setSelectedGenre(null)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
-                    selectedGenre === null
-                      ? "bg-red-600/20 border-red-500/40 text-red-400"
-                      : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
-                  }`}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === null
+                    ? "bg-red-600/20 border-red-500/40 text-red-400"
+                    : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
+                    }`}
                 >
                   All
                 </button>
@@ -621,11 +593,10 @@ const MovieList = () => {
                         selectedGenre === g.id ? null : g.id
                       )
                     }
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
-                      selectedGenre === g.id
-                        ? "bg-red-600/20 border-red-500/40 text-red-400"
-                        : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
-                    }`}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === g.id
+                      ? "bg-red-600/20 border-red-500/40 text-red-400"
+                      : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
+                      }`}
                   >
                     {g.name}
                   </button>
@@ -642,9 +613,8 @@ const MovieList = () => {
                   <Filter className="w-3.5 h-3.5" />
                   {activeSortLabel}
                   <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform duration-300 ${
-                      sortOpen ? "rotate-180" : ""
-                    }`}
+                    className={`w-3.5 h-3.5 transition-transform duration-300 ${sortOpen ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -664,11 +634,10 @@ const MovieList = () => {
                             setSortBy(option.value);
                             setSortOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
-                            sortBy === option.value
-                              ? "bg-red-600/10 text-red-400"
-                              : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                          }`}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${sortBy === option.value
+                            ? "bg-red-600/10 text-red-400"
+                            : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            }`}
                         >
                           <option.icon className="w-4 h-4" />
                           {option.label}
@@ -697,8 +666,8 @@ const MovieList = () => {
               {selectedGenre
                 ? genres.find((g) => g.id === selectedGenre)?.name
                 : mediaType === "movie"
-                ? "Popular Movies"
-                : "Popular Series"}
+                  ? "Popular Movies"
+                  : "Popular Series"}
             </h2>
             {selectedGenre && (
               <button

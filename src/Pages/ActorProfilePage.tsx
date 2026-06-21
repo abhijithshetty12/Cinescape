@@ -75,13 +75,11 @@ const ActorProfiles = () => {
     }
   }, [API_KEY]);
 
-  // Initial fetch
   useEffect(() => {
     setLoading(true);
     fetchActors(1, false);
   }, [fetchActors]);
 
-  // Infinite scroll observer
   useEffect(() => {
     if (loading || !hasMore) return;
 
@@ -123,7 +121,6 @@ const ActorProfiles = () => {
   return (
     <div className="bg-gradient-to-b from-zinc-950 via-zinc-900 to-black min-h-screen py-8">
       <div className="container mx-auto px-4 max-w-7xl">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -143,7 +140,6 @@ const ActorProfiles = () => {
           </div>
         </motion.div>
 
-        {/* Grid */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -164,18 +160,15 @@ const ActorProfiles = () => {
                   to={`/actor/${actor.id}`}
                   className="group relative block bg-gradient-to-br from-zinc-900/90 to-zinc-800/70 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700/60 hover:border-orange-500/70"
                 >
-                  {/* Glass Sweep Sheen Reflection Layer */}
                   <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden rounded-2xl">
                     <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out bg-gradient-to-r from-transparent via-white/[0.08] to-transparent skew-x-[-18deg]" />
                   </div>
-                  {/* Rank Badge */}
                   <div className="absolute top-3 left-3 z-20">
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 shadow-md">
                       <span className="text-xs font-bold text-white">#{rank}</span>
                     </div>
                   </div>
 
-                  {/* Image */}
                   <div className="relative overflow-hidden">
                     <img
                       src={
@@ -187,11 +180,9 @@ const ActorProfiles = () => {
                       loading="lazy"
                       className="w-full aspect-[2/3] object-cover object-center transition-transform duration-500 group-hover:scale-110"
                     />
-                    {/* Bottom gradient overlay */}
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
                   </div>
 
-                  {/* Info */}
                   <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4 z-10">
                     <h2 className="font-bold text-base sm:text-lg text-white truncate drop-shadow-md">
                       {actor.name}
@@ -218,7 +209,6 @@ const ActorProfiles = () => {
                       </div>
                     )}
                   </div>
-                  {/* Subtle static micro-glow on perimeter border */}
                   <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none ring-1 ring-inset ring-white/[0.05]" />
                 </Link>
               </motion.div>
@@ -226,7 +216,6 @@ const ActorProfiles = () => {
           })}
         </motion.div>
 
-        {/* Sentinel & Loading state */}
         <div ref={sentinelRef} className="flex justify-center mt-10 min-h-[60px] items-center">
           {fetchingMore && hasMore && (
             <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-zinc-800/60 border border-zinc-700/50 backdrop-blur-md">

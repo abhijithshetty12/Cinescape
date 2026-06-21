@@ -45,15 +45,15 @@ type GraphEdge = {
 const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
 
 const palette = [
-  '#f43f5e', // rose
-  '#f97316', // orange
-  '#eab308', // amber
-  '#10b981', // emerald
-  '#06b6d4', // cyan
-  '#3b82f6', // blue
-  '#6366f1', // indigo
-  '#8b5cf6', // violet
-  '#d946ef', // fuchsia
+  '#f43f5e',
+  '#f97316', 
+  '#eab308', 
+  '#10b981',
+  '#06b6d4',
+  '#3b82f6', 
+  '#6366f1',
+  '#8b5cf6',
+  '#d946ef',
 ];
 
 function hashStringToInt(s: string) {
@@ -488,7 +488,6 @@ export default function DirectorsCut() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased font-sans selection:bg-rose-500/30 selection:text-white">
-      {/* Structural Ambient Mesh Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-rose-500/[0.03] rounded-full blur-[140px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/[0.02] rounded-full blur-[120px]" />
@@ -496,7 +495,6 @@ export default function DirectorsCut() {
       </div>
 
       <div className="relative z-10 container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
-        {/* Upper Header Module */}
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-800/60 pb-6 mb-8">
           <div className="flex items-center gap-4">
             <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 shadow-inner group overflow-hidden">
@@ -517,10 +515,8 @@ export default function DirectorsCut() {
           )}
         </header>
 
-        {/* Dynamic Bento Workspace */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Sidebar Panel - Controls & Query Engine */}
           <aside className="lg:col-span-4 flex flex-col gap-6">
             <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-5 shadow-2xl relative overflow-hidden">
               <div className="flex items-center gap-2 mb-5">
@@ -529,7 +525,6 @@ export default function DirectorsCut() {
               </div>
 
               <div className="space-y-5">
-                {/* Search Target Input */}
                 <div>
                   <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Search Node Identity</label>
                   <div className="relative mt-2 group">
@@ -552,7 +547,6 @@ export default function DirectorsCut() {
                   </div>
                 </div>
 
-                {/* Perspective Switching Buttons */}
                 <div className="flex gap-2.5">
                   <button
                     onClick={() => setKind('director')}
@@ -576,7 +570,6 @@ export default function DirectorsCut() {
                   </button>
                 </div>
 
-                {/* Linear Range Modifiers */}
                 <div className="space-y-4 bg-zinc-900/30 border border-zinc-800/40 rounded-xl p-3.5">
                   <div>
                     <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
@@ -608,7 +601,6 @@ export default function DirectorsCut() {
                   </div>
                 </div>
 
-                {/* Submit Action Block */}
                 <button
                   onClick={onSubmitSearch}
                   disabled={loading || !query.trim()}
@@ -626,7 +618,6 @@ export default function DirectorsCut() {
               </div>
             </div>
 
-            {/* Categorization Legend Block */}
             <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-4 shadow-xl">
               <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <TrendingUp className="w-3 h-3 text-zinc-500" /> Metric Genre Distinctions
@@ -643,10 +634,8 @@ export default function DirectorsCut() {
             </div>
           </aside>
 
-          {/* Main Network Visualizer Workspace Canvas */}
           <main className="lg:col-span-8 grid grid-cols-1 md:grid-cols-12 gap-6">
             
-            {/* Map Render Container */}
             <div className="md:col-span-8 bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-4 flex flex-col shadow-2xl">
               <div className="flex items-center justify-between border-b border-zinc-800/40 pb-3 mb-3">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
@@ -668,7 +657,6 @@ export default function DirectorsCut() {
               </div>
             </div>
 
-            {/* Side-Inspector Diagnostic Module */}
             <div className="md:col-span-4 bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-5 flex flex-col justify-between shadow-2xl">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 border-b border-zinc-800/40 pb-3">

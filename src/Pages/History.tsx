@@ -236,8 +236,8 @@ const HistoryPage = () => {
             <button
               onClick={() => handleMediaTypeChange('movie')}
               className={`relative flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 font-bold text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${mediaType === 'movie'
-                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
                 }`}
             >
               {mediaType === 'movie' && (
@@ -253,8 +253,8 @@ const HistoryPage = () => {
             <button
               onClick={() => handleMediaTypeChange('tv')}
               className={`relative flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 font-bold text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${mediaType === 'tv'
-                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
                 }`}
             >
               {mediaType === 'tv' && (
@@ -274,10 +274,10 @@ const HistoryPage = () => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/70 z-10 w-3.5 h-3.5 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search index titles..."
+                placeholder={mediaType === "movie" ? "Search movies..." : "Search series..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-9 py-2 bg-zinc-900/40 border border-white/[0.04] rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-red-500/30 focus:bg-zinc-900/80 transition-all backdrop-blur-md"
+                className="w-full pl-11 pr-9 py-2 bg-zinc-900/40 border border-white/[0.04] rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500/30 focus:bg-zinc-900/80 transition-all backdrop-blur-md"
               />
 
               {searchTerm && (
