@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined } from "lucide-react";
+import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
@@ -17,12 +17,13 @@ const Actordetails = () => {
   const user = auth?.user;
 
   const [actor, setActor] = useState<any>(null);
-  const [movies, setMovies] = useState<any[]>([]);
+  const [works, setWorks] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteDocId, setFavoriteDocId] = useState<string | null>(null);
-  const [trailerKey, setTrailerKey] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({ message: '', type: 'success', isVisible: false });
+
   const noImageSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 150"><rect width="100%" height="100%" fill="%2327272a"/><g transform="translate(38, 50) scale(1)" stroke="%2371717a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 4.41A2 2 0 0 1 11 4h9a2 2 0 0 1 2 2v9a2 2 0 0 1-.42 1.15"/><path d="M16 16H4a2 2 0 0 1-2-2V6a2 2 0 0 1 .42-1.15"/><path d="m2 18 5.58-5.58a1 1 0 0 1 1.41 0l3.41 3.41"/><path d="m16 11.5 1-1a1 1 0 0 1 .18-.15"/></g><text x="50%" y="95" fill="%2371717a" font-size="6" font-family="sans-serif" text-anchor="middle" font-weight="500">No Image Available</text></svg>`;
   const tmdbAPIKey = "859afbb4b98e3b467da9c99ac390e950";
 
@@ -34,21 +35,39 @@ const Actordetails = () => {
         );
         setActor(actorRes.data);
 
-        const moviesRes = await axios.get(
-          `https://api.themoviedb.org/3/person/${id}/movie_credits?api_key=${tmdbAPIKey}&language=en-US`
+        const creditsRes = await axios.get(
+          `https://api.themoviedb.org/3/person/${id}/combined_credits?api_key=${tmdbAPIKey}&language=en-US`
         );
-        setMovies(moviesRes.data.cast);
 
-        if (moviesRes.data.cast.length > 0) {
-          const latestMovie = moviesRes.data.cast.sort((a: any, b: any) => b.popularity - a.popularity)[0];
-          const videoRes = await axios.get(
-            `https://api.themoviedb.org/3/movie/${latestMovie.id}/videos?api_key=${tmdbAPIKey}&language=en-US`
-          );
-          const trailer = videoRes.data.results.find((video: any) => video.type === 'Trailer' && video.site === 'YouTube');
-          if (trailer) {
-            setTrailerKey(trailer.key);
+        const castContributions = (creditsRes.data.cast || []).map((item: any) => ({
+          ...item,
+          displayRole: item.character ? `as ${item.character}` : "Actor",
+          uniqueKey: `cast-${item.id}-${item.character || ''}`
+        }));
+
+        const crewContributions = (creditsRes.data.crew || []).map((item: any) => ({
+          ...item,
+          displayRole: item.job || item.department || "Crew",
+          uniqueKey: `crew-${item.id}-${item.job || ''}`
+        }));
+
+        const combinedWorksMap = new Map();
+        [...castContributions, ...crewContributions].forEach((item) => {
+          if (combinedWorksMap.has(item.id)) {
+            const existing = combinedWorksMap.get(item.id);
+            if (!existing.displayRole.includes(item.displayRole)) {
+              existing.displayRole += `, ${item.displayRole}`;
+            }
+          } else {
+            combinedWorksMap.set(item.id, { ...item });
           }
-        }
+        });
+
+        const sortedWorks = Array.from(combinedWorksMap.values()).sort(
+          (a: any, b: any) => (b.popularity ?? 0) - (a.popularity ?? 0)
+        );
+
+        setWorks(sortedWorks);
 
         const socialRes = await axios.get(
           `https://api.themoviedb.org/3/person/${id}/external_ids?api_key=${tmdbAPIKey}`
@@ -73,12 +92,12 @@ const Actordetails = () => {
       } catch (err: any) {
         console.error("Error fetching actor data:", err);
       } finally {
-        loading && setLoading(false);
+        if (loading) setLoading(false);
       }
     };
 
     fetchActorData();
-  }, [id]);
+  }, [id, user?.uid]);
 
   const handleFavoriteToggle = async () => {
     if (!actor || !user) return;
@@ -134,33 +153,38 @@ const Actordetails = () => {
     return <Loading />;
   }
 
-  const trendingMovie = [...movies]
-    .filter((movie) => movie.backdrop_path || movie.poster_path)
+  const trendingWork = [...works]
+    .filter((w) => w.backdrop_path || w.poster_path)
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))[0];
 
-  const backgroundImageUrl = trendingMovie
-    ? `url(https://image.tmdb.org/t/p/original${trendingMovie.backdrop_path || trendingMovie.poster_path})`
+  const backgroundImageUrl = trendingWork
+    ? `url(https://image.tmdb.org/t/p/original${trendingWork.backdrop_path || trendingWork.poster_path})`
     : '';
   const actorImageUrl = `https://image.tmdb.org/t/p/w500${actor?.profile_path ?? ''}`;
-  const actorName = actor?.name ?? 'Unknown Actor';
+  const actorName = actor?.name ?? 'Unknown Filmography';
   const actorPopularity = actor?.popularity ?? 0;
   const formattedPopularity = actorPopularity.toFixed(1);
 
+  const filteredWorks = works.filter((work) => {
+    if (activeTab === 'all') return true;
+    const mediaType = work.media_type === "tv" ? "tv" : "movie";
+    return mediaType === activeTab;
+  });
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
-      {/* Hero Header Section */}
-      <div className="relative h-[350px] sm:h-[400px] md:h-[500px] mb-6 md:mb-8 lg:mb-12 rounded-xl md:rounded-2xl overflow-hidden shadow-xl md:shadow-2xl">
+      <div className="relative min-h-[460px] sm:h-[450px] md:h-[500px] mb-8 md:mb-12 rounded-3xl overflow-hidden border border-white/[0.08] shadow-2xl bg-zinc-950">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 filter blur-[2px] sm:blur-0 transition-all duration-75"
           style={{ backgroundImage: backgroundImageUrl }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 md:via-black/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/40 md:from-black/50 md:to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-zinc-950/20 sm:from-zinc-950 sm:via-zinc-950/70 sm:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/50 via-transparent to-zinc-950/50 hidden sm:block" />
         </div>
 
-        <div className="relative h-full flex flex-col sm:flex-row items-center sm:items-end justify-center sm:justify-start p-4 sm:p-6 md:p-8">
-          <div className="flex-shrink-0 mb-4 sm:mb-6 md:mb-0">
-            <div className="w-32 h-40 sm:w-40 sm:h-52 md:w-48 md:h-64 lg:w-56 lg:h-72 rounded-xl md:rounded-2xl overflow-hidden shadow-lg md:shadow-xl border-2 md:border-4 border-white/20 backdrop-blur-sm">
+        <div className="relative h-full flex flex-col sm:flex-row items-center sm:items-end justify-end sm:justify-start p-6 sm:p-8 md:p-10 gap-6 z-10">
+          <div className="flex-shrink-0 w-full sm:w-auto flex justify-center sm:block">
+            <div className="w-36 h-48 sm:w-40 sm:h-56 md:w-48 md:h-68 rounded-2xl overflow-hidden shadow-2xl border border-white/10 backdrop-blur-md bg-zinc-900/40 transform -translate-y-2 sm:translate-y-0">
               {actor?.profile_path ? (
                 <img
                   src={actorImageUrl}
@@ -169,193 +193,268 @@ const Actordetails = () => {
                   loading="lazy"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center text-gray-400">
-                  <ImageOff className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 mb-2 md:mb-3 opacity-60" />
-                  <span className="text-xs sm:text-sm text-center px-2 md:px-4">No Image Available</span>
+                <div className="w-full h-full bg-gradient-to-br from-zinc-900 to-zinc-950 flex flex-col items-center justify-center text-zinc-500">
+                  <ImageOff className="w-10 h-10 mb-2 opacity-40" />
+                  <span className="text-xs font-medium px-4 text-center">No Image</span>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex-1 text-center sm:text-left sm:ml-4 md:ml-6 lg:ml-8 text-white max-w-full">
-            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-5xl xl:text-6xl font-bold mb-2 sm:mb-3 md:mb-4 leading-tight break-words">
+          <div className="flex-1 text-center sm:text-left text-white w-full">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black tracking-tight mb-3 leading-tight drop-shadow-sm">
               {actorName}
             </h1>
 
-            <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4 mb-4 sm:mb-5 md:mb-6 text-sm sm:text-base md:text-lg lg:text-xl">
-              <div className="flex items-center gap-1.5 sm:gap-2 bg-white/10 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full">
-                <ChartNoAxesCombined className="w-5 h-5 sm:w-7 sm:h-7 text-amber-400 flex-shrink-0" />
-                <span className="font-semibold whitespace-nowrap">{formattedPopularity}</span>
-                <span className="text-white/80 hidden sm:inline">Popularity</span>
-                <span className="text-white/80 sm:hidden text-xs">Pop</span>
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-6">
+              <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur-xl px-3.5 py-1.5 rounded-full border border-white/[0.08] shadow-inner">
+                <ChartNoAxesCombined className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span className="font-bold text-sm tracking-wide">{formattedPopularity}</span>
+                <span className="text-zinc-400 text-xs font-medium hidden xs:inline">Popularity</span>
               </div>
             </div>
 
-            <motion.button
-              onClick={handleFavoriteToggle}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`group relative px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 rounded-full font-medium sm:font-semibold text-sm sm:text-base transition-all duration-300 min-h-[44px] min-w-[44px] shadow-lg ${isFavorite
-                ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25"
-                : "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25"
-                }`}
-              aria-label={isFavorite ? `Remove ${actorName} from favorites` : `Add ${actorName} to favorites`}
-            >
-              <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-full sm:w-auto">
+              <motion.button
+                onClick={handleFavoriteToggle}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-300 shadow-xl border ${isFavorite
+                  ? "bg-gradient-to-r from-rose-600 to-pink-600 border-rose-500 shadow-rose-950/30"
+                  : "bg-white text-zinc-950 border-white shadow-black/10 hover:bg-zinc-100"
+                  }`}
+                aria-label={isFavorite ? `Remove ${actorName} from favorites` : `Add ${actorName} to favorites`}
+              >
                 <AnimatePresence mode="wait">
                   {isFavorite ? (
                     <motion.div
                       key="heart-on"
-                      initial={{ scale: 0.5, opacity: 0 }}
+                      initial={{ scale: 0.7, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
                     >
-                      <HeartOff className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
+                      <HeartOff className="w-4 h-4 flex-shrink-0" />
                     </motion.div>
                   ) : (
                     <motion.div
                       key="heart-off"
-                      initial={{ scale: 0.5, opacity: 0 }}
+                      initial={{ scale: 0.7, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
                     >
-                      <Heart className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110 flex-shrink-0" />
+                      <Heart className="w-4 h-4 flex-shrink-0 fill-current" />
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <span className="hidden xs:inline sm:inline">
+                <span className="tracking-wide">
                   {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                 </span>
-                <span className="xs:hidden sm:hidden">
-                  {isFavorite ? "Remove" : "Favorite"}
-                </span>
-              </div>
-            </motion.button>
+              </motion.button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Meta Grid Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
-        <div className="lg:col-span-1">
-          <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 shadow-xl">
-            <h2 className="text-xl font-bold mb-6 text-white">Personal Info</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 md:gap-8 mb-12">
+        <div className="lg:col-span-1 order-2 lg:order-1">
+          <div className="bg-zinc-900/20 backdrop-blur-md rounded-3xl p-6 border border-zinc-800/60 shadow-xl">
+            <h2 className="text-lg font-bold mb-5 text-white tracking-tight">Personal Info</h2>
             <dl className="space-y-4">
               {[
                 { label: 'Born', value: actor?.birthday ?? 'N/A' },
                 { label: 'Place of Birth', value: actor?.place_of_birth ?? 'N/A' },
-                { label: 'Movies', value: `${movies.length} titles` }
+                { label: 'Known For', value: actor?.known_for_department ?? 'N/A' },
+                { label: 'Total Credits', value: `${works.length} titles` }
               ].map(({ label, value }) => (
-                <div key={label} className="border-b border-gray-700/30 pb-3 last:border-b-0">
-                  <dt className="text-gray-400 text-sm font-medium mb-1">{label}</dt>
-                  <dd className="text-white font-medium">{value}</dd>
+                <div key={label} className="border-b border-zinc-800/40 pb-3 last:border-b-0 last:pb-0">
+                  <dt className="text-zinc-500 text-xs font-semibold tracking-wider uppercase mb-1">{label}</dt>
+                  <dd className="text-zinc-200 text-sm font-medium leading-relaxed">{value}</dd>
                 </div>
               ))}
 
-              <div className="pt-2">
-                <dt className="text-gray-400 text-sm font-medium mb-3">Social Media</dt>
-                <div className="flex gap-3">
-                  {actor?.instagram_id && (
-                    <a
-                      href={`https://instagram.com/${actor.instagram_id}`}
-                      rel="noopener noreferrer"
-                      aria-label={`${actorName} on Instagram`}
-                      className="flex items-center justify-center"
-                    >
-                      <img src="/insta-icon.png" alt="Instagram" className="w-11 h-11 object-contain" />
-                    </a>
-                  )}
-                  {actor?.twitter_id && (
-                    <a
-                      href={`https://twitter.com/${actor.twitter_id}`}
-                      rel="noopener noreferrer"
-                      aria-label={`${actorName} on Twitter`}
-                      className="flex items-center justify-center"
-                    >
-                      <img src="/twitter-icon.png" alt="Twitter" className="w-11 h-11 object-contain" />
-                    </a>
-                  )}
-                  {actor?.youtube_id && (
-                    <a
-                      href={`https://youtube.com/${actor.youtube_id}`}
-                      rel="noopener noreferrer"
-                      aria-label={`${actorName} on YouTube`}
-                      className="flex items-center justify-center"
-                    >
-                      <img src="/yt-icon.png" alt="YouTube" className="w-13 h-11 object-contain" />
-                    </a>
-                  )}
+              {((actor?.instagram_id || actor?.twitter_id || actor?.youtube_id) && (
+                <div className="pt-4 border-t border-zinc-800/40">
+                  <dt className="text-zinc-500 text-xs font-semibold tracking-wider uppercase mb-4">Social Connect</dt>
+                  <div className="flex flex-wrap gap-3">
+                    {actor?.instagram_id && (
+                      <a
+                        href={`https://instagram.com/${actor.instagram_id}`}
+                        rel="noopener noreferrer"
+                        aria-label={`${actorName} on Instagram`}
+                        className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center transition-all duration-200 hover:scale-105 group active:scale-95"
+                      >
+                        <img src="/insta-icon.png" alt="Instagram" className="w-9 h-9 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                    )}
+                    {actor?.twitter_id && (
+                      <a
+                        href={`https://twitter.com/${actor.twitter_id}`}
+                        rel="noopener noreferrer"
+                        aria-label={`${actorName} on Twitter`}
+                        className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center transition-all duration-200 hover:scale-105 group active:scale-95"
+                      >
+                        <img src="/twitter-icon.png" alt="Twitter" className="w-9 h-9 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                    )}
+                    {actor?.youtube_id && (
+                      <a
+                        href={`https://youtube.com/${actor.youtube_id}`}
+                        rel="noopener noreferrer"
+                        aria-label={`${actorName} on YouTube`}
+                        className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center transition-all duration-200 hover:scale-105 group active:scale-95"
+                      >
+                        <img src="/yt-icon.png" alt="YouTube" className="w-9 h-9 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ))}
             </dl>
           </div>
         </div>
 
-        <div className="lg:col-span-3">
-          <div className="bg-gradient-to-br from-gray-800/30 to-gray-900/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 shadow-xl">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-white">Biography</h2>
-            <p className="text-gray-300 text-base md:text-lg leading-relaxed">
-              {actor?.biography ?? "Biography not available for this actor."}
+        <div className="lg:col-span-3 order-1 lg:order-2">
+          <div className="bg-zinc-900/10 backdrop-blur-sm rounded-3xl p-6 sm:p-8 border border-zinc-800/40 shadow-xl h-full flex flex-col justify-start">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 text-white tracking-tight">Biography</h2>
+            <p className="text-zinc-400 text-sm sm:text-base leading-relaxed whitespace-pre-line font-normal">
+              {actor?.biography ?? "Biography not available for this individual."}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Filmography Grid Section */}
       <section>
-        <div className="flex items-center gap-3 mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-white">Filmography</h2>
-          <div className="h-px bg-gradient-to-r from-zinc-800 to-transparent flex-1" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3 flex-1">
+            <h2 className="text-2xl md:text-3xl font-bold text-white whitespace-nowrap">Filmography</h2>
+            <div className="h-px bg-gradient-to-r from-zinc-800 to-transparent flex-1 hidden sm:block" />
+          </div>
+
+          <div className="relative flex items-center p-1 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-2xl w-full md:w-fit backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.15)] overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-tr before:from-white/[0.02] before:via-transparent before:to-white/[0.05] before:pointer-events-none">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-6 py-2 md:py-2.5 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'all'
+                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                }`}
+            >
+              {activeTab === 'all' && (
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+              )}
+              {activeTab === 'all' && (
+                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              )}
+              <Layers className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'all' ? 'scale-105' : 'group-hover:scale-105'}`} />
+              <span className="relative z-10">All</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('movie')}
+              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-6 py-2 md:py-2.5 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'movie'
+                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                }`}
+            >
+              {activeTab === 'movie' && (
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+              )}
+              {activeTab === 'movie' && (
+                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              )}
+              <Clapperboard className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'movie' ? 'scale-105' : 'group-hover:scale-105'}`} />
+              <span className="relative z-10">Movies</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('tv')}
+              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-6 py-2 md:py-2.5 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'tv'
+                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                }`}
+            >
+              {activeTab === 'tv' && (
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+              )}
+              {activeTab === 'tv' && (
+                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              )}
+              <Tv className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
+              <span className="relative z-10">Series</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-          {movies.map((movie) => {
-            const movieTitle = movie.title ?? "Untitled";
-            const movieCharacter = movie.character ?? "Unknown Role";
+        <motion.div
+          layout
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredWorks.map((work) => {
+              const workTitle = work.title || work.name || "Untitled Project";
+              const mediaType = work.media_type === "tv" ? "tv" : "movie";
+              const releaseDate = work.release_date || work.first_air_date;
 
-            // Check if release_date exists and has content, otherwise flag it as unreleased
-            const hasYear = movie.release_date && movie.release_date.trim() !== "";
-            const movieYear = hasYear ? movie.release_date.split("-")[0] : "TBD";
+              const hasYear = releaseDate && releaseDate.trim() !== "";
+              const workYear = hasYear ? releaseDate.split("-")[0] : "TBD";
 
-            return (
-              <Link key={movie.id} to={`/movie/${movie.id}`} className="block h-full group">
-                <div className="h-full relative overflow-hidden rounded-2xl">
+              return (
+                <motion.div
+                  key={work.uniqueKey || work.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Link to={`/${mediaType}/${work.id}`} className="block h-full group">
+                    <div className="h-full relative overflow-hidden rounded-2xl">
+                      <div className="absolute top-2 right-2 md:top-3 md:right-3 z-30 pointer-events-none">
+                        <div
+                          className={`flex items-center justify-center h-5 md:h-6 px-2 rounded-lg backdrop-blur-md border shadow-md transition-colors duration-300 ${hasYear
+                            ? "bg-black/30 border-white/[0.08] group-hover:bg-black/40 group-hover:border-white/[0.15]"
+                            : "bg-amber-500/10 border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/30"
+                            }`}
+                        >
+                          <span
+                            className={`text-[9px] md:text-[10px] font-semibold tracking-wider transition-colors duration-300 ${hasYear
+                              ? "text-zinc-300 group-hover:text-white"
+                              : "text-amber-400 font-bold group-hover:text-amber-300"
+                              }`}
+                          >
+                            {workYear}
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Adaptive Glassmorphic Year / Status Badge */}
-                  <div className="absolute top-3 right-3 z-30 pointer-events-none">
-                    <div
-                      className={`flex items-center justify-center h-6 px-2.5 rounded-lg backdrop-blur-md border shadow-md transition-colors duration-300 ${hasYear
-                        ? "bg-black/30 border-white/[0.08] group-hover:bg-black/40 group-hover:border-white/[0.15]"
-                        : "bg-amber-500/10 border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/30"
-                        }`}
-                    >
-                      <span
-                        className={`text-[10px] font-semibold tracking-wider transition-colors duration-300 ${hasYear
-                          ? "text-zinc-300 group-hover:text-white"
-                          : "text-amber-400 font-bold group-hover:text-amber-300"
-                          }`}
-                      >
-                        {movieYear}
-                      </span>
+                      <GlassSweep
+                        posterUrl={work.poster_path ? `https://image.tmdb.org/t/p/w780${work.poster_path}` : noImageSvg}
+                        title={workTitle}
+                        subtitle={
+                          <span className="block text-zinc-400 text-xs font-normal truncate mt-0.5 capitalize">
+                            {work.displayRole}
+                          </span>
+                        }
+                      />
                     </div>
-                  </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </motion.div>
 
-                  <GlassSweep
-                    posterUrl={movie.poster_path ? `https://image.tmdb.org/t/p/w780${movie.poster_path}` : noImageSvg}
-                    title={movieTitle}
-                    subtitle={
-                      <span className="block text-zinc-400 text-xs font-normal truncate mt-0.5">
-                        as {movieCharacter}
-                      </span>
-                    }
-                  />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        {filteredWorks.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-16 text-zinc-500"
+          >
+            <Clapperboard className="w-12 h-12 stroke-[1.5] mb-3 opacity-40" />
+            <p className="text-sm font-medium">No results found in this category.</p>
+          </motion.div>
+        )}
 
         <div className="flex flex-col items-center mt-12">
           <div className="w-full h-px bg-gradient-to-r from-zinc-800 via-zinc-700/40 to-transparent mb-3" />
