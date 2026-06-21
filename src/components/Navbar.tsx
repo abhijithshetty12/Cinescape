@@ -89,7 +89,7 @@ const Navbar = () => {
     { label: 'Explore', path: '/explore', icon: Compass },
     { label: 'Top Rated', path: '/top-rated', icon: Award },
     { label: 'Actors', path: '/actors', icon: Users },
-    { label: 'Fav Actors', path: '/fav-actors', icon: Heart },
+    { label: 'Fav Talents', path: '/fav-talents', icon: Heart },
   ];
 
   const movies = searchResults.filter(result => result.media_type === 'movie');
@@ -142,7 +142,6 @@ const Navbar = () => {
                 )}
               </div>
 
-              {/* Loading State */}
               {loading && (
                 <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/50 p-6 flex items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   <Loader2 className="w-5 h-5 text-red-500 animate-spin" />
@@ -150,7 +149,6 @@ const Navbar = () => {
                 </div>
               )}
 
-              {/* Error State */}
               {error && !loading && (
                 <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-red-900/50 rounded-2xl shadow-2xl shadow-black/50 p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
@@ -158,7 +156,6 @@ const Navbar = () => {
                 </div>
               )}
 
-              {/* Results Dropdown */}
               {searchQuery && !loading && !error && searchResults.length === 0 && (
                 <div className="absolute top-full left-0 w-full mt-3 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl shadow-black/50 p-6 flex flex-col items-center justify-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   <SearchX className="w-8 h-8 text-zinc-600" />
@@ -257,7 +254,7 @@ const Navbar = () => {
                     <div className="py-2">
                       <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-2.5 flex items-center gap-2">
                         <User className="w-4 h-4 text-white/90" />
-                        <h3 className="text-white font-semibold text-sm tracking-wide">Actors</h3>
+                        <h3 className="text-white font-semibold text-sm tracking-wide">Talents</h3>
                         <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{actors.length}</span>
                       </div>
                       <ul>
@@ -297,7 +294,6 @@ const Navbar = () => {
             </form>
           </div>
         </div>
-        {/* Mobile Menu Trigger Button */}
         <div className="md:hidden flex items-center">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -492,7 +488,7 @@ const Navbar = () => {
                   <div className="py-2">
                     <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-600 to-green-500 px-4 py-2.5 flex items-center gap-2">
                       <User className="w-4 h-4 text-white/90" />
-                      <h3 className="text-white font-semibold text-sm tracking-wide">Actors</h3>
+                      <h3 className="text-white font-semibold text-sm tracking-wide">Talents</h3>
                       <span className="ml-auto text-white/70 text-xs bg-white/10 px-2 py-0.5 rounded-full">{actors.length}</span>
                     </div>
                     <ul>

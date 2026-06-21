@@ -125,6 +125,17 @@ const ProfilePage = () => {
   }, [user?.uid]);
 
   const handleSave = async () => {
+    // 1. Guard clause: Exit early if user is not authenticated
+    if (!user || !user.uid) {
+      setToast({
+        message: 'You must be logged in to update your profile.',
+        type: 'error',
+        isVisible: true,
+      });
+      return;
+    }
+
+    // From this point onward, TypeScript knows 'user' is definitely defined
     setIsLoading(true);
 
     try {
@@ -767,7 +778,7 @@ const ProfilePage = () => {
               </div>
               <div className="w-full">
 
-                <ReviewList userId={user?.uid} />
+                <ReviewList userId={user?.uid ?? ''} />
               </div>
             </motion.div>
 
@@ -1026,12 +1037,10 @@ const ProfilePage = () => {
                             )}
                           </div>
 
-                          {/* Movie Details */}
                           <div className="flex-1 min-w-0">
                             <h3 className="font-medium text-xs md:text-sm text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors duration-200 truncate">
                               {movie.title}
                             </h3>
-                            {/* Safe optional fallback if date isn't directly inside this interface slice */}
                             <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
                               Movie
                             </p>
@@ -1058,10 +1067,10 @@ const ProfilePage = () => {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3 text-white drop-shadow-lg">
                   <Heart className="w-6 h-6 text-red-500 fill-current" />
-                  Favourite Actors
+                  Favourite Talents
                 </h2>
                 <Link
-                  to="/fav-actors"
+                  to="/fav-talents"
                   className="text-red-400 hover:text-red-500 transition-colors flex items-center"
                   aria-label="Go to Favourite Actors page"
                 >
@@ -1069,7 +1078,7 @@ const ProfilePage = () => {
                 </Link>
               </div>
               {favouriteActors.length === 0 ? (
-                <p className="text-zinc-500 text-center py-4">No favourite actors yet</p>
+                <p className="text-zinc-500 text-center py-4">No favourite talents yet</p>
               ) : (
                 <div className="w-full">
                   <div className="overflow-x-auto no-scrollbar">
@@ -1080,14 +1089,12 @@ const ProfilePage = () => {
                           to={`/actor/${actor.id}`}
                           className="group relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-red-500/10 min-w-[100px] max-w-[100px]"
                         >
-                          {/* Rank Badge */}
                           <div className="absolute top-2 left-2 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-1.5 py-0.5">
                             <span className="text-[10px] font-bold text-zinc-300">
                               #{index + 1}
                             </span>
                           </div>
 
-                          {/* Heart Badge */}
                           <div className="absolute top-2 right-2 z-20 bg-gradient-to-br from-red-500 to-red-600 p-1 rounded-full shadow-lg shadow-red-500/30">
                             <Heart className="w-2.5 h-2.5 text-white fill-current" />
                           </div>
@@ -1104,7 +1111,6 @@ const ProfilePage = () => {
                                 <User className="w-8 h-8 text-zinc-500" />
                               </div>
                             )}
-                            {/* Hover gradient overlay */}
                             <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
                           </div>
                           <div className="p-2">

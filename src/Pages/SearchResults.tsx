@@ -17,6 +17,7 @@ interface SearchResult {
   vote_average?: number;
   overview?: string;
   genre_ids?: number[];
+  known_for_department?: string;
 }
 
 const GENRE_MAPPING: Record<number, string> = {
@@ -28,7 +29,7 @@ const GENRE_MAPPING: Record<number, string> = {
   10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'War & Politics',
 };
 
-type TabType = 'movies' | 'tv' | 'actors';
+type TabType = 'movies' | 'tv' | 'talents';
 
 const CONTAINER_VARIANTS = {
   hidden: { opacity: 0 },
@@ -53,7 +54,7 @@ const CARD_VARIANTS = {
 const TAB_CONFIG: { key: TabType; label: string; icon: React.ElementType }[] = [
   { key: 'movies', label: 'Movies', icon: Film },
   { key: 'tv', label: 'TV Shows', icon: Tv },
-  { key: 'actors', label: 'Actors', icon: User },
+  { key: 'talents', label: 'Talents', icon: User },
 ];
 
 const SkeletonCard = () => (
@@ -116,28 +117,28 @@ const SearchResults = () => {
     if (query) fetchSearchResults(query);
   }, [query, fetchSearchResults]);
 
-  const { movies, tvShows, actors } = useMemo(() => {
+  const { movies, tvShows, talents } = useMemo(() => {
     return {
       movies: results.filter((r) => r.media_type === 'movie'),
       tvShows: results.filter((r) => r.media_type === 'tv'),
-      actors: results.filter((r) => r.media_type === 'person'),
+      talents: results.filter((r) => r.media_type === 'person'),
     };
   }, [results]);
 
   const tabCounts = useMemo(() => ({
     movies: movies.length,
     tv: tvShows.length,
-    actors: actors.length,
-  }), [movies, tvShows, actors]);
+    talents: talents.length,
+  }), [movies, tvShows, talents]);
 
   const filteredResults = useMemo(() => {
     switch (activeTab) {
       case 'movies': return movies;
       case 'tv': return tvShows;
-      case 'actors': return actors;
+      case 'talents': return talents;
       default: return [];
     }
-  }, [activeTab, movies, tvShows, actors]);
+  }, [activeTab, movies, tvShows, talents]);
 
   const getRoute = (item: SearchResult) => {
     if (item.media_type === 'person') return `/actor/${item.id}`;
@@ -152,14 +153,58 @@ const SearchResults = () => {
     return path ? `https://image.tmdb.org/t/p/w780${path}` : null;
   };
 
+  const getBadgeDetails = (item: SearchResult) => {
+    if (item.media_type !== 'person') {
+      const isTv = item.media_type === 'tv';
+      return {
+        label: isTv ? 'TV Show' : 'Movie',
+        styles: 'bg-zinc-950/90 backdrop-blur-md text-zinc-200 border-l-2 border-zinc-500 shadow-lg shadow-black/40',
+      };
+    }
+
+    const normalized = item.known_for_department?.toLowerCase().trim();
+    switch (normalized) {
+      case 'acting':
+        return { 
+          label: 'Actor', 
+          styles: 'bg-zinc-950/90 backdrop-blur-md text-emerald-400 border-l-2 border-emerald-500 shadow-lg shadow-black/40' 
+        };
+      case 'directing':
+        return { 
+          label: 'Director', 
+          styles: 'bg-zinc-950/90 backdrop-blur-md text-cyan-400 border-l-2 border-cyan-500 shadow-lg shadow-black/40' 
+        };
+      case 'writing':
+        return { 
+          label: 'Writer', 
+          styles: 'bg-zinc-950/90 backdrop-blur-md text-teal-400 border-l-2 border-teal-500 shadow-lg shadow-black/40' 
+        };
+      case 'production':
+        return { 
+          label: 'Producer', 
+          styles: 'bg-zinc-950/90 backdrop-blur-md text-sky-400 border-l-2 border-sky-500 shadow-lg shadow-black/40' 
+        };
+      case 'editing':
+      case 'crew':
+      case 'visual effects':
+        return { 
+          label: 'Crew', 
+          styles: 'bg-zinc-950/90 backdrop-blur-md text-indigo-400 border-l-2 border-indigo-500 shadow-lg shadow-black/40' 
+        };
+      default:
+        return { 
+          label: 'Talent', 
+          styles: 'bg-zinc-950/90 backdrop-blur-md text-emerald-400 border-l-2 border-emerald-500 shadow-lg shadow-black/40' 
+        };
+    }
+  };
+
   return (
     <div className="bg-zinc-950 text-zinc-50 min-h-screen selection:bg-orange-500/30 selection:text-orange-200 overflow-x-hidden">
-      {/* Background Ambience Overlays */}
       <div className="absolute top-0 left-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-orange-600/10 rounded-full blur-[80px] sm:blur-[128px] pointer-events-none" />
       <div className="absolute top-1/3 right-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-red-600/5 rounded-full blur-[80px] sm:blur-[128px] pointer-events-none" />
 
       <div className="relative container mx-auto px-4 py-6 sm:py-12 max-w-7xl">
-        {/* Top Branding/Header Panel */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -185,10 +230,8 @@ const SearchResults = () => {
           </div>
         </motion.div>
 
-        {/* Workspace Layout */}
         <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 items-start">
 
-          {/* Navigation Sidebar (Scrollable row on mobile, Sticky sidebar on desktop) */}
           <motion.aside
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
@@ -231,7 +274,6 @@ const SearchResults = () => {
             </div>
           </motion.aside>
 
-          {/* Main Context Dynamic Grid */}
           <div className="grow w-full">
             {loading && <SkeletonGrid />}
 
@@ -277,6 +319,8 @@ const SearchResults = () => {
                       .filter(Boolean)
                       .slice(0, 2);
 
+                    const badgeInfo = getBadgeDetails(item);
+
                     return (
                       <motion.div key={`${activeTab}-${item.id}`} variants={CARD_VARIANTS}>
                         <Link
@@ -284,7 +328,6 @@ const SearchResults = () => {
                           className="group relative flex flex-col h-full rounded-xl sm:rounded-2xl overflow-hidden bg-zinc-900/20 backdrop-blur-md border border-zinc-800/60 hover:border-zinc-700 transition-all duration-300"
                         >
                           
-                          {/* Card Media Wrapper */}
                           <div className="relative aspect-[2/3] w-full overflow-hidden">
                             
                             <GlassSweep
@@ -306,32 +349,30 @@ const SearchResults = () => {
                               </div>
                             )}
 
-                            {/* Metadata Pill Indicators */}
                             <div className="absolute top-2 inset-x-2 sm:top-3 sm:inset-x-3 flex items-center justify-between gap-1.5 z-10">
-                              <span className={`text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 sm:py-1 rounded-md backdrop-blur-md border border-white/10 ${
-                                isActor ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-black/40 text-zinc-300'
-                              }`}>
-                                {isActor ? 'Actor' : item.media_type === 'tv' ? 'TV' : 'Movie'}
+                              <span className={`text-[9px] sm:text-[10px] font-bold tracking-wider px-2.5 py-1 rounded-md border border-white/5 ${badgeInfo.styles}`}>
+                                {badgeInfo.label}
                               </span>
 
                               {item.vote_average !== undefined && item.vote_average > 0 && (
-                                <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-md px-1.5 py-0.5 flex items-center gap-0.5 sm:gap-1">
+                                <div className="bg-zinc-950/90 backdrop-blur-md border border-white/5 shadow-lg shadow-black/40 rounded-md px-1.5 py-1 flex items-center gap-0.5 sm:gap-1">
                                   <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 fill-amber-400" />
-                                  <span className="text-white text-[10px] sm:text-xs font-bold">{item.vote_average.toFixed(1)}</span>
+                                  <span className="text-white text-[10px] sm:text-xs font-bold leading-none">{item.vote_average.toFixed(1)}</span>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          {/* Info Text Content Block */}
                           <div className="p-3 sm:p-4 flex flex-col grow justify-between bg-zinc-900/10">
                             <div className="space-y-0.5 sm:space-y-1">
                               <h3 className="text-xs sm:text-sm font-bold text-zinc-100 line-clamp-1 group-hover:text-orange-400 transition-colors duration-200">
                                 {title}
                               </h3>
-                              <p className="text-zinc-500 text-[11px] sm:text-xs font-medium">
-                                {year || 'Release N/A'}
-                              </p>
+                              {(!isActor || year) && (
+                                <p className="text-zinc-500 text-[11px] sm:text-xs font-medium">
+                                  {year || 'Release N/A'}
+                                </p>
+                              )}
                             </div>
 
                             {genres.length > 0 && (
@@ -356,7 +397,6 @@ const SearchResults = () => {
               </AnimatePresence>
             )}
 
-            {/* Empty Context Fallbacks */}
             {!loading && !error && filteredResults.length === 0 && query && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -370,7 +410,7 @@ const SearchResults = () => {
                   No matches in this category
                 </h3>
                 <p className="text-zinc-500 text-xs sm:text-sm max-w-sm">
-                  We couldn't pull any {activeTab === 'movies' ? 'movies' : activeTab === 'tv' ? 'TV sequences' : 'actor profiles'} for your current search string. Try evaluating other navigation tracks.
+                  We couldn't pull any {activeTab === 'movies' ? 'movies' : activeTab === 'tv' ? 'TV sequences' : 'talent profiles'} for your current search string. Try evaluating other navigation tracks.
                 </p>
               </motion.div>
             )}

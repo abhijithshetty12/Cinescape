@@ -21,15 +21,14 @@ import { AuthContext } from '../context/AuthContext.tsx';
 type SortOrder = 'name' | 'recent';
 type ViewMode = 'grid' | 'list';
 
-interface Actor {
+interface Talent {
   id: string;
   name: string;
   profilePath: string;
 }
 
-const FavoriteActorPage: React.FC = () => {
+const FavoriteTalentPage: React.FC = () => {
   useEffect(() => {
-    // Inject keyframes for glass sweep once (only needed because we use inline style animation names).
     const id = 'cinescape-glass-keyframes';
     if (typeof document === 'undefined') return;
     if (document.getElementById(id)) return;
@@ -46,8 +45,9 @@ const FavoriteActorPage: React.FC = () => {
     document.head.appendChild(style);
 
   }, []);
+
   const { user } = useContext(AuthContext)!;
-  const [favoriteActors, setFavoriteActors] = useState<Actor[]>([]);
+  const [favoriteTalents, setFavoriteTalents] = useState<Talent[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -56,12 +56,12 @@ const FavoriteActorPage: React.FC = () => {
     if (user?.uid) {
       const favouriteActorsRef = collection(db, `users/${user.uid}/favouriteActors`);
       const unsubscribe = onSnapshot(favouriteActorsRef, (snapshot) => {
-        const actorMap = new Map<string, Actor>();
+        const talentMap = new Map<string, Talent>();
         snapshot.docs.forEach((doc) => {
           const data = doc.data();
           const id = data.actorId || data.id;
-          if (id && data.name && !actorMap.has(id)) {
-            actorMap.set(id, {
+          if (id && data.name && !talentMap.has(id)) {
+            talentMap.set(id, {
               id,
               name: data.name,
               profilePath: data.profile_path
@@ -70,16 +70,16 @@ const FavoriteActorPage: React.FC = () => {
             });
           }
         });
-        setFavoriteActors(Array.from(actorMap.values()));
+        setFavoriteTalents(Array.from(talentMap.values()));
       });
 
       return () => unsubscribe();
     }
   }, [user?.uid]);
 
-  const filteredActors = favoriteActors
-    .filter((actor) =>
-      actor.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTalents = favoriteTalents
+    .filter((talent) =>
+      talent.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       if (sortOrder === 'name') {
@@ -88,14 +88,14 @@ const FavoriteActorPage: React.FC = () => {
       return 0;
     });
 
-  const actorCount = filteredActors.length;
-  const totalCount = favoriteActors.length;
+  const talentCount = filteredTalents.length;
+  const totalCount = favoriteTalents.length;
 
   const toggleSort = () => {
     setSortOrder((prev) => (prev === 'recent' ? 'name' : 'recent'));
   };
 
-  if (favoriteActors.length === 0) {
+  if (favoriteTalents.length === 0) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center px-4">
         <motion.div
@@ -104,7 +104,6 @@ const FavoriteActorPage: React.FC = () => {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="text-center max-w-lg"
         >
-          {/* Glowing orb background */}
           <div className="relative mb-10">
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-32 h-32 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
@@ -119,17 +118,17 @@ const FavoriteActorPage: React.FC = () => {
           </div>
 
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            No Favorite Actors
+            No Favorite Talents
           </h1>
           <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
-            Discover and follow your favorite actors to keep track of their latest movies and shows.
+            Discover and follow your favorite talents to keep track of their latest movies and shows.
           </p>
           <Link
             to="/explore"
             className="inline-flex items-center gap-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl shadow-red-500/20 hover:shadow-red-500/40"
           >
             <Users className="w-5 h-5" />
-            Discover Actors
+            Discover Talents
             <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
@@ -139,7 +138,6 @@ const FavoriteActorPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
-      {/* Header Section */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -147,7 +145,6 @@ const FavoriteActorPage: React.FC = () => {
         className="mb-10"
       >
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900/80 to-black/80 border border-zinc-800/50 p-6 md:p-10 backdrop-blur-xl">
-          {/* Background glow */}
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-red-500/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-red-600/5 rounded-full blur-3xl" />
 
@@ -158,15 +155,14 @@ const FavoriteActorPage: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight">
-                  Favorite Actors
+                  Favorite Talents
                 </h1>
                 <p className="text-zinc-400 text-sm md:text-base mt-1">
-                  {totalCount} {totalCount === 1 ? 'actor' : 'actors'} in your collection
+                  {totalCount} {totalCount === 1 ? 'talent' : 'talents'} in your collection
                 </p>
               </div>
             </div>
 
-            {/* Stats Pill */}
             <div className="flex items-center gap-2 bg-zinc-800/60 backdrop-blur-sm px-5 py-3 rounded-full border border-zinc-700/50 w-fit">
               <Sparkles className="w-4 h-4 text-yellow-400" />
               <span className="text-zinc-300 text-sm font-medium">
@@ -177,27 +173,24 @@ const FavoriteActorPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Controls Bar */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
         className="flex flex-col sm:flex-row gap-4 mb-8"
       >
-        {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-500 w-4 h-4" />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 w-4 h-4 z-10" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search actors..."
-            className="w-full pl-11 pr-4 py-3 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/30 transition-all duration-300 text-sm"
+            placeholder="Search talents..."
+            className="w-full pl-11 pr-4 py-3 bg-zinc-800/40 backdrop-blur-md border border-white/10 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 focus:bg-zinc-800/60 transition-all duration-300 text-sm"
           />
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Sort Toggle */}
           <button
             onClick={toggleSort}
             className="flex items-center gap-2 px-4 py-3 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl text-zinc-300 hover:text-white hover:bg-zinc-800/60 hover:border-zinc-700/50 transition-all duration-300"
@@ -236,18 +229,16 @@ const FavoriteActorPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Results count */}
       {searchTerm && (
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="text-zinc-400 text-sm mb-6"
         >
-          Found {actorCount} {actorCount === 1 ? 'actor' : 'actors'} matching "{searchTerm}"
+          Found {talentCount} {talentCount === 1 ? 'talent' : 'talents'} matching "{searchTerm}"
         </motion.p>
       )}
 
-      {/* Grid View */}
       <AnimatePresence mode="wait">
         {viewMode === 'grid' && (
           <motion.div
@@ -259,10 +250,10 @@ const FavoriteActorPage: React.FC = () => {
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
           >
             <AnimatePresence>
-              {filteredActors.map((actor, index) => {
-                const actorImageUrl = actor.profilePath;
-                const actorName = actor.name ?? 'Unknown Actor';
-                const initials = actorName
+              {filteredTalents.map((talent, index) => {
+                const talentImageUrl = talent.profilePath;
+                const talentName = talent.name ?? 'Unknown Talent';
+                const initials = talentName
                   .split(' ')
                   .map((n) => n[0])
                   .join('')
@@ -271,7 +262,7 @@ const FavoriteActorPage: React.FC = () => {
 
                 return (
                   <motion.div
-                    key={actor.id}
+                    key={talent.id}
                     layout
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -283,27 +274,24 @@ const FavoriteActorPage: React.FC = () => {
                     }}
                   >
                     <Link
-                      to={`/actor/${actor.id}`}
+                      to={`/actor/${talent.id}`}
                       className="group block relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/10"
                     >
-                      {/* Rank Badge */}
                       <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1">
                         <span className="text-xs font-bold text-zinc-300">
                           #{index + 1}
                         </span>
                       </div>
 
-                      {/* Heart Badge */}
                       <div className="absolute top-3 right-3 z-20 bg-gradient-to-br from-red-500 to-red-600 p-2 rounded-full shadow-lg shadow-red-500/30">
                         <Heart className="w-3 h-3 md:w-4 md:h-4 text-white fill-current" />
                       </div>
 
-                      {/* Image Container */}
                       <div className="relative aspect-[3/4] overflow-hidden">
-                        {actor.profilePath ? (
+                        {talent.profilePath ? (
                           <img
-                            src={actorImageUrl}
-                            alt={`${actorName} profile`}
+                            src={talentImageUrl}
+                            alt={`${talentName} profile`}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
                             loading="lazy"
                           />
@@ -320,22 +308,17 @@ const FavoriteActorPage: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Glass layers (replace prior hover animation) */}
-                        {/* Subtle glass tint only (no dark overlay) */}
                         <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-
-                        {/* Moving glossy highlight */}
                         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                           <div
                             className="absolute top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent -skew-x-12 blur-[1px]
-               -translate-x-[150%] 
-               group-hover:translate-x-[250%] 
-               transition-transform duration-1000 ease-out"
+                               -translate-x-[150%] 
+                               group-hover:translate-x-[250%] 
+                               transition-transform duration-1000 ease-out"
                           />
                         </div>
 
-                        {/* Hover Overlay (glass) */}
                         <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
                           <motion.div
                             initial={{ y: 10, opacity: 0 }}
@@ -347,23 +330,19 @@ const FavoriteActorPage: React.FC = () => {
                           </motion.div>
                         </div>
 
-                        {/* Bottom gradient always visible */}
                         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
 
-                        {/* Corner highlight */}
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div className="absolute -top-8 -left-8 h-24 w-24 rounded-full bg-red-500/15 blur-2xl" />
                         </div>
                       </div>
 
-                      {/* Name */}
                       <div className="p-3 md:p-4">
                         <h2 className="font-bold text-sm md:text-base text-white truncate transition-colors duration-300 group-hover:text-white">
-                          {actorName}
+                          {talentName}
                         </h2>
                       </div>
 
-                      {/* Glass glow ring */}
                       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     </Link>
                   </motion.div>
@@ -373,7 +352,6 @@ const FavoriteActorPage: React.FC = () => {
           </motion.div>
         )}
 
-        {/* List View */}
         {viewMode === 'list' && (
           <motion.div
             key="list"
@@ -384,10 +362,10 @@ const FavoriteActorPage: React.FC = () => {
             className="flex flex-col gap-3"
           >
             <AnimatePresence>
-              {filteredActors.map((actor, index) => {
-                const actorImageUrl = actor.profilePath;
-                const actorName = actor.name ?? 'Unknown Actor';
-                const initials = actorName
+              {filteredTalents.map((talent, index) => {
+                const talentImageUrl = talent.profilePath;
+                const talentName = talent.name ?? 'Unknown Talent';
+                const initials = talentName
                   .split(' ')
                   .map((n) => n[0])
                   .join('')
@@ -396,7 +374,7 @@ const FavoriteActorPage: React.FC = () => {
 
                 return (
                   <motion.div
-                    key={actor.id}
+                    key={talent.id}
                     layout
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -407,20 +385,18 @@ const FavoriteActorPage: React.FC = () => {
                     }}
                   >
                     <Link
-                      to={`/actor/${actor.id}`}
+                      to={`/actor/${talent.id}`}
                       className="group flex items-center gap-4 bg-gradient-to-r from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/5 p-3"
                     >
-                      {/* Rank */}
                       <span className="text-zinc-600 font-bold text-sm w-6 text-center">
                         {index + 1}
                       </span>
 
-                      {/* Image */}
                       <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-zinc-800">
-                        {actor.profilePath ? (
+                        {talent.profilePath ? (
                           <img
-                            src={actorImageUrl}
-                            alt={`${actorName} profile`}
+                            src={talentImageUrl}
+                            alt={`${talentName} profile`}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.08]"
                             loading="lazy"
                           />
@@ -432,7 +408,6 @@ const FavoriteActorPage: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Glass sweep */}
                         <div
                           aria-hidden
                           className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
@@ -443,20 +418,17 @@ const FavoriteActorPage: React.FC = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <h2 className="font-bold text-base md:text-lg text-white truncate group-hover:text-red-400 transition-colors duration-300">
-                          {actorName}
+                          {talentName}
                         </h2>
-                        <p className="text-zinc-500 text-sm">Actor</p>
+                        <p className="text-zinc-500 text-sm">Talent</p>
                       </div>
 
-                      {/* Arrow */}
                       <div className="p-2 rounded-xl bg-zinc-800/50 group-hover:bg-white/10 transition-colors duration-300">
                         <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-white/90 transition-colors duration-300" />
                       </div>
 
-                      {/* Heart */}
                       <div className="hidden sm:flex p-2">
                         <Heart className="w-5 h-5 text-red-500 fill-current" />
                       </div>
@@ -469,8 +441,7 @@ const FavoriteActorPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* No search results */}
-      {filteredActors.length === 0 && searchTerm && (
+      {filteredTalents.length === 0 && searchTerm && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -478,7 +449,7 @@ const FavoriteActorPage: React.FC = () => {
         >
           <Search className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-zinc-400 mb-2">
-            No actors found
+            No talents found
           </h3>
           <p className="text-zinc-500">
             Try adjusting your search terms
@@ -486,8 +457,7 @@ const FavoriteActorPage: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Footer Summary */}
-      {filteredActors.length > 0 && (
+      {filteredTalents.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -499,7 +469,7 @@ const FavoriteActorPage: React.FC = () => {
             <span className="text-zinc-300 text-sm md:text-base">
               You've favorited{' '}
               <span className="text-white font-semibold">{totalCount}</span>{' '}
-              talented {totalCount === 1 ? 'actor' : 'actors'}
+              {totalCount === 1 ? 'talent' : 'talents'}
             </span>
           </div>
         </motion.div>
@@ -508,4 +478,4 @@ const FavoriteActorPage: React.FC = () => {
   );
 };
 
-export default FavoriteActorPage;
+export default FavoriteTalentPage;

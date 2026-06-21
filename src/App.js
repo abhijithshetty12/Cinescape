@@ -13,7 +13,7 @@ import ActorProfilePage from "./Pages/ActorProfilePage.tsx";
 import ConditionalRoute from './components/ConditionalRoute.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 import Tvdetails from './Pages/Tvdetails.tsx'
-import FavActors from './Pages/FavActors.tsx'
+import FavTalents from './Pages/FavTalents.tsx';
 import Trending from './Pages/Trending.tsx';
 import Watchlist from "./Pages/Watchlist.tsx";
 import Upcoming from "./Pages/Upcoming.tsx";
@@ -42,7 +42,7 @@ const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
           <Route path="/actor/:id" element={<Actordetails />} />
           <Route path="tv/:id" element={<Tvdetails />} />
           <Route path="/top-rated" element={<Toprated />} />
-          <Route path="/fav-actors" element={<FavActors />} />
+          <Route path="/fav-talents" element={<FavTalents />} />
           <Route path="/trending" element={<Trending />} />
           <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/upcoming" element={<Upcoming />} />
@@ -60,11 +60,9 @@ function App() {
   const [isCmdMenuOpen, setIsCmdMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
 
-  // Theme is handled via a dataset attribute so Tailwind's `dark:` classes can be used if needed.
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = isDark ? 'dark' : 'light';
-    // Optional: also set the Tailwind `dark` class for any `dark:*` usage.
     root.classList.toggle('dark', isDark);
   }, [isDark]);
 
