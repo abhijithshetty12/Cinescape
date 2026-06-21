@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -262,8 +262,8 @@ const WatchlistPage = () => {
                 <button
                   onClick={() => handleMediaTypeChange('movie')}
                   className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 font-bold text-xs tracking-wide transition-all duration-300 rounded-lg ${mediaType === 'movie'
-                      ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
+                    : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                 >
                   <Clapperboard className={`w-3.5 h-3.5 transition-transform duration-300 ${mediaType === 'movie' ? 'scale-110 text-red-400' : ''}`} />
@@ -281,8 +281,8 @@ const WatchlistPage = () => {
                 <button
                   onClick={() => handleMediaTypeChange('tv')}
                   className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 font-bold text-xs tracking-wide transition-all duration-300 rounded-lg ${mediaType === 'tv'
-                      ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                    ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
+                    : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                 >
                   <Tv className={`w-3.5 h-3.5 transition-transform duration-300 ${mediaType === 'tv' ? 'scale-110 text-cyan-400' : ''}`} />
@@ -311,8 +311,8 @@ const WatchlistPage = () => {
                 onClick={() => filteredAndSortedWatchlist.length && setShowRoulette(true)}
                 disabled={filteredAndSortedWatchlist.length === 0}
                 className={`flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 active:scale-95 shrink-0 ${filteredAndSortedWatchlist.length === 0
-                    ? 'bg-zinc-900/20 border-zinc-900/60 text-zinc-600 cursor-not-allowed'
-                    : 'bg-zinc-950/60 border-white/[0.04] hover:border-red-500/30 text-zinc-100 hover:text-red-400'
+                  ? 'bg-zinc-900/20 border-zinc-900/60 text-zinc-600 cursor-not-allowed'
+                  : 'bg-zinc-950/60 border-white/[0.04] hover:border-red-500/30 text-zinc-100 hover:text-red-400'
                   }`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-red-500 animate-pulse" />
@@ -353,8 +353,8 @@ const WatchlistPage = () => {
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`flex items-center justify-center gap-2 p-2.5 border rounded-xl text-xs font-semibold transition-all duration-200 aspect-square md:aspect-auto md:px-4 md:py-2 ${showFilters
-                      ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                      : 'bg-zinc-950/60 border-white/[0.04] text-zinc-300 hover:text-white'
+                    ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                    : 'bg-zinc-950/60 border-white/[0.04] text-zinc-300 hover:text-white'
                     }`}
                 >
                   <Filter className="w-4 h-4" />
@@ -380,8 +380,8 @@ const WatchlistPage = () => {
                       key={genre}
                       onClick={() => setSelectedGenre(genre)}
                       className={`shrink-0 px-3.5 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 border snap-center ${selectedGenre === genre
-                          ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                          : 'bg-zinc-950/40 border-white/[0.02] text-zinc-400 hover:text-zinc-200 hover:border-white/[0.08]'
+                        ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                        : 'bg-zinc-950/40 border-white/[0.02] text-zinc-400 hover:text-zinc-200 hover:border-white/[0.08]'
                         }`}
                     >
                       {genre}
