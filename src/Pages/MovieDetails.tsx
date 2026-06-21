@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Star, Calendar, Clock, Play, Heart, Globe, DollarSign, Bookmark, ThumbsDown, ThumbsUp, ChevronLeft, ChevronRight, BookmarkCheck, TvMinimalPlay, ImageOff, Eye, EyeOff, Check, Plus, Loader2, Users, Award, MessageCircle, MoreHorizontal } from 'lucide-react';
-import { FaFilm } from 'react-icons/fa';
+import { Star, Calendar, Clock, Play, Sparkles, Globe, DollarSign, Bookmark, ThumbsDown, ThumbsUp, CheckCircle, BookmarkCheck, TvMinimalPlay, ImageOff, Image, Clapperboard, Check, Plus, Loader2, Users, Award, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/swiper-bundle.css';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -623,7 +622,6 @@ const MovieDetails = () => {
       />
 
       <div className="relative min-h-[70vh] md:min-h-[85vh] flex items-end">
-        {/* Dynamic Background with gradient overlays */}
         <div className="absolute inset-0">
           <div
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
@@ -679,9 +677,7 @@ const MovieDetails = () => {
               </motion.div>
             </div>
 
-            {/* Content section */}
             <div className="flex-1 flex flex-col justify-end w-full text-center md:text-left order-2 md:order-none">
-              {/* Minimal glassmorphic badges */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -694,13 +690,11 @@ const MovieDetails = () => {
                   <span className="text-white font-semibold text-sm sm:text-base">{movieRating}</span>
                 </div>
 
-                {/* Runtime badge - Glassmorphic */}
                 <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
                   <Clock className="w-4 h-4 text-blue-600" />
                   <span className="text-white/80 font-medium text-sm">{movieRuntime} min</span>
                 </div>
 
-                {/* Release date badge - Glassmorphic */}
                 <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
                   <Calendar className="w-4 h-4 text-green-600" />
                   <span className="text-white/80 font-medium text-sm">
@@ -709,7 +703,6 @@ const MovieDetails = () => {
                 </div>
               </motion.div>
 
-              {/* Title with enhanced typography */}
               <motion.h1
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -721,7 +714,6 @@ const MovieDetails = () => {
                 </span>
               </motion.h1>
 
-              {/* Genre chips - minimal glassmorphic */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -738,7 +730,6 @@ const MovieDetails = () => {
                 ))}
               </motion.div>
 
-              {/* Action buttons */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -768,45 +759,180 @@ const MovieDetails = () => {
           </motion.div>
         </div>
       </div>
+      {/* Unified Descriptive Context Bento Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Vibe Chart Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="relative col-span-1 bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-6 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_16px_48px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col justify-between"
+        >
+          {/* Specular Highlight Top Edge */}
+          <div className="absolute top-0 inset-x-8 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.7 }}
-        className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
-      >
-        <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-white">Synopsis</h2>
-        <p className="text-base md:text-lg text-white/70 leading-relaxed">{movieOverview}</p>
-      </motion.section>
+          <div>
+            <h2 className="text-xl font-black text-white tracking-tight mb-6">Vibe Chart</h2>
+
+            {/* Native SVG Donut Chart Canvas */}
+            <div className="relative flex items-center justify-center h-44 my-2">
+              {(() => {
+                // Hardcoded configurations transformed internally into procedural formulas
+                const data = [
+                  { name: 'Comedy', value: 35, strokeColor: '#EAB308', shadowClass: 'drop-shadow-[0_4px_12px_rgba(234,179,8,0.15)]' },
+                  { name: 'Romance', value: 35, strokeColor: '#F43F5E', shadowClass: 'drop-shadow-[0_4px_12px_rgba(244,63,94,0.15)]' },
+                  { name: 'Drama', value: 30, strokeColor: '#78350F', shadowClass: '' }
+                ];
+
+                const RADIUS = 40;
+                const CIRCUMFERENCE = 2 * Math.PI * RADIUS; // ~251.327
+                let currentOffset = 0;
+
+                // Sort descending to cleanly select the dominant item for the center text label
+                const primaryVibe = [...data].sort((a, b) => b.value - a.value)[0];
+
+                return (
+                  <>
+                    <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 100 100">
+                      {/* Background Track Circle */}
+                      <circle cx="50" cy="50" r={RADIUS} fill="transparent" stroke="rgba(255,255,255,0.02)" strokeWidth="12" />
+
+                      {/* Math Calculated Dynamic Map Iteration Loop */}
+                      {data.map((segment) => {
+                        const segmentLength = (segment.value / 100) * CIRCUMFERENCE;
+                        const strokeOffset = currentOffset;
+                        currentOffset -= segmentLength; // Advance the offset pointer for the next segment
+
+                        return (
+                          <circle
+                            key={segment.name}
+                            cx="50"
+                            cy="50"
+                            r={RADIUS}
+                            fill="transparent"
+                            stroke={segment.strokeColor}
+                            strokeWidth="12"
+                            strokeDasharray={`${segmentLength} ${CIRCUMFERENCE}`}
+                            strokeDashoffset={strokeOffset}
+                            strokeLinecap="round"
+                            className={segment.shadowClass}
+                          />
+                        );
+                      })}
+                    </svg>
+
+                    {/* Center Target Info Indicator */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">{primaryVibe.name}</span>
+                      <span className="text-2xl font-black font-mono text-white mt-0.5">{primaryVibe.value}%</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Dynamic Metrics Legend List */}
+          <div className="space-y-3 pt-4 border-t border-white/[0.04] mt-4">
+            {[
+              { name: 'Comedy', value: '35%', color: 'bg-yellow-500' },
+              { name: 'Romance', value: '35%', color: 'bg-rose-500' },
+              { name: 'Drama', value: '30%', color: 'bg-amber-900' }
+            ].map((vibe) => (
+              <div key={vibe.name} className="flex items-center justify-between text-xs font-bold tracking-wide">
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${vibe.color} shadow-[0_0_8px_currentColor]`} />
+                  <span className="text-zinc-400">{vibe.name}</span>
+                </div>
+                <span className="font-mono text-zinc-200">{vibe.value}</span>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* Combined Story & Specifications Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="relative lg:col-span-2 bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_16px_48px_rgba(0,0,0,0.6)] overflow-hidden group flex flex-col justify-between gap-8"
+        >
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/25 to-transparent blur-sm pointer-events-none" />
+          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-gradient-to-br from-red-600/5 via-orange-600/5 to-transparent rounded-full blur-3xl opacity-60 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none" />
+
+          {/* Top Half: Synopsis */}
+          <div className="relative z-10">
+            <h2 className="text-xl md:text-2xl font-black mb-4 text-white tracking-tight">
+              Synopsis
+            </h2>
+            {movieOverview ? (
+              <p className="text-sm sm:text-base text-zinc-300 leading-relaxed font-normal tracking-wide">
+                {movieOverview}
+              </p>
+            ) : (
+              <p className="text-sm sm:text-base text-zinc-600 italic font-medium">
+                An official synopsis has not yet been recorded for this film.
+              </p>
+            )}
+          </div>
+
+          {/* Bottom Half: Inline Metadata Grid */}
+          <div className="relative z-10 pt-6 border-t border-white/[0.06]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition-colors duration-300 hover:bg-white/[0.04]">
+                <dt className="text-zinc-500 text-[11px] font-bold tracking-wider uppercase mb-1">Language</dt>
+                <dd className="text-zinc-200 font-semibold text-sm">{movieLanguage}</dd>
+              </div>
+              <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition-colors duration-300 hover:bg-white/[0.04]">
+                <dt className="text-zinc-500 text-[11px] font-bold tracking-wider uppercase mb-1">Box Office</dt>
+                <dd className="flex items-center gap-1.5 text-emerald-400 font-bold text-sm">
+                  <DollarSign className="w-4 h-4 stroke-[2.5]" />
+                  <span>{movieBoxOffice || 'N/A'}</span>
+                </dd>
+              </div>
+              <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition-colors duration-300 hover:bg-white/[0.04]">
+                <dt className="text-zinc-500 text-[11px] font-bold tracking-wider uppercase mb-1">Director</dt>
+                <dd className="text-zinc-200 font-semibold text-sm">{movieDirector}</dd>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      </div>
 
       <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
+          transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-4 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_24px_64px_rgba(0,0,0,0.7)] overflow-hidden group mb-8"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-red-500/20 rounded-lg">
-              <TvMinimalPlay className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+          <div className="flex items-center gap-3 mb-5 sm:mb-6 relative z-10">
+            <div className="p-2.5 bg-gradient-to-b from-red-500/10 to-red-500/20 border border-red-500/20 rounded-xl shadow-[0_4px_12px_rgba(239,68,68,0.1)]">
+              <TvMinimalPlay className="w-5 h-5 md:w-5.5 md:h-5.5 text-red-500 animate-pulse" />
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-white">Watch Now</h2>
+            <div className="flex flex-col">
+              <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Watch Now</h2>
+              <span className="text-[10px] sm:text-xs text-zinc-500 font-medium tracking-wide uppercase mt-0.5">Adaptive Player Stream</span>
+            </div>
           </div>
-          <div className="rounded-xl overflow-hidden ring-1 ring-white/10">
-            <div className="w-full" style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+
+          <div className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-black shadow-[0_0_50px_-12px_rgba(239,68,68,0.15)] transition-all duration-500 group-hover:shadow-[0_0_60px_-10px_rgba(239,68,68,0.25)] group-hover:border-white/[0.12]">
+            <div className="w-full aspect-video bg-zinc-950">
               <iframe
                 src={embedUrl}
                 width="100%"
                 height="100%"
-                frameBorder="0"
                 allowFullScreen
                 allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
                 title="Movie Embed"
-                className="absolute top-0 left-0 w-full h-full"
+                className="w-full h-full border-0 relative z-10"
                 ref={el => {
                   if (el && typeof window !== "undefined") {
                     const handleFs = () => {
-                      const orientation: any =
+                      const orientation =
                         (window.screen as any).orientation ||
                         (window.screen as any).mozOrientation ||
                         (window.screen as any).msOrientation;
@@ -822,181 +948,176 @@ const MovieDetails = () => {
                     document.addEventListener("fullscreenchange", handleFs);
                   }
                 }}
-              ></iframe>
+              />
             </div>
           </div>
         </motion.section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="w-full">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.8 }}
-            className="lg:col-span-1"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            className="w-full"
           >
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 h-full">
-              <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-white">
-                <Globe className="w-5 h-5 text-blue-400" />
-                Movie Info
+            <div className="relative bg-zinc-950/20 backdrop-blur-3xl rounded-3xl p-6 border border-white/[0.03] shadow-[0_16px_48px_rgba(0,0,0,0.4)] overflow-hidden">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4 px-1">
+                Production Media & Trailers
               </h3>
-              <dl className="space-y-5">
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">Language</dt>
-                  <dd className="text-white font-semibold">{movieLanguage}</dd>
-                </div>
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium mb-2">Box Office</dt>
-                  <dd className="flex items-center gap-2 text-white font-semibold">
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
-                    {movieBoxOffice}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-white/50 text-sm font-medium mb-2">Director</dt>
-                  <dd className="text-white font-semibold">{movieDirector}</dd>
-                </div>
-              </dl>
-            </div>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.9 }}
-            className="lg:col-span-2"
-          >
-            <div className="hidden md:block">
-              <Swiper
-                spaceBetween={16}
-                slidesPerView={2}
-                breakpoints={{
-                  768: { slidesPerView: 2 },
-                  1024: { slidesPerView: 3 },
-                }}
-                className="rounded-xl overflow-hidden"
-              >
-                {movieDetails?.trailers && movieDetails.trailers.length > 0 && (
-                  <SwiperSlide>
-                    <div className="aspect-video rounded-xl overflow-hidden ring-1 ring-white/10">
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${movieDetails.trailers[0].key}`}
-                        title="Movie Trailer"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
+              {(!movieDetails?.trailers || movieDetails.trailers.length === 0) && movieImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
+                  <Image className="w-10 h-10 mb-2 stroke-[1.25]" />
+                  <span className="text-xs font-medium">No production media captured</span>
+                </div>
+              ) : (
+                <div
+                  className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x snap-mandatory scroll-smooth"
+                  style={{ willChange: 'scroll-position' }}
+                >
+
+                  {movieDetails?.trailers && movieDetails.trailers.length > 0 && (
+                    <div className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
+                      <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-black shadow-lg shadow-black/40 relative">
+                        <iframe
+                          className="w-full h-full relative z-10"
+                          src={`https://www.youtube.com/embed/${movieDetails.trailers[0].key}`}
+                          title="Movie Trailer"
+                          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
                     </div>
-                  </SwiperSlide>
-                )}
-                {movieImages.map((image) => (
-                  <SwiperSlide key={image.file_path}>
-                    <div className="aspect-video rounded-xl overflow-hidden ring-1 ring-white/10">
-                      <img
-                        src={`https://image.tmdb.org/t/p/w780${image.file_path}`}
-                        alt="Movie backdrop"
-                        className="w-full h-full object-cover"
-                      />
+                  )}
+
+                  {movieImages.map((image) => (
+                    <div key={image.file_path} className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
+                      <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-zinc-900 shadow-lg shadow-black/40 relative group/slide cursor-zoom-in">
+                        <img
+                          src={`https://image.tmdb.org/t/p/w780${image.file_path}`}
+                          alt="Movie production still"
+                          className="w-full h-full object-cover opacity-85 transition-opacity duration-300 ease-out group-hover/slide:opacity-100"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none z-20" />
+                      </div>
                     </div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
+                  ))}
+
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
-
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.0 }}
-          className="relative bg-gradient-to-br from-gray-900/60 to-black/80 backdrop-blur-md rounded-3xl p-6 md:p-10 border border-white/5 shadow-2xl overflow-hidden"
+          transition={{ duration: 0.8, delay: 1.0, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
         >
-          {/* Gradient accent */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-pink-500/5 to-rose-500/5 rounded-full blur-3xl" />
-
-          <div className="flex items-center gap-4 mb-8 relative z-10">
-            <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center border border-white/10">
-              <Users className="w-5 h-5 text-white" />
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+          <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <Users className="w-5 h-5 text-blue-500 stroke-[1.5]" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Top Cast</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-medium tracking-wide uppercase mt-0.5">Performers</span>
+              </div>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Top Cast</h2>
           </div>
 
-          <div ref={castContainerRef} className="overflow-x-auto pb-2 custom-scrollbar">
-            <div className="flex gap-4 md:gap-5 px-1">
+          <div
+            ref={castContainerRef}
+            className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex gap-4 sm:gap-6 px-1">
               {movieDetails?.cast?.map((actor, idx) => (
-                <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0">
+                <Link
+                  key={actor.id}
+                  to={`/actor/${actor.id}`}
+                  className="flex-shrink-0 snap-start group/card"
+                >
                   <SpatialMediaCard containerRef={castContainerRef} index={idx}>
-                    <div className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden w-36 sm:w-44 h-full">
-                      {/* Image container with aspect ratio */}
-                      <div className="relative aspect-[3/4] overflow-hidden">
+                    <div className="relative bg-white/[0.02] backdrop-blur-xl rounded-2xl border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03),0_12px_32px_rgba(0,0,0,0.4)] overflow-hidden w-[135px] xs:w-[155px] sm:w-[175px] md:w-[185px] transition-all duration-500 ease-[0.22,1,0.36,1] group-hover/card:-translate-y-1.5 group-hover/card:bg-white/[0.05] group-hover/card:border-white/[0.12] group-hover/card:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_20px_40px_rgba(0,0,0,0.6)]">
+
+                      <div className="absolute -top-12 -left-12 w-32 h-32 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 rounded-full blur-2xl opacity-0 group-hover/card:opacity-40 group-hover/card:from-blue-500/20 group-hover/card:to-cyan-400/20 transition-all duration-700 pointer-events-none" />
+
+                      <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950">
                         {actor.profile_path ? (
                           <img
                             src={`https://image.tmdb.org/t/p/w780${actor.profile_path}`}
                             alt={actor.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="w-full h-full object-cover transition-all duration-700 ease-[0.25,1,0.5,1] scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05]"
+                            loading="lazy"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
-                            <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
-                            <span className="text-xs text-center px-2">No Photo</span>
+                          <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                            <ImageOff className="w-7 h-7 mb-1.5 stroke-[1.25] opacity-30" />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">No Frame</span>
                           </div>
                         )}
-
-                        {/* Gradient overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-80" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
                       </div>
 
-                      {/* Info */}
-                      <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
-                        <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                      <div className="px-3.5 pb-4 pt-2 flex flex-col justify-center text-center">
+                        <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-blue-500 transition-colors duration-300">
                           {actor.name}
                         </h3>
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                          {actor.role || 'Unknown Role'}
-                        </p>
-                      </div>
 
-                      {/* Hover border glow */}
-                      <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
+                        <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] shadow-[inset_0_0.5px_0_rgba(255,255,255,0.01)] inline-block mx-auto max-w-full">
+                          <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                            {actor.role || 'Character'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </SpatialMediaCard>
                 </Link>
               ))}
             </div>
           </div>
-
-          {/* Swipe hint for mobile */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1.2 }}
-            className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
+            className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest"
           >
             <span>Swipe to explore</span>
-            <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+            <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+              <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
             </div>
           </motion.div>
         </motion.section>
 
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.02 }}
-          className="relative bg-gradient-to-br from-gray-900/60 to-black/80 backdrop-blur-md rounded-3xl p-6 md:p-10 border border-white/5 shadow-2xl overflow-hidden"
+          transition={{ duration: 0.8, delay: 1.02, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
         >
-          {/* Gradient accent */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl" />
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-          <div className="flex items-center gap-4 mb-8 relative z-10">
-            <div className="w-10 h-10 rounded-xl bg-yellow-400 to-yellow-500/20 flex items-center justify-center border border-white/10">
-              <Award className="w-5 h-5 text-black" />
+          <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <Award className="w-5 h-5 text-amber-400 stroke-[1.5]" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Crew</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-bold tracking-wider uppercase mt-0.5">Production Team</span>
+              </div>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Crew</h2>
           </div>
 
-          <div ref={crewContainerRef} className="overflow-x-auto pb-2 custom-scrollbar">
-            <div className="flex gap-4 md:gap-5 px-1">
+          <div
+            ref={crewContainerRef}
+            className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex gap-4 sm:gap-6 px-1">
               {(() => {
                 const grouped: Record<string, any> = {};
                 crew.forEach((member) => {
@@ -1030,42 +1151,41 @@ const MovieDetails = () => {
                   <Link
                     key={member.credit_id}
                     to={`/actor/${member.id}`}
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 snap-start group/card"
                   >
                     <SpatialMediaCard containerRef={crewContainerRef} index={idx}>
-                      <div className="relative bg-gradient-to-b from-gray-800/40 to-gray-900/60 hover:from-gray-700/50 hover:to-gray-800/70 transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-xl hover:shadow-2xl overflow-hidden group w-36 sm:w-44 h-full">
-                        {/* Image container */}
-                        <div className="relative aspect-[3/4] overflow-hidden">
+                      <div className="relative bg-white/[0.02] backdrop-blur-xl rounded-2xl border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03),0_12px_32px_rgba(0,0,0,0.4)] overflow-hidden w-[135px] xs:w-[155px] sm:w-[175px] md:w-[185px] transition-all duration-500 ease-[0.22,1,0.36,1] group-hover/card:-translate-y-1.5 group-hover/card:bg-white/[0.05] group-hover/card:border-white/[0.12] group-hover/card:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_20px_40px_rgba(0,0,0,0.6)]">
+
+                        <div className="absolute -top-12 -left-12 w-32 h-32 bg-gradient-to-br from-amber-500/0 to-orange-500/0 rounded-full blur-2xl opacity-0 group-hover/card:opacity-30 group-hover/card:from-amber-500/10 group-hover/card:to-orange-400/10 transition-all duration-700 pointer-events-none" />
+                        <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950">
                           {member.profile_path ? (
                             <img
                               src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
                               alt={member.name}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                              className="w-full h-full object-cover transition-all duration-700 ease-[0.25,1,0.5,1] scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05]"
+                              loading="lazy"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
-                              <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
-                              <span className="text-xs text-center px-2">No Photo</span>
+                            <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                              <ImageOff className="w-7 h-7 mb-1.5 stroke-[1.25] opacity-30" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">No Frame</span>
                             </div>
                           )}
-
-                          {/* Gradient overlay on hover */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
                         </div>
 
-                        {/* Info */}
-                        <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
-                          <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                        <div className="px-3.5 pb-4 pt-2 flex flex-col justify-center text-center">
+                          <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-amber-300 transition-colors duration-300">
                             {member.name}
                           </h3>
-                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                            {member.jobs.slice(0, 2).join(', ')}
-                            {member.jobs.length > 2 && ` +${member.jobs.length - 2} more`}
-                          </p>
-                        </div>
 
-                        {/* Hover glow effect */}
-                        <div className="absolute inset-0 border-2 border-blue-500/0 group-hover:border-blue-500/20 rounded-2xl transition-all duration-300 pointer-events-none" />
+                          <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] shadow-[inset_0_0.5px_0_rgba(255,255,255,0.01)] inline-block mx-auto max-w-full">
+                            <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                              {member.jobs.slice(0, 2).join(', ')}
+                              {member.jobs.length > 2 && ` +${member.jobs.length - 2}`}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </SpatialMediaCard>
                   </Link>
@@ -1074,98 +1194,102 @@ const MovieDetails = () => {
             </div>
           </div>
 
-          {/* Swipe hint */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 1.2 }}
-            className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
+            className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest"
           >
             <span>Swipe to explore</span>
-            <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
+            <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+              <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
             </div>
           </motion.div>
         </motion.section>
 
         {movieParts.length > 0 && (
           <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 1.05 }}
-            className="bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-700/50 shadow-2xl relative overflow-hidden"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 1.05, ease: [0.22, 1, 0.36, 1] }}
+            className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
           >
-            {/* Gradient overlays for peek effect */}
-            <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/60 to-transparent pointer-events-none z-10 md:hidden" />
-            <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/60 to-transparent pointer-events-none z-10 md:hidden" />
+            <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-            <div className="flex items-center gap-4 mb-8 relative z-20">
-              <div className="w-3 h-10">
-                <FaFilm className="text-yellow-500" />
+            <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-center gap-3.5 mb-6 sm:mb-8 relative z-20">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <Clapperboard className="w-5 h-5 text-blue-400 stroke-[1.5]" />
               </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl lg:text-4xl font-black bg-gradient-to-r from-gray-100 to-gray-300 bg-clip-text text-transparent drop-shadow-2xl tracking-tight">
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
                   {collectionName ? `Part of ${collectionName}` : 'Movie Parts'}
                 </h2>
-                <span className="text-sm md:text-base text-gray-400 font-medium block mt-1">
-                  {movieParts.length} {movieParts.length === 1 ? 'part' : 'parts'} available
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-bold tracking-wider uppercase mt-0.5">
+                  {movieParts.length} {movieParts.length === 1 ? 'Sequel Block' : 'Chapters Available'}
                 </span>
               </div>
             </div>
 
-            <div className="relative">
-              <div ref={moviePartsContainerRef} className="flex gap-3 md:gap-4 pb-3 snap-x snap-mandatory custom-scrollbar overflow-x-auto scroll-smooth -mr-2 md:-mr-6 pr-2 md:pr-6 px-1">
+            <div className="relative z-20">
+              <div
+                ref={moviePartsContainerRef}
+                className="flex gap-4 pb-3 snap-x snap-mandatory custom-scrollbar overflow-x-auto scroll-smooth -mx-5 px-5 sm:mx-0 sm:px-1"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
                 {movieParts
                   .sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())
                   .map((part, index) => (
                     <Link
                       key={part.id}
                       to={`/movie/${part.id}`}
-                      className="flex-shrink-0 snap-center"
+                      className="flex-shrink-0 snap-start group/card"
                       tabIndex={0}
                       aria-label={`View ${part.title}`}
                     >
                       <SpatialMediaCard containerRef={moviePartsContainerRef} index={index}>
-                        <div className="w-24 sm:w-32 md:w-36 lg:w-40 h-full group">
-                          <div className="w-full bg-gradient-to-br from-gray-800/40 to-gray-900/40 backdrop-blur-sm rounded-xl overflow-hidden shadow-xl border border-gray-700/50 bg-gradient-to-b from-zinc-900/50 to-black/30 transition-all duration-300 group-hover:border-gray-600/50 group-hover:shadow-2xl group-hover:scale-[1.02]">
-                            {/* Poster */}
-                            {part.poster_path ? (
-                              <img
-                                src={`https://image.tmdb.org/t/p/w780${part.poster_path}`}
-                                alt={part.title}
-                                loading="lazy"
-                                className="w-full aspect-[2/3] object-cover transition-transform duration-500 group-hover:scale-110"
-                              />
-                            ) : (
-                              <div className="w-full aspect-[2/3] flex items-center justify-center bg-gradient-to-b from-zinc-900 to-zinc-800">
-                                <ImageOff className="w-8 h-8 text-gray-500" />
-                              </div>
-                            )}
+                        <div className="w-[115px] xs:w-[130px] sm:w-[145px] md:w-[155px] lg:w-[165px]">
+                          <div className="relative bg-white/[0.02] backdrop-blur-xl rounded-2xl border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03),0_12px_24px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-500 ease-[0.22,1,0.36,1] group-hover/card:-translate-y-1 group-hover/card:bg-white/[0.05] group-hover/card:border-white/[0.12] group-hover/card:shadow-black/60">
 
-                            {/* Overlay on hover */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2">
-                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
-                                <Play className="w-4 h-4 text-white/90" />
-                                <span className="text-white text-xs font-semibold">View</span>
-                              </div>
-                            </div>
-
-                            {/* Year & Rating Badge */}
-                            <div className="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-start pointer-events-none">
-                              <span className="bg-gradient-to-r from-gray-900/90 to-black/90 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white/20 shadow-lg">
-                                {part.release_date?.slice(0, 4) || 'TBA'}
-                              </span>
-                              {part.vote_average && (
-                                <span className="bg-gradient-to-r from-yellow-500/90 to-yellow-400/90 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-0.5">
-                                  <Star className="w-2.5 h-2.5 fill-current" />
-                                  {part.vote_average.toFixed(1)}
-                                </span>
+                            <div className="relative aspect-[2/3] overflow-hidden bg-zinc-950">
+                              {part.poster_path ? (
+                                <img
+                                  src={`https://image.tmdb.org/t/p/w780${part.poster_path}`}
+                                  alt={part.title}
+                                  loading="lazy"
+                                  className="w-full h-full object-cover transition-transform duration-700 ease-[0.25,1,0.5,1] group-hover/card:scale-105 group-hover/card:brightness-[1.05]"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-zinc-950">
+                                  <ImageOff className="w-6 h-6 text-zinc-700 stroke-[1.5]" />
+                                </div>
                               )}
+
+                              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center z-20">
+                                <div className="w-9 h-9 rounded-full bg-white/10 border border-white/20 flex items-center justify-center transform scale-90 group-hover/card:scale-100 transition-transform duration-300 shadow-xl backdrop-blur-md">
+                                  <Play className="w-4 h-4 text-white fill-white/20 translate-x-[1px]" />
+                                </div>
+                              </div>
+
+                              <div className="absolute top-2 left-2 right-2 flex justify-between items-center pointer-events-none z-30">
+                                <span className="bg-zinc-950/80 backdrop-blur-md text-zinc-300 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border border-white/[0.05]">
+                                  {part.release_date?.slice(0, 4) || 'TBA'}
+                                </span>
+
+                                {part.vote_average > 0 && (
+                                  <span className="bg-amber-400/90 backdrop-blur-md text-zinc-950 text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-md flex items-center gap-0.5">
+                                    <Star className="w-2.5 h-2.5 fill-current stroke-[2]" />
+                                    {part.vote_average.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="mt-1.5 px-0.5">
-                            <h3 className="text-white font-bold text-[10px] leading-tight line-clamp-2 text-center group-hover:text-blue-300 transition-colors">
+                          <div className="mt-2.5 px-1 text-center">
+                            <h3 className="text-zinc-200 font-bold text-xs leading-tight line-clamp-1 group-hover/card:text-blue-400 transition-colors duration-300">
                               {part.title}
                             </h3>
                           </div>
@@ -1175,275 +1299,291 @@ const MovieDetails = () => {
                   ))}
               </div>
             </div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 1.2 }}
+              className="flex items-center justify-center gap-2 mt-3 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest relative z-20"
+            >
+              <span>Swipe Collection</span>
+              <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+                <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
+              </div>
+            </motion.div>
+          </motion.section>
+        )}
+
+        {movieParts.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 1.1, ease: [0.22, 1, 0.36, 1] }}
+            className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+          >
+            <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+
+            <div className="absolute inset-0 opacity-40 pointer-events-none">
+              <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full blur-3xl" />
+              <div className="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tl from-yellow-500/5 to-transparent rounded-full blur-2xl" />
+            </div>
+
+            <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-white/[0.04] relative z-10">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400/20 stroke-[1.5]" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Your Rating</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-bold tracking-wider uppercase mt-0.5">User Assessment</span>
+              </div>
+            </div>
+
+            {user ? (
+              <div className="relative space-y-6 z-10">
+                <div className="space-y-5">
+                  <div className="p-4 sm:p-6 bg-white/[0.01] backdrop-blur-xl rounded-2xl border border-white/[0.03] shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:gap-2 items-center justify-center">
+                      {[0, 1].map((row) => (
+                        <motion.div
+                          key={row}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, delay: 0.1 + row * 0.1 }}
+                          className="flex items-center justify-center gap-1.5"
+                        >
+                          {[...Array(5)].map((_, col) => {
+                            const index = row * 5 + col;
+                            const currentRating = userRating ?? 0;
+                            const starValue = index + 1;
+                            const isFull = currentRating >= starValue;
+                            const isHalf = currentRating === starValue - 0.5;
+
+                            const interactiveMaskId = `canvas-star-split-${index}`;
+
+                            return (
+                              <motion.div
+                                key={index}
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.92 }}
+                                className="relative inline-block w-9 h-9 sm:w-11 sm:h-11 cursor-pointer group"
+                              >
+                                <svg className="w-0 h-0 absolute" aria-hidden="true" focusable="false">
+                                  <defs>
+                                    <linearGradient id={interactiveMaskId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                      <stop offset="50%" stopColor="#fbbf24" />
+                                      <stop offset="50%" stopColor="#27272a" />
+                                    </linearGradient>
+                                  </defs>
+                                </svg>
+
+                                <button
+                                  onClick={() => handleRateMovie(starValue - 0.5)}
+                                  className="absolute left-0 top-0 w-1/2 h-full z-20 bg-transparent border-none outline-none cursor-pointer"
+                                  aria-label={`Rate ${starValue - 0.5} stars`}
+                                />
+
+                                <button
+                                  onClick={() => handleRateMovie(starValue)}
+                                  className="absolute right-0 top-0 w-1/2 h-full z-20 bg-transparent border-none outline-none cursor-pointer"
+                                  aria-label={`Rate ${starValue} stars`}
+                                />
+
+                                <div className="absolute inset-0 pointer-events-none flex items-center justify-center transition-all duration-300">
+                                  {isFull ? (
+                                    <motion.div
+                                      initial={{ scale: 0.8 }}
+                                      animate={{ scale: 1 }}
+                                      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                    >
+                                      <Star className="w-8 h-8 sm:w-9 sm:h-9 text-amber-400 fill-amber-400 filter drop-shadow-[0_0_12px_rgba(251,191,36,0.35)] stroke-[1.2]" />
+                                    </motion.div>
+                                  ) : isHalf ? (
+                                    <Star
+                                      className="w-8 h-8 sm:w-9 sm:h-9 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.2)] stroke-[1.2]"
+                                      style={{
+                                        fill: `url(#${interactiveMaskId})`,
+                                        stroke: '#fbbf24'
+                                      }}
+                                    />
+                                  ) : (
+                                    <Star className="w-8 h-8 sm:w-9 sm:h-9 text-zinc-600 fill-zinc-900/40 transition-all duration-300 group-hover:text-amber-400/40 group-hover:fill-amber-400/5 stroke-[1.2]" />
+                                  )}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {userRating && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="text-center space-y-3"
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <motion.span
+                          initial={{ scale: 0.8 }}
+                          animate={{ scale: 1 }}
+                          className="text-white font-black text-3xl md:text-4xl tracking-tighter"
+                        >
+                          {userRating}
+                        </motion.span>
+                        <span className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-2">/ 10 Stars</span>
+                      </div>
+
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.05 }}
+                        className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider backdrop-blur-md ${userRating >= 8
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_8px_24px_rgba(16,185,129,0.05)]'
+                          : userRating >= 6
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_8px_24px_rgba(59,130,246,0.05)]'
+                            : userRating >= 4
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_8px_24px_rgba(245,158,11,0.05)]'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_8px_24px_rgba(244,63,94,0.05)]'
+                          }`}
+                      >
+                        {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
+                        <span>{getRatingDescription(userRating)}</span>
+                        {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div className="flex justify-center pt-2">
+                  <motion.button
+                    onClick={handleRatingSubmit}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="relative group overflow-hidden bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-zinc-950 py-3 px-10 rounded-xl font-extrabold text-xs uppercase tracking-widest shadow-xl transition-all duration-300 hover:shadow-amber-500/10 hover:-translate-y-0.5 flex items-center gap-2"
+                  >
+                    {/* Internal Specular Light Beam Shine Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+                    <CheckCircle className="w-4 h-4 relative z-10 stroke-[2]" />
+                    <span className="relative z-10">Submit Rating</span>
+                  </motion.button>
+                </div>
+              </div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-10"
+              >
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.05] mb-4 shadow-inner">
+                  <Star className="w-6 h-6 text-zinc-600 stroke-[1.5]" />
+                </div>
+                <p className="text-zinc-300 text-base font-bold tracking-tight mb-1">
+                  Log in to rate this movie
+                </p>
+                <p className="text-zinc-500 text-xs font-medium max-w-xs mx-auto">
+                  Share your rating score and help improve personalized community charts.
+                </p>
+              </motion.div>
+            )}
           </motion.section>
         )}
 
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.1 }}
-          className="relative overflow-hidden bg-gradient-to-br from-gray-800/40 via-gray-900/40 to-black/40 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/10 shadow-2xl"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 1.1, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
         >
-          {/* Animated gradient background */}
-          <div className="absolute inset-0 opacity-30">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-yellow-500/20 to-transparent rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tl from-amber-500/10 to-transparent rounded-full blur-2xl" />
-          </div>
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-          <h2 className="relative text-xl md:text-2xl font-bold text-white mb-6 border-b border-white/10 pb-4 flex items-center gap-3">
-            <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-            Your Rating
-          </h2>
-          {user ? (
-            <div className="relative space-y-6">
-              {/* Rating Stars Container */}
-              <div className="space-y-4">
-                <div className="p-5 sm:p-6 bg-black/30 rounded-2xl border border-white/5 backdrop-blur-sm">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:gap-2 items-center justify-center">
-                    {[0, 1].map((row) => (
-                      <motion.div
-                        key={row}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.3, delay: 0.1 + row * 0.1 }}
-                        className="flex items-center justify-center gap-1 sm:gap-1"
-                      >
-                        {[...Array(5)].map((_, col) => {
-                          const index = row * 5 + col;
-                          const currentRating = userRating ?? 0;
-                          const starValue = index + 1;
-                          const isFull = currentRating >= starValue;
-                          const isHalf = currentRating === starValue - 0.5;
-                          const isHovered = false;
-
-                          return (
-                            <motion.div
-                              key={index}
-                              whileHover={{ scale: 1.15 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="relative inline-block w-10 h-10 sm:w-12 sm:h-12 cursor-pointer"
-                            >
-                              {/* Left half button (half star) */}
-                              <button
-                                onClick={() => handleRateMovie(starValue - 0.5)}
-                                className="absolute left-0 top-0 w-1/2 h-full z-20 hover:scale-110 transition-transform rounded-l-lg"
-                                aria-label={`Rate ${starValue - 0.5} stars`}
-                              />
-                              {/* Right half button (full star) */}
-                              <button
-                                onClick={() => handleRateMovie(starValue)}
-                                className="absolute right-0 top-0 w-1/2 h-full z-20 hover:scale-110 transition-transform rounded-r-lg"
-                                aria-label={`Rate ${starValue} stars`}
-                              />
-                              {/* Star display */}
-                              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                                {isFull ? (
-                                  <motion.div
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                                  >
-                                    <Star className="w-10 h-10 sm:w-12 sm:h-12 text-yellow-400 fill-yellow-400 drop-shadow-lg filter drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
-                                  </motion.div>
-                                ) : isHalf ? (
-                                  <>
-                                    <Star className="w-10 h-10 sm:w-12 sm:h-12 text-gray-600 fill-none" />
-                                    <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
-                                      <motion.div
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                                      >
-                                        <Star className="w-10 h-10 sm:w-12 sm:h-12 text-yellow-400 fill-yellow-400 drop-shadow-lg filter drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" />
-                                      </motion.div>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <motion.div whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }} transition={{ duration: 0.3 }}>
-                                    <Star className="w-10 h-10 sm:w-12 sm:h-12 text-gray-600 fill-none group-hover:text-yellow-300 transition-colors" />
-                                  </motion.div>
-                                )}
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Rating Display & Description */}
-                {userRating && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-center space-y-3"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <motion.span
-                        initial={{ scale: 0.5 }}
-                        animate={{ scale: 1 }}
-                        className="text-white font-bold text-2xl md:text-3xl"
-                      >
-                        {userRating}
-                      </motion.span>
-                      <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-                      <span className="text-gray-400 text-lg">stars</span>
-                    </div>
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.1 }}
-                      className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full border font-semibold text-sm md:text-base ${userRating >= 8
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30 shadow-lg shadow-green-500/10'
-                        : userRating >= 6
-                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/30 shadow-lg shadow-blue-500/10'
-                          : userRating >= 4
-                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 shadow-lg shadow-yellow-500/10'
-                            : 'bg-red-500/20 text-red-400 border-red-500/30 shadow-lg shadow-red-500/10'
-                        }`}
-                    >
-                      {userRating >= 8.5 && <Star className="w-4 h-4 fill-current" />}
-                      {getRatingDescription(userRating)}
-                      {userRating >= 8.5 && <Star className="w-4 h-4 fill-current" />}
-                    </motion.div>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex justify-center">
-                <motion.button
-                  onClick={handleRatingSubmit}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative group overflow-hidden bg-gradient-to-r from-yellow-500 via-yellow-400 to-amber-400 hover:from-yellow-600 hover:via-yellow-500 hover:to-amber-500 text-black py-3 px-10 rounded-xl font-bold shadow-xl hover:shadow-2xl transition-all flex items-center gap-2"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                  <Star className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform" />
-                  <span className="relative z-10">Submit Rating</span>
-                </motion.button>
-              </div>
-            </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-8"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 mb-4">
-                <Star className="w-8 h-8 text-gray-500" />
-              </div>
-              <p className="text-gray-400 text-lg mb-2">
-                Log in to rate this movie
-              </p>
-              <p className="text-gray-500 text-sm">
-                Share your rating and help others decide
-              </p>
-            </motion.div>
-          )}
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.2 }}
-          className="relative bg-gradient-to-br from-gray-900/60 via-gray-800/40 to-black/60 backdrop-blur-xl rounded-3xl p-6 md:p-10 border border-white/5 shadow-2xl"
-        >
-          {/* Ambient background glow */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tl from-amber-500/10 via-transparent to-transparent rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tl from-zinc-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-500 shadow-lg shadow-blue-500/25">
-                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-white/[0.04]">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <svg className="w-5 h-5 text-blue-400 stroke-[1.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                 </svg>
               </div>
-              <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent tracking-tight">
-                Your Review
-              </h2>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Your Review</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-bold tracking-wider uppercase mt-0.5">Share Assessment</span>
+              </div>
             </div>
 
             {user ? (
-              <div className="space-y-6">
-                {/* Review textarea with modern styling */}
+              <div className="space-y-5">
                 <div className="relative group">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600/30 via-purple-500/20 to-blue-600/30 rounded-2xl opacity-0 group-hover:opacity-100 blur transition duration-300" />
-                  <div className="relative bg-black/40 backdrop-blur-sm rounded-2xl border border-white/5 group-hover:border-white/10 transition-all duration-300">
+                  <div className="absolute -inset-px bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-blue-500/10 rounded-2xl opacity-0 group-focus-within:opacity-100 blur-sm transition duration-500 pointer-events-none" />
+                  <div className="relative bg-white/[0.01] backdrop-blur-xl rounded-2xl border border-white/[0.04] group-focus-within:border-white/[0.1] group-focus-within:bg-white/[0.02] transition-all duration-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]">
                     <textarea
-                      className="w-full bg-transparent text-white placeholder-gray-500 p-5 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 min-h-[160px] md:min-h-[200px] text-base md:text-lg leading-relaxed"
+                      className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 p-5 rounded-2xl resize-none focus:outline-none min-h-[160px] md:min-h-[200px] text-sm md:text-base leading-relaxed tracking-wide"
                       rows={6}
-                      placeholder="Share your thoughts about this movie...\n\nWhat stood out to you?\nHow did it make you feel?\nWho should watch it?"
+                      placeholder={`Share your thoughts about this movie...\n\n• What stood out to you?\n• How did it make you feel?\n• Who should watch it?`}
                       value={userReview}
                       onChange={(e) => setUserReview(e.target.value)}
                     />
-                    <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        {userReview.length}/1000
+                    <div className="absolute bottom-4 right-4 bg-zinc-950/60 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/[0.03]">
+                      <span className={`text-[10px] font-mono font-bold ${userReview.length > 1000 ? 'text-rose-400' : 'text-zinc-500'}`}>
+                        {userReview.length}<span className="text-zinc-700">/</span>1000
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Character count and tips */}
                 <div className="flex flex-wrap items-center justify-between gap-4 px-1">
-                  <div className="flex items-center gap-4">
-                    <span className={`flex items-center gap-1.5 text-sm ${userReview.length > 0 ? 'text-blue-400' : 'text-gray-500'}`}>
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${userReview.length > 0 ? 'text-blue-400' : 'text-zinc-500'}`}>
+                      <svg className="w-3.5 h-3.5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                       </svg>
-                      {userReview.length > 0 ? `${userReview.length} characters` : 'Start typing...'}
+                      {userReview.length > 0 ? `${userReview.length} characters` : 'Draft empty'}
                     </span>
-                    {userReview.length > 50 && (
-                      <span className="flex items-center gap-1.5 text-xs text-green-400">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                          <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        Great start!
-                      </span>
+                    {userReview.length >= 50 && userReview.length <= 1000 && (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider"
+                      >
+                        Ready
+                      </motion.span>
                     )}
                   </div>
-                  <span className="text-xs text-gray-500">Press Enter to add new line</span>
+                  <span className="text-[10px] text-zinc-500 font-bold tracking-wide uppercase">Markdown supported</span>
                 </div>
 
-                {/* Submit button with enhanced micro-interactions */}
                 <div className="flex justify-center pt-2">
                   <motion.button
                     onClick={handleReviewSubmit}
                     disabled={userReview.length === 0 || userReview.length > 1000}
-                    whileHover={userReview.length > 0 && userReview.length <= 1000 ? { scale: 1.03, y: -2 } : {}}
-                    whileTap={{ scale: 0.97 }}
-                    className={`relative group overflow-hidden px-10 py-4 rounded-2xl font-semibold text-lg transition-all duration-300
-                      ${userReview.length === 0 || userReview.length > 1000
-                        ? 'bg-gray-600/30 text-gray-500 cursor-not-allowed border border-gray-700/50'
-                        : 'bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-2xl hover:shadow-blue-500/35 border border-white/10'}
-                    `}
+                    whileHover={userReview.length > 0 && userReview.length <= 1000 ? { scale: 1.03 } : {}}
+                    whileTap={{ scale: 0.98 }}
+                    className={`relative group overflow-hidden py-3 px-10 rounded-xl font-extrabold text-xs uppercase tracking-widest shadow-xl transition-all duration-300 flex items-center gap-2
+              ${userReview.length === 0 || userReview.length > 1000
+                        ? 'bg-zinc-900/40 text-zinc-600 border border-white/[0.02] cursor-not-allowed shadow-none'
+                        : 'bg-gradient-to-b from-blue-500 via-blue-600 to-blue-700 text-white border border-white/10 hover:shadow-blue-500/10'
+                      }
+            `}
                   >
-                    {/* Animated background */}
                     {userReview.length > 0 && userReview.length <= 1000 && (
-                      <>
-                        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDMwIDMwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLW9wYWNpdHk6IDAuMDsiPjwvc3RvcD4KICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3Atb3BhY2l0eTogMC4xOyI+PC9zdG9wPgo8L2xpbmVhckdyYWRpZW50Pgo8L2RlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iMzAiIGhlaWdodD0iMzAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyYWQpIiBvcGFjaXR5PSIwLjA1Ii8+CjwvcGF0dGVybj4K')] bg-blend-overlay" />
-                        </div>
-                      </>
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
                     )}
 
                     <div className="relative z-10 flex items-center gap-2">
-                      <span className="transition-transform duration-300 group-hover:translate-x-1">
+                      <span>
                         {userReview.length === 0
-                          ? 'Write something first...'
+                          ? 'Compose Review'
                           : userReview.length > 1000
-                            ? 'Too long!'
-                            : 'Submit Review'}
+                            ? 'Character Limit Exceeded'
+                            : 'Publish Review'}
                       </span>
-                      <svg className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                      <svg className="w-4 h-4 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                       </svg>
                     </div>
                   </motion.button>
@@ -1451,22 +1591,20 @@ const MovieDetails = () => {
               </div>
             ) : (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="text-center py-12 md:py-16"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-10"
               >
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-white/5 mb-6 shadow-lg shadow-black/25">
-                  <svg className="w-10 h-10 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.05] mb-4 shadow-inner">
+                  <svg className="w-6 h-6 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
                 </div>
-                <h3 className="text-xl md:text-2xl font-semibold text-white mb-3">
-                  Share Your Thoughts
-                </h3>
-                <p className="text-gray-400 text-base md:text-lg max-w-md mx-auto leading-relaxed">
-                  Log in to write a review and join the conversation about this movie. Your perspective matters to the community.
+                <p className="text-zinc-300 text-base font-bold tracking-tight mb-1">
+                  Log in to share your review
+                </p>
+                <p className="text-zinc-500 text-xs font-medium max-w-xs mx-auto">
+                  Write custom reviews, save logs, and help optimize community calculation metrics.
                 </p>
               </motion.div>
             )}
@@ -1474,106 +1612,110 @@ const MovieDetails = () => {
         </motion.section>
 
         <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 1.3 }}
-          className="relative overflow-hidden bg-gradient-to-br from-gray-800/40 via-gray-900/40 to-black/40 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/10 shadow-2xl"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 1.2, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
         >
-          {/* Animated gradient accents */}
-          <div className="absolute inset-0 opacity-20 pointer-events-none">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-2xl" />
-          </div>
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-          <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
-              <MessageCircle className="w-6 h-6 text-blue-400" />
-              User Reviews
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-sm">Sort by:</span>
-              <div className="flex items-center gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sortOption === 'mostHelpful'
-                    ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white shadow-lg shadow-blue-500/25'
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50 hover:text-white border border-white/5'
-                    }`}
-                  onClick={() => setSortOption('mostHelpful')}
-                >
-                  Most Helpful
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${sortOption === 'mostRecent'
-                    ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white shadow-lg shadow-blue-500/25'
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50 hover:text-white border border-white/5'
-                    }`}
-                  onClick={() => setSortOption('mostRecent')}
-                >
-                  Most Recent
-                </motion.button>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tl from-purple-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-white/[0.04]">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <MessageCircle className="w-5 h-5 text-blue-400 stroke-[1.5]" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">User Reviews</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-bold tracking-wider uppercase mt-0.5">Community Discussion</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 bg-zinc-950/40 p-1 rounded-xl border border-white/[0.03] self-stretch sm:self-auto justify-between sm:justify-start">
+              <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase pl-2">Sort by</span>
+              <div className="flex items-center gap-1">
+                {['mostHelpful', 'mostRecent'].map((option) => {
+                  const isActive = sortOption === option;
+                  return (
+                    <motion.button
+                      key={option}
+                      whileTap={{ scale: 0.97 }}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 ${isActive
+                        ? 'bg-white/[0.05] text-white border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                        : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                        }`}
+                      onClick={() => setSortOption(option)}
+                    >
+                      {option === 'mostHelpful' ? 'Helpful' : 'Recent'}
+                    </motion.button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="relative space-y-4">
+          <div className="relative space-y-4 z-10">
             {movieDetails && Array.isArray(movieDetails.reviews) && movieDetails.reviews.length > 0 ? (
               movieDetails.reviews.map((review, index) => (
                 <motion.div
                   key={review.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.01 }}
-                  className="group relative bg-gradient-to-br from-gray-700/30 to-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-white/5 hover:border-white/10 transition-all duration-300"
+                  transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  className="group relative bg-white/[0.01] backdrop-blur-xl rounded-2xl p-5 border border-white/[0.03] hover:border-white/[0.08] hover:bg-white/[0.02] transition-all duration-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.01)]"
                 >
-                  {/* Accent line */}
-                  <div className="absolute left-0 top-4 bottom-4 w-1 bg-gradient-to-b from-blue-500/50 to-purple-500/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute left-0 top-6 bottom-6 w-[2px] bg-gradient-to-b from-blue-500/40 to-purple-500/40 rounded-r-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/[0.08] flex items-center justify-center shadow-inner">
+                        <span className="text-white font-black text-sm">
                           {review.author.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <h3 className="font-bold text-lg text-white group-hover:text-blue-300 transition-colors">
-                        {review.author}
-                      </h3>
+                      <div className="flex flex-col">
+                        <h3 className="font-bold text-sm text-zinc-200 group-hover:text-blue-400 transition-colors duration-300">
+                          {review.author}
+                        </h3>
+                      </div>
                     </div>
+
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
-                      className="text-gray-500 hover:text-white transition-colors"
+                      className="text-zinc-500 hover:text-zinc-300 p-1 rounded-md hover:bg-white/5 transition-all"
                       aria-label="More options"
                     >
-                      <MoreHorizontal className="w-5 h-5" />
+                      <MoreHorizontal className="w-4 h-4 stroke-[1.5]" />
                     </motion.button>
                   </div>
-                  <p className="text-gray-300 leading-relaxed mb-4 line-clamp-4 group-hover:line-clamp-none transition-all">
+
+                  <p className="text-zinc-300 text-xs md:text-sm leading-relaxed mb-4 font-normal tracking-wide line-clamp-4 group-hover:line-clamp-none transition-all duration-500">
                     {review.content}
                   </p>
-                  <div className="flex items-center gap-3">
+
+                  <div className="flex items-center gap-2">
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => handleUpvote(index)}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-all border border-green-500/20 hover:border-green-500/40"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/[0.03] hover:bg-emerald-500/[0.08] text-emerald-400 rounded-lg border border-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300"
                     >
-                      <ThumbsUp className="w-4 h-4" />
-                      <span className="text-sm font-medium">{review.likes ?? 0}</span>
+                      <ThumbsUp className="w-3.5 h-3.5 stroke-[1.5]" />
+                      <span className="text-[11px] font-mono font-bold">{review.likes ?? 0}</span>
                     </motion.button>
+
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => handleDownvote(index)}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-all border border-red-500/20 hover:border-red-500/40"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/[0.03] hover:bg-rose-500/[0.08] text-rose-400 rounded-lg border border-rose-500/10 hover:border-rose-500/30 transition-all duration-300"
                     >
-                      <ThumbsDown className="w-4 h-4" />
-                      <span className="text-sm font-medium">{review.dislikes ?? 0}</span>
+                      <ThumbsDown className="w-3.5 h-3.5 stroke-[1.5]" />
+                      <span className="text-[11px] font-mono font-bold">{review.dislikes ?? 0}</span>
                     </motion.button>
                   </div>
                 </motion.div>
@@ -1582,13 +1724,15 @@ const MovieDetails = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-12"
+                className="text-center py-12 border border-dashed border-white/[0.03] rounded-2xl bg-white/[0.005]"
               >
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 mb-4">
-                  <MessageCircle className="w-8 h-8 text-gray-500" />
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-3.5 shadow-inner">
+                  <MessageCircle className="w-5 h-5 text-zinc-600 stroke-[1.5]" />
                 </div>
-                <p className="text-gray-400 text-lg mb-2">No reviews yet. Be the first to review!</p>
-                <p className="text-gray-500 text-sm">Share your thoughts about this movie</p>
+                <h4 className="text-zinc-300 text-sm font-bold tracking-tight mb-0.5">No critiques indexed yet</h4>
+                <p className="text-zinc-500 text-xs font-medium max-w-xs mx-auto">
+                  Be the first to share your analysis regarding this feature layout.
+                </p>
               </motion.div>
             )}
           </div>
