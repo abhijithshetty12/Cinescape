@@ -419,6 +419,15 @@ const HistoryPage = () => {
 
 export default HistoryPage;
 
+export type WatchedItemData = {
+  movieId: number;
+  title?: string;
+  posterPath: string;
+  releaseDate?: string;
+  genres: string[];
+  mediaType: 'movie' | 'tv';
+};
+
 export const useWatchedStatus = (movieId: number, mediaType: 'movie' | 'tv') => {
   const { user } = useAuth();
   const [isWatched, setIsWatched] = useState(false);
@@ -445,19 +454,43 @@ export const useWatchedStatus = (movieId: number, mediaType: 'movie' | 'tv') => 
     if (!user?.uid) return { success: false, error: 'User not authenticated' };
     setLoading(true);
     try {
-      const { collection, query, where, getDocs, addDoc, deleteDoc } = await import('firebase/firestore');
-      const historyRef = collection(db, `users/${user.uid}/history`);
-      const q = query(historyRef, where('movieId', '==', movieId), where('mediaType', '==', mediaType));
-      const querySnapshot = await getDocs(q);
+      const {
+        collection,
+        query,
+        where,
+        getDocs,
+        addDoc,
+        deleteDoc,
+      } = await import('firebase/firestore');
+
+      const userId = user.uid;
+
+      const historyRef = collection(db, `users/${userId}/history`);
+      const historyQ = query(historyRef, where('movieId', '==', movieId), where('mediaType', '==', mediaType));
+      const historySnapshot = await getDocs(historyQ);
+
+      // Watchlist is stored without mediaType in MovieDetails.tsx (movieId only),
+      // so when marking as watched we remove by movieId.
+      const watchlistRef = collection(db, `users/${userId}/watchlist`);
+      const watchlistQ = query(watchlistRef, where('movieId', '==', movieId));
 
       if (isWatched) {
-        if (!querySnapshot.empty) await deleteDoc(querySnapshot.docs[0].ref);
+        // Unwatch: remove from history only. Do not re-add to watchlist.
+        if (!historySnapshot.empty) await deleteDoc(historySnapshot.docs[0].ref);
         setIsWatched(false);
       } else {
-        if (!querySnapshot.empty) await deleteDoc(querySnapshot.docs[0].ref);
+        // Mark watched: upsert history, and remove from watchlist.
+        if (!historySnapshot.empty) await deleteDoc(historySnapshot.docs[0].ref);
         await addDoc(historyRef, { ...movieData, watchedDate: new Date().toISOString() });
         setIsWatched(true);
+
+        // Remove from watchlist (online)
+        const watchlistSnapshot = await getDocs(watchlistQ);
+        if (!watchlistSnapshot.empty) {
+          await Promise.all(watchlistSnapshot.docs.map((d) => deleteDoc(d.ref)));
+        }
       }
+
       return { success: true };
     } catch (error) {
       return { success: false, error };

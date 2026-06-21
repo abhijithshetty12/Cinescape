@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Star, Calendar, Clock, Play, Sparkles, Globe, DollarSign, Bookmark, ThumbsDown, ThumbsUp, CheckCircle, BookmarkCheck, TvMinimalPlay, ImageOff, Image, Clapperboard, Check, Plus, Loader2, Users, Award, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
+// @ts-ignore
 import 'swiper/swiper-bundle.css';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -160,12 +161,26 @@ const MovieDetails = () => {
     const [showWatchedToast, setShowWatchedToast] = useState(false);
     const [watchedToastMessage, setWatchedToastMessage] = useState('');
 
+    const syncWatchlistButton = async () => {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser || !movieDetails?.id) return;
+
+      const watchlistCollectionRef = collection(db, 'users', currentUser.uid, 'watchlist');
+      try {
+        const querySnapshot = await getDocs(query(watchlistCollectionRef, where('movieId', '==', movieDetails.id)));
+        setIsInWatchlist(querySnapshot.docs.length > 0);
+      } catch (e) {
+        // no-op; button will update on next mount
+        console.error('Error syncing watchlist button after watched toggle:', e);
+      }
+    };
+
     const handleClick = async () => {
       const result = await toggleWatched(movieData);
 
       if (result.success) {
         if (!isWatched) {
-          // Green celebratory burst for marking as watched
           confetti({
             particleCount: 150,
             spread: 70,
@@ -176,9 +191,12 @@ const MovieDetails = () => {
             scalar: 1.2,
           });
         }
-        const message = isWatched
-          ? `Removed ${movieData.title ?? movieData.name} from history`
-          : `Saved ${movieData.title ?? movieData.name} to history`;
+
+        await syncWatchlistButton();
+
+const message = isWatched
+          ? `Removed ${movieData.title ?? ''} from history`
+          : `Saved ${movieData.title ?? ''} to history`;
         setWatchedToastMessage(message);
         setShowWatchedToast(true);
       }

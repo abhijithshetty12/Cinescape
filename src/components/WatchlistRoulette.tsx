@@ -24,7 +24,9 @@ interface WatchlistRouletteProps {
 }
 
 const CARD_WIDTH_MOBILE = 125;
+const CARD_HEIGHT_MOBILE = 181;
 const CARD_WIDTH_DESKTOP = 190;
+const CARD_HEIGHT_DESKTOP = 275;
 const GAP_MOBILE = 10;
 const GAP_DESKTOP = 16;
 
@@ -149,16 +151,13 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
   if (!isOpen) return null;
 
   return (
-    // FIX: Using rigid viewport metrics, turning off touch-scroll bleeding, and clamping outer edge spacing
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex flex-col items-center justify-between py-6 overflow-hidden bg-[#09090b] touch-none select-none w-screen h-screen min-h-screen">
       
-      {/* Ambient Blur Mesh */}
       <div className="absolute inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.05),transparent_65%)]" />
         <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black" />
       </div>
 
-      {/* Header Container */}
       <motion.div 
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -170,23 +169,8 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
         <p className="text-zinc-500 mt-1 font-bold tracking-[0.22em] uppercase text-[9px] sm:text-xs">Deciding your next cinematic choice</p>
       </motion.div>
 
-      {/* Close Button Trigger */}
-      {!isSpinning && (
-        <motion.button 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          onClick={onClose}
-          className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2.5 rounded-xl bg-zinc-900/80 border border-white/[0.05] text-zinc-400 hover:text-white transition-all z-[100] active:scale-95"
-          style={{ backdropFilter: 'blur(12px)' }}
-        >
-          <X className="w-5 h-5" />
-        </motion.button>
-      )}
-
-      {/* Mechanical Reel Viewport Block - Exactly center aligned across responsive breaks */}
       <div className="relative w-full flex items-center justify-center overflow-hidden my-auto z-10 h-[240px] sm:h-[340px]">
         
-        {/* Selector Pointers */}
         <motion.div style={{ scale: indicatorScale }} className="absolute top-2 z-50 text-amber-500 transform rotate-180 drop-shadow-[0_4px_10px_rgba(245,158,11,0.3)]">
           <svg className="w-5 h-5 sm:w-6 sm:h-6 fill-current" viewBox="0 0 24 24"><path d="M12 21l-12-18h24z"/></svg>
         </motion.div>
@@ -194,12 +178,10 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
           <svg className="w-5 h-5 sm:w-6 sm:h-6 fill-current" viewBox="0 0 24 24"><path d="M12 21l-12-18h24z"/></svg>
         </motion.div>
 
-        {/* Highlight Focus Frame Box */}
         <div 
           className="absolute rounded-2xl z-40 border-2 border-amber-500/40 pointer-events-none bg-amber-500/[0.02] shadow-[0_0_40px_rgba(245,158,11,0.15)] transition-all duration-300 w-[131px] h-[187px] sm:w-[196px] sm:h-[281px]"
         />
 
-        {/* Outer view mask handler to trap content offsets */}
         <div className="absolute left-0 w-full overflow-visible flex items-center justify-start h-full">
           <motion.div 
             className="flex will-change-transform transform-gpu gap-[10px] sm:gap-[16px]"
@@ -233,10 +215,8 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
         </div>
       </div>
 
-      {/* Dynamic bottom layout structural node to offset space seamlessly */}
       <div className="h-6 w-full shrink-0 z-0 pointer-events-none" />
 
-      {/* Winner Reveal Modal Layer */}
       <AnimatePresence>
         {showResult && winner && (
           <motion.div 
@@ -258,10 +238,17 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
               className="w-full max-w-[340px] bg-zinc-900/90 border border-amber-500/20 rounded-3xl p-5 sm:p-6 text-center shadow-2xl relative overflow-hidden z-[120] max-h-[85vh] flex flex-col justify-center items-center"
               style={{ backdropFilter: 'blur(20px)' }}
             >
+              <button 
+                onClick={onClose}
+                className="absolute top-3 right-3 p-1.5 rounded-lg bg-zinc-950/40 hover:bg-zinc-950/80 text-zinc-400 hover:text-white border border-white/5 transition-all z-[140] active:scale-95"
+                aria-label="Close Reveal Layout"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
               <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/5 rounded-full filter blur-[40px] pointer-events-none" />
 
-              {/* Poster Canvas Layout */}
-              <div className="mx-auto mb-3.5 w-[110px] h-[160px] sm:w-[130px] sm:h-[190px] rounded-xl overflow-hidden bg-zinc-950 border border-amber-500/10 shadow-xl relative shrink-0">
+              <div className="relative mx-auto mb-3.5 w-[125px] h-[181px] sm:w-[190px] sm:h-[275px] rounded-xl overflow-hidden bg-zinc-950 shadow-xl shrink-0">
                 {getPosterSrc(winner) ? (
                   <img
                     src={getPosterSrc(winner)}
@@ -271,7 +258,8 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
                 ) : (
                   <div className="w-full h-full bg-zinc-900" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
+                <div className="absolute inset-0 rounded-xl border-2 border-amber-500/40 pointer-events-none bg-amber-500/[0.02] shadow-[inset_0_0_20px_rgba(245,158,11,0.2)] z-20" />
               </div>
               
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[9px] font-bold tracking-widest uppercase mb-2">
@@ -296,7 +284,6 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
                 </span>
               </div>
 
-              {/* Mobile Action Controls Group */}
               <div className="flex flex-col gap-2 w-full shrink-0 mt-1">
                 <button 
                   onClick={() => {
