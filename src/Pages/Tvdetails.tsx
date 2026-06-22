@@ -29,7 +29,6 @@ interface Tvdetails {
   trailers: any;
   images: { backdrops: { file_path: string }[] };
 
-  // Added fields for UI
   country: string[];
   age_rating: string;
 }
@@ -229,7 +228,6 @@ const Tvdetails = () => {
           trailers: showData.videos?.results || [],
           images: showData.images?.backdrops || [],
 
-          // Country + Age rating (best-effort; TMDB response may vary)
           country: Array.isArray(showData.origin_country) ? showData.origin_country : [],
           age_rating:
             showData.content_ratings?.results?.[0]?.rating ||
@@ -660,17 +658,14 @@ const Tvdetails = () => {
                 </div>
 
                 <div className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-zinc-800/80 relative overflow-hidden">
-                  {/* Subtle premium background glow */}
                   <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-zinc-700/10 rounded-full blur-2xl pointer-events-none" />
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-6">
-                    {/* Language */}
                     <div className="space-y-1">
                       <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Language</span>
                       <span className="text-zinc-200 font-bold text-sm block tracking-wide">{showLanguage}</span>
                     </div>
 
-                    {/* First Air Date */}
                     <div className="space-y-1">
                       <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">First Air Date</span>
                       <div className="flex items-center gap-2 text-zinc-200 font-bold text-sm">
@@ -679,7 +674,6 @@ const Tvdetails = () => {
                       </div>
                     </div>
 
-                    {/* Age Rating */}
                     <div className="space-y-1">
                       <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Age Rating</span>
                       <span className="inline-block bg-zinc-800/60 text-zinc-300 border border-zinc-700/50 rounded-md px-2 py-0.5 text-xs font-bold mt-0.5">
@@ -687,7 +681,6 @@ const Tvdetails = () => {
                       </span>
                     </div>
 
-                    {/* Country */}
                     <div className="space-y-1">
                       <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Country</span>
                       <span className="text-zinc-200 font-bold text-sm block truncate tracking-wide">
@@ -695,7 +688,6 @@ const Tvdetails = () => {
                       </span>
                     </div>
 
-                    {/* Created By */}
                     <div className="col-span-2 space-y-1">
                       <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Created By</span>
                       <span className="text-zinc-200 font-bold text-sm block truncate tracking-wide">
@@ -707,7 +699,64 @@ const Tvdetails = () => {
               </div>
             </motion.section>
           </div>
+        </div>
 
+        <div className="w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            className="w-full"
+          >
+            <div className="relative bg-zinc-950/20 backdrop-blur-3xl rounded-3xl p-6 border border-white/[0.03] shadow-[0_16px_48px_rgba(0,0,0,0.4)] overflow-hidden">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4 px-1">
+                Production Media & Trailers
+              </h3>
+
+              {(!Tvdetails?.trailers || Tvdetails.trailers.length === 0) &&
+                (!Tvdetails?.images?.backdrops || Tvdetails.images.backdrops.length === 0) &&
+                (!(Tvdetails as any)?.backdrops || (Tvdetails as any).backdrops.length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
+                  <Image className="w-10 h-10 mb-2 stroke-[1.25]" />
+                  <span className="text-xs font-medium">No production media captured</span>
+                </div>
+              ) : (
+                <div
+                  className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x snap-mandatory scroll-smooth"
+                  style={{ willChange: 'scroll-position' }}
+                >
+                  {/* TV Show Trailer Card */}
+                  {Tvdetails?.trailers && Tvdetails.trailers.length > 0 && (
+                    <div className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
+                      <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-black shadow-lg shadow-black/40 relative">
+                        <iframe
+                          className="w-full h-full relative z-10"
+                          src={`https://www.youtube.com/embed/${Tvdetails.trailers[0].key}`}
+                          title="TV Show Trailer"
+                          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {(Tvdetails?.images?.backdrops || []).map((image: any) => (
+                    <div key={image.file_path} className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
+                      <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-zinc-900 shadow-lg shadow-black/40 relative group/slide cursor-zoom-in">
+                        <img
+                          src={`https://image.tmdb.org/t/p/w780/${image.file_path}`}
+                          alt="Series production still"
+                          className="w-full h-full object-cover opacity-85 transition-opacity duration-300 ease-out group-hover/slide:opacity-100"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none z-20" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
         </div>
 
         <motion.section
