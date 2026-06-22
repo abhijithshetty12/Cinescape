@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Star, Calendar, TvMinimalPlay, Clock, ImageOff, Bookmark, BookmarkCheck, Check, Plus, Loader2, Play, Globe, Users, MessageCircle } from 'lucide-react';
+import { Star, Calendar, TvMinimalPlay, Clock, ImageOff, Image, Bookmark, BookmarkCheck, Check, Plus, Loader2, Play, Globe, Users, MessageCircle, ImageOff as ImageOff2, Image as Image2, Award as Award2, Users as Users2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
 import { collection, addDoc, getDocs, query, deleteDoc } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
@@ -34,6 +34,41 @@ interface Tvdetails {
   age_rating: string;
 }
 
+const SpatialMediaCard = ({
+  children,
+  containerRef,
+  index,
+}: {
+  children: React.ReactNode;
+  containerRef: React.RefObject<HTMLDivElement>;
+  index: number;
+}) => {
+  const itemRef = useRef<HTMLDivElement>(null);
+  const { scrollXProgress } = useScroll({
+    container: containerRef,
+    target: itemRef,
+    axis: 'x',
+    offset: ['start end', 'end start'],
+  });
+
+  const x = useTransform(scrollXProgress, [0, 1], [20, -20]);
+
+  return (
+    <motion.div
+      ref={itemRef}
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4, delay: 0.1 + index * 0.05 }}
+      className="flex-shrink-0"
+    >
+      <div className="relative overflow-hidden rounded-2xl group">
+        <motion.div style={{ x }} className="w-full h-full">
+          {children}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+};
 
 const Tvdetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +95,9 @@ const Tvdetails = () => {
 
   const [activeGenreId, setActiveGenreId] = useState<number | null>(null);
 
+  const castContainerRef = useRef<HTMLDivElement>(null);
+  const crewContainerRef = useRef<HTMLDivElement>(null);
+  const [crew, setCrew] = useState<any[]>([]);
 
   const languageMap: Record<string, string> = {
     en: 'English', kn: 'Kannada', te: 'Telugu', hi: 'Hindi', ta: 'Tamil', ml: 'Malayalam',
@@ -83,11 +121,10 @@ const Tvdetails = () => {
     const movieData: WatchedItemData = {
       movieId: Tvdetails!.id,
       title: Tvdetails!.name,
-      posterPath: Tvdetails!.poster_path,
-      first_air_date: Tvdetails!.first_air_date,
+      posterPath: Tvdetails!.poster_path ?? '',
+      releaseDate: Tvdetails!.first_air_date,
       genres: Tvdetails!.genres.map((genre) => genre.name),
       mediaType: 'tv',
-      rating: Tvdetails!.vote_average,
     };
 
     const { isWatched, loading: watchedLoading, toggleWatched } = useWatchedStatus(movieData.movieId, movieData.mediaType);
@@ -99,8 +136,8 @@ const Tvdetails = () => {
 
       if (result.success) {
         const message = isWatched
-          ? `Removed ${movieData.title || movieData.name} from watch history`
-          : `Added ${movieData.title || movieData.name} to watch history`;
+          ? `Removed ${movieData.title} from watch history`
+          : `Added ${movieData.title} to watch history`;
         setWatchedToastMessage(message);
         setShowWatchedToast(true);
       }
@@ -157,6 +194,10 @@ const Tvdetails = () => {
           id: creator.id,
           name: creator.name,
         })) || [];
+
+        const fullCrew = creditsResp.data?.crew || [];
+
+        setCrew(fullCrew);
 
         setTvdetails({
           id: showData.id,
@@ -272,7 +313,6 @@ const Tvdetails = () => {
           });
           setIsInWatchlist(true);
 
-          // Easter Egg: Blue Confetti Burst for Watchlist
           confetti({
             particleCount: 150,
             spread: 70,
@@ -345,9 +385,7 @@ const Tvdetails = () => {
         onClose={() => setToast({ ...toast, isVisible: false })}
       />
 
-      {/* Hero Section - Modern Redesign */}
       <div className="relative min-h-[70vh] md:min-h-[85vh] flex items-end">
-        {/* Dynamic Background with gradient overlays */}
         <div className="absolute inset-0">
           <div
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
@@ -360,11 +398,9 @@ const Tvdetails = () => {
                   : `url(${posterImageUrl})`,
             }}
           />
-          {/* Multi-layered gradient overlays for depth */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-transparent to-black/70" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
-          {/* Animated noise texture overlay for modern feel */}
           <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
           }} />
@@ -377,7 +413,6 @@ const Tvdetails = () => {
             transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
             className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-12"
           >
-            {/* Professional poster frame */}
             <div className="w-full md:w-auto flex-shrink-0 flex justify-center md:justify-start md:-mt-20 md:mr-8 order-1 md:order-none">
               <motion.div
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -385,7 +420,6 @@ const Tvdetails = () => {
                 transition={{ duration: 0.7, delay: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
                 className="relative"
               >
-                {/* Refined elegant frame */}
                 <div className="relative ring-1 ring-white/10 bg-white/5 rounded-2xl p-1.5 sm:p-2 shadow-2xl shadow-black/50">
                   {Tvdetails?.poster_path ? (
                     <img
@@ -403,22 +437,18 @@ const Tvdetails = () => {
               </motion.div>
             </div>
 
-            {/* Content section */}
             <div className="flex-1 flex flex-col justify-end w-full text-center md:text-left order-2 md:order-none">
-              {/* Minimal glassmorphic badges */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.35 }}
                 className="flex flex-wrap justify-center md:justify-start items-center gap-2 md:gap-3 mb-4 md:mb-6"
               >
-                {/* Rating badge - Glassmorphic */}
                 <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
                   <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                   <span className="text-white font-semibold text-sm sm:text-base">{showRating}</span>
                 </div>
 
-                {/* First Air Date badge - Glassmorphic */}
                 <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
                   <Calendar className="w-4 h-4 text-green-600" />
                   <span className="text-white/80 font-medium text-sm">
@@ -427,7 +457,6 @@ const Tvdetails = () => {
                 </div>
               </motion.div>
 
-              {/* Title with enhanced typography */}
               <motion.h1
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -439,7 +468,6 @@ const Tvdetails = () => {
                 </span>
               </motion.h1>
 
-              {/* Genre chips - minimal glassmorphic */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -456,7 +484,6 @@ const Tvdetails = () => {
                 ))}
               </motion.div>
 
-              {/* Action buttons */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -487,446 +514,584 @@ const Tvdetails = () => {
         </div>
       </div>
 
-        {/* Main Content (minimal, modern, pitch-black background) */}
       <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
-        {/* Vibe Chart */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.65 }}
-          className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 px-6 md:px-8 py-6 md:py-7"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Vibe Chart</h2>
-            <p className="text-xs md:text-sm text-white/50">Hover a segment</p>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-          {(() => {
-            const genres = Tvdetails?.genres ?? [];
-            const safeCount = Math.max(genres.length, 1);
-            const segments = genres.map((g) => ({
-              id: g.id,
-              name: g.name,
-              // Use genre count weight (closer to real "analysis")
-              value: (genres.length ? 100 / genres.length : 0) * 1,
-            }));
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.65 }}
+            className="lg:col-span-5 bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-white/[0.06] p-6 md:p-8"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold tracking-tight text-white">Vibe Chart</h2>
+              <p className="text-xs text-zinc-500 font-medium">Hover a segment</p>
+            </div>
 
-            const active = segments.find((s) => s.id === activeGenreId) ?? null;
-            const centerTitle = active ? active.name : 'Genre Mix';
-            const centerPct = active ? active.value : 100;
+            {(() => {
+              const genres = Tvdetails?.genres ?? [];
+              const segments = genres.map((g) => ({
+                id: g.id,
+                name: g.name,
+                value: (genres.length ? 100 / genres.length : 0),
+              }));
 
-            const size = 220;
-            const stroke = 22;
-            const r = (size / 2) - stroke;
-            const cx = size / 2;
-            const cy = size / 2;
-            const circumference = 2 * Math.PI * r;
+              const active = segments.find((s) => s.id === activeGenreId) ?? null;
+              const centerTitle = active ? active.name : 'Genre Mix';
+              const centerPct = active ? active.value : 100;
 
-            const colors = [
-              '#FDE047', // bright yellow
-              '#FB7185', // bright pink/red-pink
-              '#60A5FA', // vivid blue
-              '#F97316', // orange
-              '#F472B6', // pink
-              '#38BDF8', // sky blue
-              '#FDBA74', // orange-peach
-              '#A78BFA', // violet for variety
-              '#FBBF24', // amber yellow
-            ];
+              const size = 200;
+              const stroke = 20;
+              const r = (size / 2) - stroke;
+              const cx = size / 2;
+              const cy = size / 2;
+              const circumference = 2 * Math.PI * r;
 
+              const colors = [
+                '#FDE047', '#FB7185', '#60A5FA', '#F97316',
+                '#F472B6', '#38BDF8', '#FDBA74', '#A78BFA', '#FBBF24'
+              ];
 
-            let offset = 0;
+              let offset = 0;
 
-            return (
-              <div className="flex items-center gap-6 justify-center md:justify-start">
-                <div className="relative" style={{ width: size, height: size }}>
-                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Genre vibe donut chart">
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={r}
-                      fill="transparent"
-                      stroke="rgba(255,255,255,0.08)"
-                      strokeWidth={stroke}
-                    />
+              return (
+                <div className="flex flex-col sm:flex-row items-center gap-8 justify-center lg:justify-start">
+                  <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Genre vibe donut chart">
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={r}
+                        fill="transparent"
+                        stroke="rgba(255,255,255,0.04)"
+                        strokeWidth={stroke}
+                      />
 
-                    {segments.map((seg, idx) => {
-                      const dash = (circumference * seg.value) / 100;
-                      const dashArray = `${dash} ${circumference - dash}`;
-                      const dashOffset = -(offset);
-                      offset += dash;
-                      const isActive = seg.id === activeGenreId;
-                      const color = colors[idx % colors.length];
+                      {segments.map((seg, idx) => {
+                        const dash = (circumference * seg.value) / 100;
+                        const dashArray = `${dash} ${circumference - dash}`;
+                        const dashOffset = -(offset);
+                        offset += dash;
+                        const isActive = seg.id === activeGenreId;
+                        const color = colors[idx % colors.length];
 
-                      return (
-                        <circle
-                          key={seg.id}
-                          cx={cx}
-                          cy={cy}
-                          r={r}
-                          fill="transparent"
-                          stroke={color}
-                          strokeWidth={stroke}
-                          strokeLinecap="butt"
-                          strokeDasharray={dashArray}
-                          strokeDashoffset={dashOffset}
-                          transform={`rotate(-90 ${cx} ${cy})`}
-                          style={{
-                            filter: isActive ? 'drop-shadow(0 0 14px rgba(255,255,255,0.28))' : 'none',
-                            opacity: activeGenreId == null || isActive ? 1 : 0.55,
-                            transition: 'opacity 180ms ease, filter 180ms ease, transform 180ms ease',
-                            transform: isActive ? 'translateY(-6px)' : 'translateY(0px)',
-                            transformOrigin: 'center',
-                          }}
-                          onMouseEnter={() => setActiveGenreId(seg.id)}
-                          onMouseLeave={() => setActiveGenreId(null)}
-                          onFocus={() => setActiveGenreId(seg.id)}
-                          onBlur={() => setActiveGenreId(null)}
+                        return (
+                          <circle
+                            key={seg.id}
+                            cx={cx}
+                            cy={cy}
+                            r={r}
+                            fill="transparent"
+                            stroke={color}
+                            strokeWidth={stroke}
+                            strokeLinecap="butt"
+                            strokeDasharray={dashArray}
+                            strokeDashoffset={dashOffset}
+                            transform={`rotate(-90 ${cx} ${cy})`}
+                            style={{
+                              filter: isActive ? 'drop-shadow(0 0 12px rgba(255,255,255,0.2))' : 'none',
+                              opacity: activeGenreId == null || isActive ? 1 : 0.4,
+                              transition: 'opacity 180ms ease, filter 180ms ease, transform 180ms ease',
+                              transform: isActive ? 'scale(1.03)' : 'scale(1)',
+                              transformOrigin: 'center',
+                            }}
+                            onMouseEnter={() => setActiveGenreId(seg.id)}
+                            onMouseLeave={() => setActiveGenreId(null)}
+                            onFocus={() => setActiveGenreId(seg.id)}
+                            onBlur={() => setActiveGenreId(null)}
+                            tabIndex={0}
+                            aria-label={`${seg.name}: ${seg.value.toFixed(1)}%`}
+                          />
+                        );
+                      })}
+                    </svg>
 
-                          tabIndex={0}
-                          aria-label={`${seg.name}: ${seg.value.toFixed(1)}%`}
-                        />
-                      );
-                    })}
-                  </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-4">
+                      <div className="text-zinc-400 text-xs font-semibold tracking-wide truncate max-w-full">{centerTitle}</div>
+                      <div className="text-white font-black text-2xl tracking-tighter mt-0.5">{centerPct.toFixed(0)}%</div>
+                    </div>
+                  </div>
 
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                    <div className="text-white/70 text-[12px] md:text-sm">{centerTitle}</div>
-                    <div className="text-white font-extrabold text-3xl md:text-4xl leading-none mt-1">{centerPct.toFixed(1)}%</div>
+                  <div className="w-full flex-1">
+                    <ul className="space-y-2.5">
+                      {segments.map((s, idx) => {
+                        const color = colors[idx % colors.length];
+                        const isActive = s.id === activeGenreId;
+                        return (
+                          <li key={s.id} className="flex items-center gap-3">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                            <button
+                              type="button"
+                              onMouseEnter={() => setActiveGenreId(s.id)}
+                              onMouseLeave={() => setActiveGenreId(null)}
+                              onFocus={() => setActiveGenreId(s.id)}
+                              onBlur={() => setActiveGenreId(null)}
+                              className={`text-xs uppercase tracking-wider font-bold text-left transition-colors ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                            >
+                              {s.name}
+                            </button>
+                            <span className={`ml-auto text-xs font-mono font-bold ${isActive ? 'text-zinc-200' : 'text-zinc-600'}`}>{s.value.toFixed(0)}%</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 </div>
+              );
+            })()}
+          </motion.section>
 
-                <div className="hidden md:block">
-                  <ul className="space-y-2">
-                    {segments.map((s, idx) => {
-                      const color = colors[idx % colors.length];
-                      const isActive = s.id === activeGenreId;
-                      return (
-                        <li key={s.id} className="flex items-center gap-3">
-                          <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: color, boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.08)` : 'none' }} />
-                          <button
-                            type="button"
-                            onMouseEnter={() => setActiveGenreId(s.id)}
-                            onMouseLeave={() => setActiveGenreId(null)}
-                            onFocus={() => setActiveGenreId(s.id)}
-                            onBlur={() => setActiveGenreId(null)}
-                            className={`text-sm ${isActive ? 'text-white font-semibold' : 'text-white/60 hover:text-white transition-colors'}`}
-                          >
-                            {s.name}
-                          </button>
-                          <span className={`ml-auto text-sm ${isActive ? 'text-white/90 font-semibold' : 'text-white/50'}`}>{s.value.toFixed(1)}%</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+          <div className="lg:col-span-7 space-y-6">
+            <motion.section
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.7 }}
+              className="bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-white/[0.06] p-6 md:p-8"
+            >
+              <div className="mb-4">
+                <h2 className="text-xl font-bold tracking-tight text-white mb-3">Synopsis</h2>
+                <p className="text-zinc-400 text-sm md:text-base leading-relaxed font-normal">{Tvdetails?.overview}</p>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-white/[0.06]">
+                <div className="flex items-center gap-2 mb-6">
+                  <Globe className="w-4 h-4 text-blue-500" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-200">Show Info</h3>
+                </div>
+
+                <div className="bg-zinc-900/40 backdrop-blur-xl rounded-2xl p-6 border border-zinc-800/80 relative overflow-hidden">
+                  {/* Subtle premium background glow */}
+                  <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-zinc-700/10 rounded-full blur-2xl pointer-events-none" />
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-6">
+                    {/* Language */}
+                    <div className="space-y-1">
+                      <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Language</span>
+                      <span className="text-zinc-200 font-bold text-sm block tracking-wide">{showLanguage}</span>
+                    </div>
+
+                    {/* First Air Date */}
+                    <div className="space-y-1">
+                      <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">First Air Date</span>
+                      <div className="flex items-center gap-2 text-zinc-200 font-bold text-sm">
+                        <Calendar className="w-4 h-4 text-emerald-500/80" />
+                        <span className="tracking-wide">{showFirstAirDate}</span>
+                      </div>
+                    </div>
+
+                    {/* Age Rating */}
+                    <div className="space-y-1">
+                      <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Age Rating</span>
+                      <span className="inline-block bg-zinc-800/60 text-zinc-300 border border-zinc-700/50 rounded-md px-2 py-0.5 text-xs font-bold mt-0.5">
+                        {Tvdetails?.age_rating || 'TBD'}
+                      </span>
+                    </div>
+
+                    {/* Country */}
+                    <div className="space-y-1">
+                      <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Country</span>
+                      <span className="text-zinc-200 font-bold text-sm block truncate tracking-wide">
+                        {Tvdetails?.country?.length ? Tvdetails.country.join(', ') : 'Unknown'}
+                      </span>
+                    </div>
+
+                    {/* Created By */}
+                    <div className="col-span-2 space-y-1">
+                      <span className="text-zinc-500 text-xs font-semibold block uppercase tracking-wider">Created By</span>
+                      <span className="text-zinc-200 font-bold text-sm block truncate tracking-wide">
+                        {creators && creators.length > 0 ? creators.map((c) => c.name).join(', ') : 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            );
-          })()}
-        </motion.section>
-
-        {/* Synopsis (no boxed section feel) */}
-        <motion.section
-
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.7 }}
-          className="px-1"
-        >
-          <div className="flex items-center justify-between mb-3 md:mb-4">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Synopsis</h2>
-            <div className="hidden md:block h-px flex-1 ml-6 bg-white/10" />
+            </motion.section>
           </div>
-          <p className="text-base md:text-lg text-white/70 leading-relaxed">{Tvdetails?.overview}</p>
-        </motion.section>
 
-        {/* Glassmorphic partition line: Show Info + Top Cast */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.8 }}
-          className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 px-6 md:px-8 py-5 md:py-6"
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
-            {/* Show Info */}
-            <div className="lg:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <Globe className="w-5 h-5 text-blue-400" />
-                <h3 className="text-lg font-bold text-white">Show Info</h3>
-              </div>
-              <dl className="space-y-4">
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium">Language</dt>
-                  <dd className="text-white font-semibold mt-1">{showLanguage}</dd>
-                </div>
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium">First Air Date</dt>
-                  <dd className="flex items-center gap-2 text-white font-semibold mt-1">
-                    <Calendar className="w-4 h-4 text-green-400" />
-                    {showFirstAirDate}
-                  </dd>
-                </div>
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium">Created By</dt>
-                  <dd className="text-white font-semibold mt-1">
-                    {creators.length > 0 ? creators.map((c) => c.name).join(', ') : 'Unknown'}
-                  </dd>
-                </div>
-                <div className="pb-4 border-b border-white/10">
-                  <dt className="text-white/50 text-sm font-medium">Country</dt>
-                  <dd className="text-white font-semibold mt-1">
-                    {Tvdetails?.country?.length ? Tvdetails.country.join(', ') : 'Unknown'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-white/50 text-sm font-medium">Age Rating</dt>
-                  <dd className="text-white font-semibold mt-1">{Tvdetails?.age_rating || 'Unknown'}</dd>
-                </div>
-              </dl>
-            </div>
+        </div>
 
-            {/* Top Cast */}
-            <div className="lg:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-500/15 rounded-lg">
-                  <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
-                </div>
-                <h2 className="text-lg md:text-xl font-bold text-white">Top Cast</h2>
-              </div>
-
-              <div className="overflow-x-auto pb-2 custom-scrollbar">
-                <div className="flex gap-4 md:gap-5">
-                  {Tvdetails?.cast?.map((actor, idx) => (
-                    <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 group">
-                      <motion.div
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.35, delay: 0.08 + idx * 0.03 }}
-                        className="relative bg-gradient-to-b from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/[0.04] transition-all duration-300 rounded-2xl border border-white/5 hover:border-white/10 shadow-lg overflow-hidden w-36 sm:w-44"
-                      >
-                        <div className="relative aspect-[3/4] overflow-hidden">
-                          {actor.profile_path ? (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w500${actor.profile_path}`}
-                              alt={actor.name}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center text-gray-500">
-                              <ImageOff className="w-10 h-10 sm:w-12 sm:h-12 mb-2 opacity-50" />
-                              <span className="text-xs text-center px-2">No Photo</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-70" />
-                        </div>
-
-                        <div className="relative p-4 bg-gradient-to-b from-transparent to-black/80">
-                          <h3 className="font-bold text-sm sm:text-base text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
-                            {actor.name}
-                          </h3>
-                          <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
-                            {actor.role || 'Unknown Role'}
-                          </p>
-                        </div>
-                      </motion.div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.7 }}
-                className="flex items-center justify-center gap-2 mt-4 text-gray-500 text-xs md:hidden"
-              >
-                <span>Swipe to explore</span>
-                <div className="w-5 h-5 border-2 border-gray-600 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" />
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </motion.section>
-
-
-
-        {/* Player Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           ref={playerRef}
-          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
+          className="bg-zinc-900/40 backdrop-blur-md rounded-2xl p-4 sm:p-6 lg:p-8 border border-white/[0.06] shadow-2xl shadow-black/40"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-red-500/20 rounded-lg">
-              <TvMinimalPlay className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+              <TvMinimalPlay className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-white">
-              {selectedEpisode !== null ? `Watch Season ${selectedSeason} Episode ${selectedEpisode}` : 'Watch All Seasons'}
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+              {selectedEpisode !== null ? `Watch Season ${selectedSeason} Episode ${selectedEpisode}` : 'Watch Series'}
             </h2>
           </div>
-          <div className="rounded-xl overflow-hidden ring-1 ring-white/10">
-            <div className="w-full" style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
-              <iframe
-                src={
-                  selectedEpisode !== null
-                    ? `https://www.vidking.net/embed/tv/${showId}/${selectedSeason}/${selectedEpisode}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`
-                    : (() => {
-                      const latestSeason = Tvdetails?.seasons[Tvdetails.seasons.length - 1];
-                      return `https://www.vidking.net/embed/tv/${showId}/${latestSeason?.season_number}/${latestSeason?.episode_count}?color=e50914&nextEpisode=true&episodeSelector=true`;
-                    })()
+
+          <div className="rounded-xl overflow-hidden bg-zinc-950 aspect-video relative w-full border border-white/[0.04] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.7)]">
+            <iframe
+              src={
+                selectedEpisode !== null
+                  ? `https://www.vidking.net/embed/tv/${showId}/${selectedSeason}/${selectedEpisode}?color=3b82f6&autoPlay=true&nextEpisode=true&episodeSelector=true`
+                  : (() => {
+                    const latestSeason = Tvdetails?.seasons[Tvdetails.seasons.length - 1];
+                    return `https://www.vidking.net/embed/tv/${showId}/${latestSeason?.season_number}/${latestSeason?.episode_count}?color=3b82f6&nextEpisode=true&episodeSelector=true`;
+                  })()
+              }
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              allowFullScreen
+              allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
+              title="TV Show Embed"
+              className="absolute inset-0 w-full h-full"
+              ref={el => {
+                if (el && typeof window !== "undefined") {
+                  const handleFs = () => {
+                    const orientation =
+                      (window.screen as any).orientation ||
+                      (window.screen as any).mozOrientation ||
+                      (window.screen as any).msOrientation;
+                    if (
+                      document.fullscreenElement &&
+                      orientation &&
+                      typeof orientation.lock === "function"
+                    ) {
+                      orientation.lock("landscape").catch(() => { });
+                    }
+                  };
+                  document.removeEventListener("fullscreenchange", handleFs);
+                  document.addEventListener("fullscreenchange", handleFs);
                 }
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                allowFullScreen
-                allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
-                title="TV Show Embed"
-                className="absolute top-0 left-0 w-full h-full"
-                ref={el => {
-                  if (el && typeof window !== "undefined") {
-                    const handleFs = () => {
-                      const orientation: any =
-                        (window.screen as any).orientation ||
-                        (window.screen as any).mozOrientation ||
-                        (window.screen as any).msOrientation;
-                      if (
-                        document.fullscreenElement &&
-                        orientation &&
-                        typeof orientation.lock === "function"
-                      ) {
-                        orientation.lock("landscape").catch(() => { });
-                      }
-                    };
-                    document.removeEventListener("fullscreenchange", handleFs);
-                    document.addEventListener("fullscreenchange", handleFs);
-                  }
-                }}
-              ></iframe>
-            </div>
+              }}
+            ></iframe>
           </div>
         </motion.section>
 
-        {/* Seasons & Episodes Section - Modern Glassmorphic */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.8 }}
-          className="bg-white/5 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/10"
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="bg-zinc-900/40 backdrop-blur-md rounded-2xl p-4 sm:p-6 lg:p-8 border border-white/[0.06] shadow-2xl shadow-black/40"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-orange-500/20 rounded-lg">
-              <TvMinimalPlay className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                <TvMinimalPlay className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">Seasons</h2>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                  {selectedSeason !== null
+                    ? `Season ${selectedSeason} • ${Tvdetails?.seasons.find(s => s.season_number === selectedSeason)?.episode_count || 0} Episodes`
+                    : 'Select a season to view episodes'}
+                </p>
+              </div>
             </div>
-            <h2 className="text-xl md:text-2xl font-bold text-white">Seasons</h2>
           </div>
-          <p className="text-xs md:text-sm text-white/50 mb-4 md:mb-6">
-            {selectedSeason !== null
-              ? `Season ${selectedSeason} • ${Tvdetails?.seasons.find(s => s.season_number === selectedSeason)?.episode_count || 0} Episodes`
-              : 'Select a season to view episodes'}
-          </p>
 
-          <div className="flex gap-2 mb-6 md:mb-8 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent snap-x">
-            {Tvdetails?.seasons.map((season) => (
-              <button
-                key={season.season_number}
-                onClick={() => {
-                  setSelectedSeason(season.season_number);
-                  setSelectedEpisode(null);
-                }}
-                className={`snap-start px-4 py-2 rounded-full font-medium flex-shrink-0 flex items-center gap-2 transition-all duration-300 border text-sm
-                  ${selectedSeason === season.season_number
-                    ? 'bg-gradient-to-r from-orange-600 to-red-500 border-orange-400 text-white shadow-lg shadow-orange-500/20'
-                    : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border-white/10'
-                  }`}
-              >
-                <span>Season {season.season_number}</span>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full ${selectedSeason === season.season_number ? 'bg-black/20 text-white/80' : 'bg-white/10 text-white/40'}`}>
-                  {season.episode_count}
-                </span>
-              </button>
-            ))}
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-3 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none snap-x">
+            {Tvdetails?.seasons.map((season) => {
+              const isSelected = selectedSeason === season.season_number;
+              return (
+                <button
+                  key={season.season_number}
+                  onClick={() => {
+                    setSelectedSeason(season.season_number);
+                    setSelectedEpisode(null);
+                  }}
+                  className={`snap-start px-4 py-2 rounded-xl font-bold flex-shrink-0 flex items-center gap-2.5 transition-all duration-300 text-xs uppercase tracking-wider border ${isSelected
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/15'
+                    : 'bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-800/60 border-white/[0.04]'
+                    }`}
+                >
+                  <span>Season {season.season_number}</span>
+                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${isSelected ? 'bg-black/20 text-blue-100' : 'bg-white/[0.04] text-zinc-500'}`}>
+                    {season.episode_count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {selectedSeason !== null && (
-            <div>
+            <div className="min-h-[100px]">
               {episodesLoading && (
-                <div className="flex items-center justify-center py-8 md:py-16">
-                  <Loader2 className="w-6 h-6 md:w-8 md:h-8 text-orange-500 animate-spin" />
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                 </div>
               )}
+
               {episodesError && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-center text-sm">
+                <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4 text-red-400 text-center text-xs font-semibold">
                   {episodesError}
                 </div>
               )}
-              {!episodesLoading && !episodesError && episodes.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {episodes.map((episode) => (
-                    <div
-                      key={episode.id}
-                      className={`group relative flex items-center gap-4 rounded-xl overflow-hidden cursor-pointer border transition-all duration-300
-                        ${selectedEpisode === episode.episode_number
-                          ? 'ring-2 ring-orange-500 bg-white/10'
-                          : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
-                        }`}
-                      onClick={() => setSelectedEpisode(episode.episode_number)}
-                    >
-                      {/* Thumbnail + Episode Number */}
-                      <div className="relative w-28 sm:w-32 md:w-40 flex-shrink-0 aspect-video overflow-hidden">
-                        {episode.still_url ? (
-                          <img
-                            src={episode.still_url}
-                            alt={episode.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center text-zinc-600">
-                            <ImageOff className="w-8 h-8" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-                          </div>
-                        </div>
-                        <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-md px-2 py-1">
-                          <span className="text-sm font-bold text-white">{episode.episode_number}</span>
-                        </div>
-                      </div>
 
-                      {/* Episode Details */}
-                      <div className="flex-1 min-w-0 p-3 flex flex-col justify-center">
-                        <h4 className="font-semibold text-sm text-white/90 truncate">
-                          {episode.name}
-                        </h4>
-                        <div className="flex items-center gap-3 text-xs text-white/50 mt-1">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {episode.air_date ? new Date(episode.air_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBA'}
-                          </span>
-                          {episode.runtime && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-blue-400" />
-                              {episode.runtime}m
-                            </span>
+              {!episodesLoading && !episodesError && episodes.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                  {episodes.map((episode) => {
+                    const isSelected = selectedEpisode === episode.episode_number;
+                    return (
+                      <div
+                        key={episode.id}
+                        className={`group flex items-start gap-3.5 p-3 rounded-xl cursor-pointer border transition-all duration-300 ${isSelected
+                          ? 'border-blue-500 bg-blue-500/[0.04] shadow-md shadow-blue-500/5'
+                          : 'bg-zinc-900/20 border-white/[0.04] hover:border-white/[0.08] hover:bg-zinc-800/30'
+                          }`}
+                        onClick={() => setSelectedEpisode(episode.episode_number)}
+                      >
+                        <div className="relative w-24 sm:w-28 md:w-32 flex-shrink-0 aspect-video rounded-lg overflow-hidden bg-zinc-950 border border-white/[0.04]">
+                          {episode.still_url ? (
+                            <img
+                              src={episode.still_url}
+                              alt={episode.name}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-zinc-700 p-2">
+                              <ImageOff className="w-5 h-5 stroke-[1.5]" />
+                            </div>
                           )}
+                          <div className={`absolute inset-0 bg-zinc-950/60 backdrop-blur-[1px] transition-opacity duration-300 flex items-center justify-center ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform duration-300 scale-90 group-hover:scale-100 ${isSelected ? 'bg-blue-500 text-white' : 'bg-white/10 backdrop-blur-md text-white'}`}>
+                              <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                            </div>
+                          </div>
+                          <div className="absolute top-2 left-2 bg-zinc-950/40 backdrop-blur-md rounded-md px-2 py-0.5 border border-white/[0.08] shadow-[0_4px_12px_rgba(0,0,0,0.5)] z-10 flex items-center gap-1">
+                            <span className="text-[9px] font-mono font-bold tracking-widest text-zinc-400 uppercase">EP</span>
+                            <span className="text-[10px] font-mono font-black text-blue-400">{episode.episode_number}</span>
+                          </div>
                         </div>
-                        <p className="text-xs text-white/50 line-clamp-2 mt-2">
-                          {episode.overview || 'No synopsis available.'}
-                        </p>
+
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <h4 className={`font-bold text-xs sm:text-sm truncate transition-colors ${isSelected ? 'text-blue-400' : 'text-zinc-200 group-hover:text-white'}`}>
+                            {episode.name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-[10px] font-medium text-zinc-500 font-mono mt-1">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-zinc-600" />
+                              {episode.air_date ? new Date(episode.air_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBA'}
+                            </span>
+                            {episode.runtime && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-zinc-600" />
+                                {episode.runtime}m
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-400 font-normal leading-normal line-clamp-2 mt-1.5">
+                            {episode.overview || 'No synopsis available.'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
         </motion.section>
 
-        {/* Reviews Section - Modern Glassmorphic */}
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.02, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+          <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <Users className="w-5 h-5 text-blue-500 stroke-[1.5]" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Top Cast</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-medium tracking-wide uppercase mt-0.5">Performers</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={castContainerRef}
+            className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex gap-4 sm:gap-6 px-1">
+              {Tvdetails?.cast?.map((actor, idx) => (
+                <Link
+                  key={actor.id}
+                  to={`/actor/${actor.id}`}
+                  className="flex-shrink-0 snap-start group/card"
+                >
+                  <SpatialMediaCard containerRef={castContainerRef} index={idx}>
+                    <div className="relative bg-white/[0.02] backdrop-blur-xl rounded-2xl border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03),0_12px_32px_rgba(0,0,0,0.4)] overflow-hidden w-[135px] xs:w-[155px] sm:w-[175px] md:w-[185px] transition-all duration-500 ease-[0.22,1,0.36,1] group-hover/card:-translate-y-1.5 group-hover/card:bg-white/[0.05] group-hover/card:border-white/[0.12] group-hover/card:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_20px_40px_rgba(0,0,0,0.6)]">
+                      <div className="absolute -top-12 -left-12 w-32 h-32 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 rounded-full blur-2xl opacity-0 group-hover/card:opacity-40 group-hover/card:from-blue-500/20 group-hover/card:to-cyan-400/20 transition-all duration-700 pointer-events-none" />
+
+                      <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950">
+                        {actor.profile_path ? (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w780${actor.profile_path}`}
+                            alt={actor.name}
+                            className="w-full h-full object-cover transition-all duration-700 ease-[0.25,1,0.5,1] scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05]"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                            <ImageOff className="w-7 h-7 mb-1.5 stroke-[1.25] opacity-30" />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">No Frame</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
+                      </div>
+
+                      <div className="px-3.5 pb-4 pt-2 flex flex-col justify-center text-center">
+                        <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-blue-500 transition-colors duration-300">
+                          {actor.name}
+                        </h3>
+
+                        <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] shadow-[inset_0_0.5px_0_rgba(255,255,255,0.01)] inline-block mx-auto max-w-full">
+                          <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                            {actor.role || 'Character'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </SpatialMediaCard>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+            className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest"
+          >
+            <span>Swipe to explore</span>
+            <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+              <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
+            </div>
+          </motion.div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.08, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+
+          <div className="flex items-center justify-between mb-6 sm:mb-8 relative z-10">
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-white/[0.03] backdrop-blur-md border border-white/[0.08] rounded-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <Award2 className="w-5 h-5 text-amber-400 stroke-[1.5]" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Crew</h2>
+                <span className="text-[10px] sm:text-xs text-zinc-500 font-bold tracking-wider uppercase mt-0.5">Production Team</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={crewContainerRef}
+            className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex gap-4 sm:gap-6 px-1">
+              {(() => {
+                const grouped: Record<string, any> = {};
+                crew.forEach((member) => {
+                  if (!grouped[member.id]) {
+                    grouped[member.id] = {
+                      ...member,
+                      jobs: [member.job],
+                    };
+                  } else if (!grouped[member.id].jobs.includes(member.job)) {
+                    grouped[member.id].jobs.push(member.job);
+                  }
+                });
+
+                const crewArr = Object.values(grouped);
+
+                const jobPriority = (jobs: string[]) => {
+                  if (jobs.includes('Director')) return 1;
+                  if (jobs.includes('Writer')) return 2;
+                  if (jobs.includes('Screenplay')) return 3;
+                  if (jobs.includes('Story')) return 4;
+                  if (jobs.includes('Producer')) return 5;
+                  return 6;
+                };
+
+                crewArr.sort((a: any, b: any) => {
+                  const aPriority = jobPriority(a.jobs);
+                  const bPriority = jobPriority(b.jobs);
+
+                  if (aPriority !== bPriority) return aPriority - bPriority;
+                  return a.name.localeCompare(b.name);
+                });
+
+                return crewArr.map((member: any, idx: number) => (
+                  <Link
+                    key={member.credit_id}
+                    to={`/actor/${member.id}`}
+                    className="flex-shrink-0 snap-start group/card"
+                  >
+                    <SpatialMediaCard containerRef={crewContainerRef} index={idx}>
+                      <div className="relative bg-white/[0.02] backdrop-blur-xl rounded-2xl border border-white/[0.05] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03),0_12px_32px_rgba(0,0,0,0.4)] overflow-hidden w-[135px] xs:w-[155px] sm:w-[175px] md:w-[185px] transition-all duration-500 ease-[0.22,1,0.36,1] group-hover/card:-translate-y-1.5 group-hover/card:bg-white/[0.05] group-hover/card:border-white/[0.12] group-hover/card:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_20px_40px_rgba(0,0,0,0.6)]">
+                        <div className="absolute -top-12 -left-12 w-32 h-32 bg-gradient-to-br from-amber-500/0 to-orange-500/0 rounded-full blur-2xl opacity-0 group-hover/card:opacity-30 group-hover/card:from-amber-500/10 group-hover/card:to-orange-400/10 transition-all duration-700 pointer-events-none" />
+
+                        <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950">
+                          {member.profile_path ? (
+                            <img
+                              src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
+                              alt={member.name}
+                              className="w-full h-full object-cover transition-all duration-700 ease-[0.25,1,0.5,1] scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05]"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                              <ImageOff className="w-7 h-7 mb-1.5 stroke-[1.25] opacity-30" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">No Frame</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
+                        </div>
+
+                        <div className="px-3.5 pb-4 pt-2 flex flex-col justify-center text-center">
+                          <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-amber-300 transition-colors duration-300">
+                            {member.name}
+                          </h3>
+
+                          <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] shadow-[inset_0_0.5px_0_rgba(255,255,255,0.01)] inline-block mx-auto max-w-full">
+                            <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                              {member.jobs.slice(0, 2).join(', ')}
+                              {member.jobs.length > 2 && ` +${member.jobs.length - 2}`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </SpatialMediaCard>
+                  </Link>
+                ));
+              })()}
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 1.2 }}
+            className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest"
+          >
+            <span>Swipe to explore</span>
+            <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+              <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
+            </div>
+          </motion.div>
+        </motion.section>
+
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
