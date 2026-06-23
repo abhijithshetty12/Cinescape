@@ -104,7 +104,6 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-black text-white flex">
-      {/* Background Image with Zoom Animation */}
       <motion.div
         initial={{ scale: 1 }}
         animate={{ scale: 1.08 }}
@@ -117,13 +116,10 @@ const LoginPage: React.FC = () => {
         }}
       />
 
-      {/* Gradient Overlays */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-transparent z-10" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 z-10" />
 
-      {/* Content Container */}
       <div className="relative z-20 w-full min-h-screen flex flex-col lg:flex-row">
-        {/* Left Panel — Branding */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
@@ -131,7 +127,6 @@ const LoginPage: React.FC = () => {
           className="hidden lg:flex lg:w-[55%] flex-col justify-center px-16 xl:px-24 py-12"
         >
           <div className="max-w-xl">
-            {/* Logo */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -145,7 +140,6 @@ const LoginPage: React.FC = () => {
               />
             </motion.div>
 
-            {/* Headline */}
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -161,7 +155,6 @@ const LoginPage: React.FC = () => {
               </span>
             </motion.h1>
 
-            {/* Tagline */}
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -171,7 +164,6 @@ const LoginPage: React.FC = () => {
               Discover, track, and curate your personal movie journey with Cinescape.
             </motion.p>
 
-            {/* Feature List */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -196,7 +188,6 @@ const LoginPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Right Panel — Form */}
         <div className="flex-1 flex items-center justify-center p-3 sm:p-6 lg:p-8 xl:p-12">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -204,12 +195,9 @@ const LoginPage: React.FC = () => {
             transition={{ duration: 0.7, ease: 'easeOut' }}
             className="w-full max-w-sm sm:max-w-md"
           >
-            {/* Glass Card */}
             <div className="relative backdrop-blur-2xl bg-white/[0.03] border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 shadow-2xl overflow-hidden">
-              {/* Top Glow Border */}
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
 
-              {/* Mobile Logo */}
               <div className="lg:hidden flex justify-center mb-4 sm:mb-6">
                 <img
                   src="/Logo.png"
@@ -218,7 +206,6 @@ const LoginPage: React.FC = () => {
                 />
               </div>
 
-              {/* Header */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -235,7 +222,6 @@ const LoginPage: React.FC = () => {
                 </p>
               </motion.div>
 
-              {/* Error Banner */}
               <AnimatePresence mode="wait">
                 {error && (
                   <motion.div
@@ -251,12 +237,10 @@ const LoginPage: React.FC = () => {
                 )}
               </AnimatePresence>
 
-              {/* Form */}
               <form
                 onSubmit={isRegistering ? handleRegister : handleLogin}
                 className="space-y-4 sm:space-y-5"
               >
-                {/* Email Input with Floating Label */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -283,7 +267,6 @@ const LoginPage: React.FC = () => {
                   </label>
                 </motion.div>
 
-                {/* Password Input with Floating Label */}
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -318,7 +301,6 @@ const LoginPage: React.FC = () => {
                   </button>
                 </motion.div>
 
-                {/* Remember Me & Forgot Password */}
                 {!isRegistering && (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -326,19 +308,19 @@ const LoginPage: React.FC = () => {
                     transition={{ duration: 0.5, delay: 0.45 }}
                     className="flex items-center justify-between"
                   >
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                      <div className="relative flex items-center">
                         <input
                           type="checkbox"
                           checked={rememberMe}
                           onChange={(e) => setRememberMe(e.target.checked)}
                           className="peer sr-only"
                         />
-                        <div className="w-5 h-5 rounded-md border border-white/20 bg-white/5 peer-checked:bg-red-500 peer-checked:border-red-500 transition-all duration-300 flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                        <div className="w-4 h-4 rounded-md border border-zinc-700 bg-zinc-950 peer-checked:bg-red-500 peer-checked:border-red-500 transition-all duration-150 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white hidden peer-checked:block stroke-[3]" />
                         </div>
                       </div>
-                      <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+                      <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition-colors font-medium tracking-wide">
                         Remember me
                       </span>
                     </label>
@@ -352,7 +334,6 @@ const LoginPage: React.FC = () => {
                   </motion.div>
                 )}
 
-                {/* Submit Button */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -362,11 +343,10 @@ const LoginPage: React.FC = () => {
                     type="submit"
                     disabled={isLoading}
                     className={`w-full flex items-center justify-center gap-2 py-3 sm:py-4 px-6 rounded-xl font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg
-                    ${
-                      isLoading
+                    ${isLoading
                         ? 'bg-gray-700 cursor-not-allowed text-gray-400'
                         : 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-red-500/25 hover:shadow-red-500/40'
-                    }`}
+                      }`}
                   >
                     {isLoading ? (
                       <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -379,14 +359,13 @@ const LoginPage: React.FC = () => {
                           ? 'Creating Account...'
                           : 'Signing In...'
                         : isRegistering
-                        ? 'Create Account'
-                        : 'Sign In'}
+                          ? 'Create Account'
+                          : 'Sign In'}
                     </span>
                   </button>
                 </motion.div>
               </form>
 
-              {/* Divider */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -403,7 +382,6 @@ const LoginPage: React.FC = () => {
                 </div>
               </motion.div>
 
-              {/* Google Button */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -413,11 +391,10 @@ const LoginPage: React.FC = () => {
                   onClick={handleGoogleLogin}
                   disabled={isLoading}
                   className={`w-full flex items-center justify-center gap-3 py-3 sm:py-4 px-6 rounded-xl font-semibold text-sm transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] border
-                  ${
-                    isLoading
+                  ${isLoading
                       ? 'bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed'
                       : 'bg-white/[0.05] border-white/10 hover:bg-white/10 text-white hover:border-white/20'
-                  }`}
+                    }`}
                   aria-label="Login with Google"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -442,7 +419,6 @@ const LoginPage: React.FC = () => {
                 </button>
               </motion.div>
 
-              {/* Toggle Login / Register */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
