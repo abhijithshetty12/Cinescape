@@ -77,6 +77,8 @@ const MovieDetails = () => {
   const { user } = useAuth();
   const [userReview, setUserReview] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
+  const [localHoveredIndex, setLocalHoveredIndex] = useState<number | null>(null);
+
 
   const handleRateMovie = (rating: number) => {
     setUserRating(rating);
@@ -194,7 +196,7 @@ const MovieDetails = () => {
 
         await syncWatchlistButton();
 
-const message = isWatched
+        const message = isWatched
           ? `Removed ${movieData.title ?? ''} from history`
           : `Saved ${movieData.title ?? ''} to history`;
         setWatchedToastMessage(message);
@@ -405,7 +407,6 @@ const message = isWatched
       return;
     }
 
-    // Offline-first behavior: enqueue and optimistic UI.
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       try {
         const userId = user.uid;
@@ -779,95 +780,173 @@ const message = isWatched
       </div>
       {/* Unified Descriptive Context Bento Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        {/* Vibe Chart Section */}
         <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="relative col-span-1 bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-6 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_16px_48px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col justify-between"
-        >
-          {/* Specular Highlight Top Edge */}
-          <div className="absolute top-0 inset-x-8 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+  initial={{ opacity: 0, y: 30 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true }}
+  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+  className="group relative col-span-1 w-full bg-black rounded-[2rem] p-7 shadow-2xl border border-zinc-900 overflow-hidden flex flex-col justify-between"
+>
+  {(() => {
+    const fallbackData = [
+      { name: 'Thriller', value: 45, strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_12px_24px_rgba(0,82,204,0.65)]' },
+      { name: 'Mystery', value: 35, strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_12px_24px_rgba(89,27,197,0.65)]' },
+      { name: 'Drama', value: 20, strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_12px_24px_rgba(114,78,59,0.45)]' },
+    ];
 
-          <div>
-            <h2 className="text-xl font-black text-white tracking-tight mb-6">Vibe Chart</h2>
+    const getHash = (s: string) => {
+      let h = 0;
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return h;
+    };
 
-            {/* Native SVG Donut Chart Canvas */}
-            <div className="relative flex items-center justify-center h-44 my-2">
-              {(() => {
-                // Hardcoded configurations transformed internally into procedural formulas
-                const data = [
-                  { name: 'Comedy', value: 35, strokeColor: '#EAB308', shadowClass: 'drop-shadow-[0_4px_12px_rgba(234,179,8,0.15)]' },
-                  { name: 'Romance', value: 35, strokeColor: '#F43F5E', shadowClass: 'drop-shadow-[0_4px_12px_rgba(244,63,94,0.15)]' },
-                  { name: 'Drama', value: 30, strokeColor: '#78350F', shadowClass: '' }
-                ];
+    const genreNames = (movieDetails?.genres ?? []).map((g) => g.name).filter(Boolean);
+    const RADIUS = 38;
+    const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-                const RADIUS = 40;
-                const CIRCUMFERENCE = 2 * Math.PI * RADIUS; // ~251.327
-                let currentOffset = 0;
+    let data = fallbackData;
 
-                // Sort descending to cleanly select the dominant item for the center text label
-                const primaryVibe = [...data].sort((a, b) => b.value - a.value)[0];
+    if (genreNames.length > 0) {
+      const seed = `${movieDetails?.id ?? movieId ?? ''}-${genreNames.join('|')}`;
+      const palette = [
+        { strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_12px_24px_rgba(0,82,204,0.65)]' },
+        { strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_12px_24px_rgba(89,27,197,0.65)]' },
+        { strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_12px_24px_rgba(114,78,59,0.45)]' },
+        { strokeColor: '#EAB308', shadowClass: 'drop-shadow-[0_12px_24px_rgba(234,179,8,0.65)]' },
+        { strokeColor: '#F43F5E', shadowClass: 'drop-shadow-[0_12px_24px_rgba(244,63,94,0.65)]' },
+        { strokeColor: '#34D399', shadowClass: 'drop-shadow-[0_12px_24px_rgba(52,211,153,0.65)]' },
+      ];
+
+      const weights = genreNames.map((g, idx) => {
+        const h = getHash(`${seed}:${g}:${idx}`);
+        return 0.35 + ((h % 1000) / 1000);
+      });
+
+      const sum = weights.reduce((a, b) => a + b, 0) || 1;
+      const raw = weights.map((w) => (w / sum) * 100);
+      const rounded = raw.map((v) => Math.max(1, Math.round(v)));
+
+      let delta = 100 - rounded.reduce((a, b) => a + b, 0);
+      let k = 0;
+      while (delta !== 0 && k < 1000) {
+        const i = k % rounded.length;
+        const dir = delta > 0 ? 1 : -1;
+        if (rounded[i] + dir >= 1) {
+          rounded[i] += dir;
+          delta -= dir;
+        }
+        k++;
+      }
+
+      data = genreNames.slice(0, Math.min(8, genreNames.length)).map((name, i) => {
+        const color = palette[i % palette.length];
+        return {
+          name,
+          value: rounded[i] ?? 0,
+          strokeColor: color.strokeColor,
+          shadowClass: color.shadowClass,
+        };
+      });
+    }
+
+    const primaryVibe = [...data].sort((a, b) => b.value - a.value)[0] ?? data[0];
+    const activeVibe = localHoveredIndex !== null ? data[localHoveredIndex] : primaryVibe;
+
+    const GAP_DEG = 3.5;
+    const totalGapsLength = data.length * (GAP_DEG / 360) * CIRCUMFERENCE;
+    const availableCircumference = CIRCUMFERENCE - totalGapsLength;
+
+    let currentOffset = 0;
+
+    return (
+      <>
+        <div className="relative z-10">
+          <h2 className="text-2xl font-bold text-white tracking-tight mb-4">Vibe Chart</h2>
+
+          <div className="relative flex items-center justify-center h-52 my-3 group/chart">
+            <svg className="w-44 h-44 transform -rotate-90 transition-transform duration-500" viewBox="0 0 100 100">
+              {data.map((segment, index) => {
+                const segmentLength = (segment.value / 100) * availableCircumference;
+                const strokeOffset = currentOffset;
+
+                currentOffset -= (segmentLength + (GAP_DEG / 360) * CIRCUMFERENCE);
+                const isSelected = localHoveredIndex === index;
 
                 return (
-                  <>
-                    <svg className="w-40 h-40 transform -rotate-90" viewBox="0 0 100 100">
-                      {/* Background Track Circle */}
-                      <circle cx="50" cy="50" r={RADIUS} fill="transparent" stroke="rgba(255,255,255,0.02)" strokeWidth="12" />
-
-                      {/* Math Calculated Dynamic Map Iteration Loop */}
-                      {data.map((segment) => {
-                        const segmentLength = (segment.value / 100) * CIRCUMFERENCE;
-                        const strokeOffset = currentOffset;
-                        currentOffset -= segmentLength; // Advance the offset pointer for the next segment
-
-                        return (
-                          <circle
-                            key={segment.name}
-                            cx="50"
-                            cy="50"
-                            r={RADIUS}
-                            fill="transparent"
-                            stroke={segment.strokeColor}
-                            strokeWidth="12"
-                            strokeDasharray={`${segmentLength} ${CIRCUMFERENCE}`}
-                            strokeDashoffset={strokeOffset}
-                            strokeLinecap="round"
-                            className={segment.shadowClass}
-                          />
-                        );
-                      })}
-                    </svg>
-
-                    {/* Center Target Info Indicator */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">{primaryVibe.name}</span>
-                      <span className="text-2xl font-black font-mono text-white mt-0.5">{primaryVibe.value}%</span>
-                    </div>
-                  </>
+                  <circle
+                    key={`${segment.name}-${segment.value}`}
+                    cx="50"
+                    cy="50"
+                    r={RADIUS}
+                    fill="transparent"
+                    stroke={segment.strokeColor}
+                    strokeWidth={isSelected ? 14 : 11}
+                    strokeDasharray={`${segmentLength} ${CIRCUMFERENCE}`}
+                    strokeDashoffset={strokeOffset}
+                    strokeLinecap="butt"
+                    onMouseEnter={() => setLocalHoveredIndex(index)}
+                    onMouseLeave={() => setLocalHoveredIndex(null)}
+                    style={{
+                      transform: isSelected ? 'scale(1.04)' : 'scale(1)',
+                    }}
+                    className={`transition-all duration-300 origin-center cursor-pointer ${
+                      isSelected ? segment.shadowClass : 'opacity-80 hover:opacity-100'
+                    }`}
+                  />
                 );
-              })()}
+              })}
+            </svg>
+
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-base font-medium text-zinc-400 tracking-wide transition-all duration-300 mix-blend-screen">
+                {activeVibe?.name}
+              </span>
+              <span className="text-3xl font-bold tracking-tight text-white mt-0.5 transition-all duration-300 font-mono">
+                {activeVibe?.value ?? 0}%
+              </span>
             </div>
           </div>
+        </div>
 
-          {/* Dynamic Metrics Legend List */}
-          <div className="space-y-3 pt-4 border-t border-white/[0.04] mt-4">
-            {[
-              { name: 'Comedy', value: '35%', color: 'bg-yellow-500' },
-              { name: 'Romance', value: '35%', color: 'bg-rose-500' },
-              { name: 'Drama', value: '30%', color: 'bg-amber-900' }
-            ].map((vibe) => (
-              <div key={vibe.name} className="flex items-center justify-between text-xs font-bold tracking-wide">
-                <div className="flex items-center gap-2.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${vibe.color} shadow-[0_0_8px_currentColor]`} />
-                  <span className="text-zinc-400">{vibe.name}</span>
+        <div className="space-y-3.5 pt-4">
+          {data.map((vibe, index) => {
+            const isSelected = localHoveredIndex === index;
+            const paletteMap: Record<string, string> = {
+              '#0052CC': 'bg-[#0052CC]',
+              '#591BC5': 'bg-[#591BC5]',
+              '#724E3B': 'bg-[#724E3B]',
+              '#EAB308': 'bg-yellow-500',
+              '#F43F5E': 'bg-rose-500',
+              '#34D399': 'bg-emerald-500',
+            };
+            const bgClass = paletteMap[vibe.strokeColor] ?? 'bg-zinc-500';
+
+            return (
+              <div
+                key={vibe.name}
+                className={`flex items-center justify-between text-base py-1.5 px-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
+                }`}
+                onMouseEnter={() => setLocalHoveredIndex(index)}
+                onMouseLeave={() => setLocalHoveredIndex(null)}
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className={`w-3.5 h-3.5 rounded-full ${bgClass} flex-shrink-0 transition-transform duration-200 ${isSelected ? 'scale-125' : ''}`} />
+                  <span className={`font-medium transition-colors duration-200 ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
+                    {vibe.name}
+                  </span>
                 </div>
-                <span className="font-mono text-zinc-200">{vibe.value}</span>
+                <span className={`font-semibold tracking-wide transition-colors duration-200 font-mono ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
+                  {vibe.value}%
+                </span>
               </div>
-            ))}
-          </div>
-        </motion.section>
+            );
+          })}
+        </div>
+      </>
+    );
+  })()}
+</motion.section>
 
         {/* Combined Story & Specifications Section */}
         <motion.section
