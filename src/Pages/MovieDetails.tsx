@@ -781,174 +781,176 @@ const MovieDetails = () => {
       {/* Unified Descriptive Context Bento Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         <motion.section
-  initial={{ opacity: 0, y: 30 }}
-  whileInView={{ opacity: 1, y: 0 }}
-  viewport={{ once: true }}
-  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-  className="group relative col-span-1 w-full bg-black rounded-[2rem] p-7 shadow-2xl border border-zinc-900 overflow-hidden flex flex-col justify-between"
->
-  {(() => {
-    const fallbackData = [
-      { name: 'Thriller', value: 45, strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_12px_24px_rgba(0,82,204,0.65)]' },
-      { name: 'Mystery', value: 35, strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_12px_24px_rgba(89,27,197,0.65)]' },
-      { name: 'Drama', value: 20, strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_12px_24px_rgba(114,78,59,0.45)]' },
-    ];
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="group relative col-span-1 w-full bg-black rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-2xl border border-zinc-900 overflow-hidden flex flex-col justify-between"
+        >
+          {(() => {
+            const fallbackData = [
+              { name: 'Thriller', value: 45, strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_8px_16px_rgba(0,82,204,0.5)]' },
+              { name: 'Mystery', value: 35, strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_8px_16px_rgba(89,27,197,0.5)]' },
+              { name: 'Drama', value: 20, strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_8px_16px_rgba(114,78,59,0.35)]' },
+            ];
 
-    const getHash = (s: string) => {
-      let h = 0;
-      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-      return h;
-    };
-
-    const genreNames = (movieDetails?.genres ?? []).map((g) => g.name).filter(Boolean);
-    const RADIUS = 38;
-    const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-
-    let data = fallbackData;
-
-    if (genreNames.length > 0) {
-      const seed = `${movieDetails?.id ?? movieId ?? ''}-${genreNames.join('|')}`;
-      const palette = [
-        { strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_12px_24px_rgba(0,82,204,0.65)]' },
-        { strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_12px_24px_rgba(89,27,197,0.65)]' },
-        { strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_12px_24px_rgba(114,78,59,0.45)]' },
-        { strokeColor: '#EAB308', shadowClass: 'drop-shadow-[0_12px_24px_rgba(234,179,8,0.65)]' },
-        { strokeColor: '#F43F5E', shadowClass: 'drop-shadow-[0_12px_24px_rgba(244,63,94,0.65)]' },
-        { strokeColor: '#34D399', shadowClass: 'drop-shadow-[0_12px_24px_rgba(52,211,153,0.65)]' },
-      ];
-
-      const weights = genreNames.map((g, idx) => {
-        const h = getHash(`${seed}:${g}:${idx}`);
-        return 0.35 + ((h % 1000) / 1000);
-      });
-
-      const sum = weights.reduce((a, b) => a + b, 0) || 1;
-      const raw = weights.map((w) => (w / sum) * 100);
-      const rounded = raw.map((v) => Math.max(1, Math.round(v)));
-
-      let delta = 100 - rounded.reduce((a, b) => a + b, 0);
-      let k = 0;
-      while (delta !== 0 && k < 1000) {
-        const i = k % rounded.length;
-        const dir = delta > 0 ? 1 : -1;
-        if (rounded[i] + dir >= 1) {
-          rounded[i] += dir;
-          delta -= dir;
-        }
-        k++;
-      }
-
-      data = genreNames.slice(0, Math.min(8, genreNames.length)).map((name, i) => {
-        const color = palette[i % palette.length];
-        return {
-          name,
-          value: rounded[i] ?? 0,
-          strokeColor: color.strokeColor,
-          shadowClass: color.shadowClass,
-        };
-      });
-    }
-
-    const primaryVibe = [...data].sort((a, b) => b.value - a.value)[0] ?? data[0];
-    const activeVibe = localHoveredIndex !== null ? data[localHoveredIndex] : primaryVibe;
-
-    const GAP_DEG = 3.5;
-    const totalGapsLength = data.length * (GAP_DEG / 360) * CIRCUMFERENCE;
-    const availableCircumference = CIRCUMFERENCE - totalGapsLength;
-
-    let currentOffset = 0;
-
-    return (
-      <>
-        <div className="relative z-10">
-          <h2 className="text-2xl font-bold text-white tracking-tight mb-4">Vibe Chart</h2>
-
-          <div className="relative flex items-center justify-center h-52 my-3 group/chart">
-            <svg className="w-44 h-44 transform -rotate-90 transition-transform duration-500" viewBox="0 0 100 100">
-              {data.map((segment, index) => {
-                const segmentLength = (segment.value / 100) * availableCircumference;
-                const strokeOffset = currentOffset;
-
-                currentOffset -= (segmentLength + (GAP_DEG / 360) * CIRCUMFERENCE);
-                const isSelected = localHoveredIndex === index;
-
-                return (
-                  <circle
-                    key={`${segment.name}-${segment.value}`}
-                    cx="50"
-                    cy="50"
-                    r={RADIUS}
-                    fill="transparent"
-                    stroke={segment.strokeColor}
-                    strokeWidth={isSelected ? 14 : 11}
-                    strokeDasharray={`${segmentLength} ${CIRCUMFERENCE}`}
-                    strokeDashoffset={strokeOffset}
-                    strokeLinecap="butt"
-                    onMouseEnter={() => setLocalHoveredIndex(index)}
-                    onMouseLeave={() => setLocalHoveredIndex(null)}
-                    style={{
-                      transform: isSelected ? 'scale(1.04)' : 'scale(1)',
-                    }}
-                    className={`transition-all duration-300 origin-center cursor-pointer ${
-                      isSelected ? segment.shadowClass : 'opacity-80 hover:opacity-100'
-                    }`}
-                  />
-                );
-              })}
-            </svg>
-
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-base font-medium text-zinc-400 tracking-wide transition-all duration-300 mix-blend-screen">
-                {activeVibe?.name}
-              </span>
-              <span className="text-3xl font-bold tracking-tight text-white mt-0.5 transition-all duration-300 font-mono">
-                {activeVibe?.value ?? 0}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3.5 pt-4">
-          {data.map((vibe, index) => {
-            const isSelected = localHoveredIndex === index;
-            const paletteMap: Record<string, string> = {
-              '#0052CC': 'bg-[#0052CC]',
-              '#591BC5': 'bg-[#591BC5]',
-              '#724E3B': 'bg-[#724E3B]',
-              '#EAB308': 'bg-yellow-500',
-              '#F43F5E': 'bg-rose-500',
-              '#34D399': 'bg-emerald-500',
+            const getHash = (s: string) => {
+              let h = 0;
+              for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+              return h;
             };
-            const bgClass = paletteMap[vibe.strokeColor] ?? 'bg-zinc-500';
+
+            const genreNames = (movieDetails?.genres ?? []).map((g) => g.name).filter(Boolean);
+            const RADIUS = 36; // Slightly reduced radius for better constraint within small layouts
+            const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+            let data = fallbackData;
+
+            if (genreNames.length > 0) {
+              const seed = `${movieDetails?.id ?? movieId ?? ''}-${genreNames.join('|')}`;
+              const palette = [
+                { strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_8px_16px_rgba(0,82,204,0.5)]' },
+                { strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_8px_16px_rgba(89,27,197,0.5)]' },
+                { strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_8px_16px_rgba(114,78,59,0.35)]' },
+                { strokeColor: '#EAB308', shadowClass: 'drop-shadow-[0_8px_16px_rgba(234,179,8,0.5)]' },
+                { strokeColor: '#F43F5E', shadowClass: 'drop-shadow-[0_8px_16px_rgba(244,63,94,0.5)]' },
+                { strokeColor: '#34D399', shadowClass: 'drop-shadow-[0_8px_16px_rgba(52,211,153,0.5)]' },
+              ];
+
+              const weights = genreNames.map((g, idx) => {
+                const h = getHash(`${seed}:${g}:${idx}`);
+                return 0.35 + ((h % 1000) / 1000);
+              });
+
+              const sum = weights.reduce((a, b) => a + b, 0) || 1;
+              const raw = weights.map((w) => (w / sum) * 100);
+              const rounded = raw.map((v) => Math.max(1, Math.round(v)));
+
+              let delta = 100 - rounded.reduce((a, b) => a + b, 0);
+              let k = 0;
+              while (delta !== 0 && k < 1000) {
+                const i = k % rounded.length;
+                const dir = delta > 0 ? 1 : -1;
+                if (rounded[i] + dir >= 1) {
+                  rounded[i] += dir;
+                  delta -= dir;
+                }
+                k++;
+              }
+
+              data = genreNames.slice(0, Math.min(8, genreNames.length)).map((name, i) => {
+                const color = palette[i % palette.length];
+                return {
+                  name,
+                  value: rounded[i] ?? 0,
+                  strokeColor: color.strokeColor,
+                  shadowClass: color.shadowClass,
+                };
+              });
+            }
+
+            const primaryVibe = [...data].sort((a, b) => b.value - a.value)[0] ?? data[0];
+            const activeVibe = localHoveredIndex !== null ? data[localHoveredIndex] : primaryVibe;
+
+            const GAP_DEG = 3.5;
+            const totalGapsLength = data.length * (GAP_DEG / 360) * CIRCUMFERENCE;
+            const availableCircumference = CIRCUMFERENCE - totalGapsLength;
+
+            let currentOffset = 0;
 
             return (
-              <div
-                key={vibe.name}
-                className={`flex items-center justify-between text-base py-1.5 px-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                  isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
-                }`}
-                onMouseEnter={() => setLocalHoveredIndex(index)}
-                onMouseLeave={() => setLocalHoveredIndex(null)}
-              >
-                <div className="flex items-center gap-3.5">
-                  <span className={`w-3.5 h-3.5 rounded-full ${bgClass} flex-shrink-0 transition-transform duration-200 ${isSelected ? 'scale-125' : ''}`} />
-                  <span className={`font-medium transition-colors duration-200 ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
-                    {vibe.name}
-                  </span>
-                </div>
-                <span className={`font-semibold tracking-wide transition-colors duration-200 font-mono ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
-                  {vibe.value}%
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </>
-    );
-  })()}
-</motion.section>
+              <>
+                <div className="relative z-10">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Vibe Chart</h2>
+                    <p className="text-[10px] md:text-xs text-zinc-500 font-medium">Hover a segment</p>
+                  </div>
 
-        {/* Combined Story & Specifications Section */}
+                  {/* Compact Chart Area */}
+                  <div className="relative flex items-center justify-center h-40 md:h-44 my-2 group/chart">
+                    <svg className="w-36 h-36 md:w-40 md:h-40 transform -rotate-90 transition-transform duration-500" viewBox="0 0 100 100">
+                      {data.map((segment, index) => {
+                        const segmentLength = (segment.value / 100) * availableCircumference;
+                        const strokeOffset = currentOffset;
+
+                        currentOffset -= (segmentLength + (GAP_DEG / 360) * CIRCUMFERENCE);
+                        const isSelected = localHoveredIndex === index;
+
+                        return (
+                          <circle
+                            key={`${segment.name}-${segment.value}`}
+                            cx="50"
+                            cy="50"
+                            r={RADIUS}
+                            fill="transparent"
+                            stroke={segment.strokeColor}
+                            strokeWidth={isSelected ? 11 : 9} // Thinned down stroke for scaled precision
+                            strokeDasharray={`${segmentLength} ${CIRCUMFERENCE}`}
+                            strokeDashoffset={strokeOffset}
+                            strokeLinecap="butt"
+                            onMouseEnter={() => setLocalHoveredIndex(index)}
+                            onMouseLeave={() => setLocalHoveredIndex(null)}
+                            style={{
+                              transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                            }}
+                            className={`transition-all duration-300 origin-center cursor-pointer ${isSelected ? segment.shadowClass : 'opacity-80 hover:opacity-100'
+                              }`}
+                          />
+                        );
+                      })}
+                    </svg>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-xs md:text-sm font-medium text-zinc-400 tracking-wide transition-all duration-300 mix-blend-screen max-w-[70px] truncate text-center">
+                        {activeVibe?.name}
+                      </span>
+                      <span className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-all duration-300 font-mono">
+                        {activeVibe?.value ?? 0}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dense List Content */}
+                <div className="space-y-2 pt-3">
+                  {data.map((vibe, index) => {
+                    const isSelected = localHoveredIndex === index;
+                    const paletteMap: Record<string, string> = {
+                      '#0052CC': 'bg-[#0052CC]',
+                      '#591BC5': 'bg-[#591BC5]',
+                      '#724E3B': 'bg-[#724E3B]',
+                      '#EAB308': 'bg-yellow-500',
+                      '#F43F5E': 'bg-rose-500',
+                      '#34D399': 'bg-emerald-500',
+                    };
+                    const bgClass = paletteMap[vibe.strokeColor] ?? 'bg-zinc-500';
+
+                    return (
+                      <div
+                        key={vibe.name}
+                        className={`flex items-center justify-between text-xs md:text-sm py-1 px-2 rounded-lg transition-all duration-200 cursor-pointer ${isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
+                          }`}
+                        onMouseEnter={() => setLocalHoveredIndex(index)}
+                        onMouseLeave={() => setLocalHoveredIndex(null)}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-2.5 h-2.5 rounded-full ${bgClass} flex-shrink-0 transition-transform duration-200 ${isSelected ? 'scale-110' : ''}`} />
+                          <span className={`font-medium transition-colors duration-200 ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
+                            {vibe.name}
+                          </span>
+                        </div>
+                        <span className={`font-semibold tracking-wide transition-colors duration-200 font-mono ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
+                          {vibe.value}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+        </motion.section>
+
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
