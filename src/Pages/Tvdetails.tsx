@@ -516,13 +516,20 @@ const Tvdetails = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
           <motion.section
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.65 }}
-            className="lg:col-span-5 bg-zinc-900/40 backdrop-blur-md rounded-2xl border border-white/[0.06] p-6 md:p-8"
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            className="lg:col-span-5 relative overflow-hidden rounded-3xl border border-white/[0.08] bg-zinc-950/40 p-6 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.12] hover:bg-zinc-950/50 sm:p-8"
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold tracking-tight text-white">Vibe Chart</h2>
+            <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+            <div className="absolute -left-20 -bottom-20 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 mb-8 flex items-center justify-between">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold tracking-tight text-zinc-100 sm:text-xl">
+                  Vibe Chart
+                </h2>
+              </div>
               <p className="text-xs text-zinc-500 font-medium">Hover a segment</p>
             </div>
 
@@ -531,46 +538,69 @@ const Tvdetails = () => {
               const segments = genres.map((g) => ({
                 id: g.id,
                 name: g.name,
-                value: (genres.length ? 100 / genres.length : 0),
+                value: genres.length ? 100 / genres.length : 0,
               }));
 
-              const active = segments.find((s) => s.id === activeGenreId) ?? null;
-              const centerTitle = active ? active.name : 'Genre Mix';
-              const centerPct = active ? active.value : 100;
+              const highestGenre = segments.length > 0
+                ? segments.reduce((max, seg) => (seg.value > max.value ? seg : max))
+                : null;
 
-              const size = 200;
-              const stroke = 20;
-              const r = (size / 2) - stroke;
+              const active = segments.find((s) => s.id === activeGenreId) ?? null;
+              const centerTitle = active ? active.name : (highestGenre ? highestGenre.name : 'Genre Mix');
+              const centerPct = active ? active.value : (highestGenre ? highestGenre.value : 0);
+
+              const size = 220;
+              const stroke = 26;
+              const r = size / 2 - stroke;
               const cx = size / 2;
               const cy = size / 2;
               const circumference = 2 * Math.PI * r;
 
+              const gapSize = 4;
+
               const colors = [
-                '#FDE047', '#FB7185', '#60A5FA', '#F97316',
-                '#F472B6', '#38BDF8', '#FDBA74', '#A78BFA', '#FBBF24'
+                '#8400ff', '#FF5500', '#00F0FF', '#ffcc00', '#ff0080',
+                '#F4C2C2', '#995a2d', '#F97316', '#14B8A6', '#EF4444',
               ];
 
               let offset = 0;
 
               return (
-                <div className="flex flex-col sm:flex-row items-center gap-8 justify-center lg:justify-start">
-                  <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
-                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Genre vibe donut chart">
+                <div className="relative z-10 flex flex-col items-center gap-8 md:flex-row md:justify-start lg:gap-10">
+                  <div className="relative flex flex-shrink-0 items-center justify-center w-full max-w-[220px]" style={{ aspectRatio: '1/1' }}>
+                    <svg
+                      width="100%"
+                      height="100%"
+                      viewBox={`0 0 ${size} ${size}`}
+                      role="img"
+                      aria-label="Genre distribution donut chart"
+                      className="drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
+                    >
                       <circle
                         cx={cx}
                         cy={cy}
                         r={r}
                         fill="transparent"
-                        stroke="rgba(255,255,255,0.04)"
+                        stroke="rgba(255,255,255,0.02)"
                         strokeWidth={stroke}
                       />
 
                       {segments.map((seg, idx) => {
-                        const dash = (circumference * seg.value) / 100;
-                        const dashArray = `${dash} ${circumference - dash}`;
-                        const dashOffset = -(offset);
-                        offset += dash;
+                        // Base length of the segment
+                        const baseDash = (circumference * seg.value) / 100;
+
+                        // Subtract the gapSize from the visible line segment length
+                        const adjustedDash = Math.max(0, baseDash - gapSize);
+
+                        // The remaining space becomes the rest of the circumference + the gap
+                        const dashArray = `${adjustedDash} ${circumference - adjustedDash}`;
+
+                        // Standard offset handling
+                        const dashOffset = -offset;
+                        offset += baseDash;
+
                         const isActive = seg.id === activeGenreId;
+                        const isAnyActive = activeGenreId !== null;
                         const color = colors[idx % colors.length];
 
                         return (
@@ -581,17 +611,16 @@ const Tvdetails = () => {
                             r={r}
                             fill="transparent"
                             stroke={color}
-                            strokeWidth={stroke}
-                            strokeLinecap="butt"
+                            strokeWidth={isActive ? stroke + 4 : stroke}
+                            strokeLinecap="butt" // Keeps the ends perfectly flat and sharp
                             strokeDasharray={dashArray}
                             strokeDashoffset={dashOffset}
                             transform={`rotate(-90 ${cx} ${cy})`}
                             style={{
-                              filter: isActive ? 'drop-shadow(0 0 12px rgba(255,255,255,0.2))' : 'none',
-                              opacity: activeGenreId == null || isActive ? 1 : 0.4,
-                              transition: 'opacity 180ms ease, filter 180ms ease, transform 180ms ease',
-                              transform: isActive ? 'scale(1.03)' : 'scale(1)',
-                              transformOrigin: 'center',
+                              filter: isActive ? `drop-shadow(0 0 16px ${color}50)` : 'none',
+                              opacity: !isAnyActive || isActive ? 1 : 0.25,
+                              transition: 'all 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+                              cursor: 'pointer',
                             }}
                             onMouseEnter={() => setActiveGenreId(seg.id)}
                             onMouseLeave={() => setActiveGenreId(null)}
@@ -604,31 +633,58 @@ const Tvdetails = () => {
                       })}
                     </svg>
 
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-4">
-                      <div className="text-zinc-400 text-xs font-semibold tracking-wide truncate max-w-full">{centerTitle}</div>
-                      <div className="text-white font-black text-2xl tracking-tighter mt-0.5">{centerPct.toFixed(0)}%</div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-6">
+                      <span className="w-full text-[11px] font-medium tracking-wider text-zinc-400 uppercase transition-all duration-300 max-w-[140px] truncate">
+                        {centerTitle}
+                      </span>
+                      <span className="text-3xl font-bold tracking-tight text-white mt-0.5 font-sans tabular-nums">
+                        {centerPct.toFixed(0)}%
+                      </span>
                     </div>
                   </div>
 
                   <div className="w-full flex-1">
-                    <ul className="space-y-2.5">
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
                       {segments.map((s, idx) => {
                         const color = colors[idx % colors.length];
                         const isActive = s.id === activeGenreId;
+                        const isAnyActive = activeGenreId !== null;
+
                         return (
-                          <li key={s.id} className="flex items-center gap-3">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          <li
+                            key={s.id}
+                            className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-300 ${isActive
+                              ? 'border-white/[0.08] bg-white/[0.04] shadow-[0_4px_12px_rgba(0,0,0,0.1)]'
+                              : 'border-transparent bg-transparent hover:bg-white/[0.01]'
+                              }`}
+                            style={{
+                              opacity: !isAnyActive || isActive ? 1 : 0.4,
+                            }}
+                          >
+                            <div
+                              className="h-2.5 w-2.5 rounded-full flex-shrink-0 transition-transform duration-300 group-hover:scale-125"
+                              style={{
+                                backgroundColor: color,
+                                boxShadow: isActive ? `0 0 10px ${color}` : `0 0 0px ${color}`,
+                              }}
+                            />
                             <button
                               type="button"
                               onMouseEnter={() => setActiveGenreId(s.id)}
                               onMouseLeave={() => setActiveGenreId(null)}
                               onFocus={() => setActiveGenreId(s.id)}
                               onBlur={() => setActiveGenreId(null)}
-                              className={`text-xs uppercase tracking-wider font-bold text-left transition-colors ${isActive ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                              className={`text-xs font-semibold tracking-wide text-left transition-colors duration-200 outline-none flex-1 ${isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'
+                                }`}
                             >
                               {s.name}
                             </button>
-                            <span className={`ml-auto text-xs font-mono font-bold ${isActive ? 'text-zinc-200' : 'text-zinc-600'}`}>{s.value.toFixed(0)}%</span>
+                            <span
+                              className={`text-xs font-semibold font-mono tracking-tight transition-colors duration-200 tabular-nums ${isActive ? 'text-zinc-200' : 'text-zinc-500 group-hover:text-zinc-400'
+                                }`}
+                            >
+                              {s.value.toFixed(0)}%
+                            </span>
                           </li>
                         );
                       })}
