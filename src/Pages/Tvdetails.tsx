@@ -612,7 +612,7 @@ const Tvdetails = () => {
                             fill="transparent"
                             stroke={color}
                             strokeWidth={isActive ? stroke + 4 : stroke}
-                            strokeLinecap="butt" // Keeps the ends perfectly flat and sharp
+                            strokeLinecap="butt"
                             strokeDasharray={dashArray}
                             strokeDashoffset={dashOffset}
                             transform={`rotate(-90 ${cx} ${cy})`}

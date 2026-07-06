@@ -78,12 +78,13 @@ const MovieDetails = () => {
   const [userReview, setUserReview] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
   const [localHoveredIndex, setLocalHoveredIndex] = useState<number | null>(null);
+  const [activeGenreId, setActiveGenreId] = useState<number | null>(null);
+
 
 
   const handleRateMovie = (rating: number) => {
     setUserRating(rating);
     if (rating >= 4) {
-      // Star/Gold confetti for high ratings
       const count = 100;
       const defaults = {
         origin: { y: 0.7 },
@@ -173,7 +174,6 @@ const MovieDetails = () => {
         const querySnapshot = await getDocs(query(watchlistCollectionRef, where('movieId', '==', movieDetails.id)));
         setIsInWatchlist(querySnapshot.docs.length > 0);
       } catch (e) {
-        // no-op; button will update on next mount
         console.error('Error syncing watchlist button after watched toggle:', e);
       }
     };
@@ -267,7 +267,6 @@ const MovieDetails = () => {
         const director = movieData.credits?.crew?.find((member: any) => member.job === 'Director')?.name ?? 'Unknown Director';
         const streamingLinks = movieData['watch/providers']?.results?.US?.flatrate ?? [];
 
-        // Extract crew
         setCrew(movieData.credits?.crew ?? []);
 
         let allReviews: any[] = [];
@@ -427,17 +426,14 @@ const MovieDetails = () => {
           mediaType: 'movie',
         });
 
-        // Request a background sync when supported; otherwise we rely on 'online' flush.
         await registerWatchlistSync();
 
-        // Notify SW/client to attempt flushing when possible.
         try {
           if ('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.ready;
             reg.active?.postMessage({ type: 'WATCHLIST_FLUSH' });
           }
         } catch {
-          // ignore
         }
 
         setToast({
@@ -447,7 +443,6 @@ const MovieDetails = () => {
         });
 
         if (willBeSaved) {
-          // Easter Egg: Blue Confetti Burst for Watchlist
           confetti({
             particleCount: 150,
             spread: 70,
@@ -469,7 +464,6 @@ const MovieDetails = () => {
       return;
     }
 
-    // Online behavior: existing Firestore writes.
     const userId = user.uid;
     const watchlistCollectionRef = collection(db, 'users', userId, 'watchlist');
 
@@ -494,7 +488,6 @@ const MovieDetails = () => {
         });
         setIsInWatchlist(true);
 
-        // Easter Egg: Blue Confetti Burst for Watchlist
         confetti({
           particleCount: 150,
           spread: 70,
@@ -653,11 +646,9 @@ const MovieDetails = () => {
                   : `url(${posterImageUrl})`,
             }}
           />
-          {/* Multi-layered gradient overlays for depth */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-transparent to-black/70" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
-          {/* Animated noise texture overlay for modern feel */}
           <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
           }} />
@@ -670,7 +661,6 @@ const MovieDetails = () => {
             transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
             className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-12"
           >
-            {/* Professional poster frame */}
             <div className="w-full md:w-auto flex-shrink-0 flex justify-center md:justify-start md:-mt-20 md:mr-8 order-1 md:order-none">
               <motion.div
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -678,7 +668,6 @@ const MovieDetails = () => {
                 transition={{ duration: 0.7, delay: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
                 className="relative"
               >
-                {/* Refined elegant frame */}
                 <div className="relative ring-1 ring-white/10 bg-white/5 rounded-2xl p-1.5 sm:p-2 shadow-2xl shadow-black/50">
                   {movieDetails?.poster_path ? (
                     <img
@@ -703,7 +692,6 @@ const MovieDetails = () => {
                 transition={{ duration: 0.6, delay: 0.35 }}
                 className="flex flex-wrap justify-center md:justify-start items-center gap-2 md:gap-3 mb-4 md:mb-6"
               >
-                {/* Rating badge - Glassmorphic */}
                 <div className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 shadow-sm">
                   <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                   <span className="text-white font-semibold text-sm sm:text-base">{movieRating}</span>
@@ -778,8 +766,7 @@ const MovieDetails = () => {
           </motion.div>
         </div>
       </div>
-      {/* Unified Descriptive Context Bento Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch px-4 sm:px-0 w-full">
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -787,166 +774,163 @@ const MovieDetails = () => {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="group relative col-span-1 w-full bg-black rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-6 shadow-2xl border border-zinc-900 overflow-hidden flex flex-col justify-between"
         >
+          <div className="relative z-10 mb-8 flex items-center justify-between">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight text-zinc-100 sm:text-xl">
+                Vibe Chart
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 font-medium">Hover a segment</p>
+          </div>
           {(() => {
-            const fallbackData = [
-              { name: 'Thriller', value: 45, strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_8px_16px_rgba(0,82,204,0.5)]' },
-              { name: 'Mystery', value: 35, strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_8px_16px_rgba(89,27,197,0.5)]' },
-              { name: 'Drama', value: 20, strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_8px_16px_rgba(114,78,59,0.35)]' },
+            const genres = movieDetails?.genres ?? [];
+            const segments = genres.map((g) => ({
+              id: g.id,
+              name: g.name,
+              value: genres.length ? 100 / genres.length : 0,
+            }));
+
+            const highestGenre = segments.length > 0
+              ? segments.reduce((max, seg) => (seg.value > max.value ? seg : max))
+              : null;
+
+            const active = segments.find((s) => s.id === activeGenreId) ?? null;
+            const centerTitle = active ? active.name : (highestGenre ? highestGenre.name : 'Genre Mix');
+            const centerPct = active ? active.value : (highestGenre ? highestGenre.value : 0);
+
+            const size = 220;
+            const stroke = 26;
+            const r = size / 2 - stroke;
+            const cx = size / 2;
+            const cy = size / 2;
+            const circumference = 2 * Math.PI * r;
+
+            const gapSize = 4;
+
+            const colors = [
+              '#8400ff', '#FF5500', '#00F0FF', '#ffcc00', '#ff0080',
+              '#F4C2C2', '#995a2d', '#F97316', '#14B8A6', '#EF4444',
             ];
 
-            const getHash = (s: string) => {
-              let h = 0;
-              for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-              return h;
-            };
-
-            const genreNames = (movieDetails?.genres ?? []).map((g) => g.name).filter(Boolean);
-            const RADIUS = 36; // Slightly reduced radius for better constraint within small layouts
-            const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-
-            let data = fallbackData;
-
-            if (genreNames.length > 0) {
-              const seed = `${movieDetails?.id ?? movieId ?? ''}-${genreNames.join('|')}`;
-              const palette = [
-                { strokeColor: '#0052CC', shadowClass: 'drop-shadow-[0_8px_16px_rgba(0,82,204,0.5)]' },
-                { strokeColor: '#591BC5', shadowClass: 'drop-shadow-[0_8px_16px_rgba(89,27,197,0.5)]' },
-                { strokeColor: '#724E3B', shadowClass: 'drop-shadow-[0_8px_16px_rgba(114,78,59,0.35)]' },
-                { strokeColor: '#EAB308', shadowClass: 'drop-shadow-[0_8px_16px_rgba(234,179,8,0.5)]' },
-                { strokeColor: '#F43F5E', shadowClass: 'drop-shadow-[0_8px_16px_rgba(244,63,94,0.5)]' },
-                { strokeColor: '#34D399', shadowClass: 'drop-shadow-[0_8px_16px_rgba(52,211,153,0.5)]' },
-              ];
-
-              const weights = genreNames.map((g, idx) => {
-                const h = getHash(`${seed}:${g}:${idx}`);
-                return 0.35 + ((h % 1000) / 1000);
-              });
-
-              const sum = weights.reduce((a, b) => a + b, 0) || 1;
-              const raw = weights.map((w) => (w / sum) * 100);
-              const rounded = raw.map((v) => Math.max(1, Math.round(v)));
-
-              let delta = 100 - rounded.reduce((a, b) => a + b, 0);
-              let k = 0;
-              while (delta !== 0 && k < 1000) {
-                const i = k % rounded.length;
-                const dir = delta > 0 ? 1 : -1;
-                if (rounded[i] + dir >= 1) {
-                  rounded[i] += dir;
-                  delta -= dir;
-                }
-                k++;
-              }
-
-              data = genreNames.slice(0, Math.min(8, genreNames.length)).map((name, i) => {
-                const color = palette[i % palette.length];
-                return {
-                  name,
-                  value: rounded[i] ?? 0,
-                  strokeColor: color.strokeColor,
-                  shadowClass: color.shadowClass,
-                };
-              });
-            }
-
-            const primaryVibe = [...data].sort((a, b) => b.value - a.value)[0] ?? data[0];
-            const activeVibe = localHoveredIndex !== null ? data[localHoveredIndex] : primaryVibe;
-
-            const GAP_DEG = 3.5;
-            const totalGapsLength = data.length * (GAP_DEG / 360) * CIRCUMFERENCE;
-            const availableCircumference = CIRCUMFERENCE - totalGapsLength;
-
-            let currentOffset = 0;
+            let offset = 0;
 
             return (
-              <>
-                <div className="relative z-10">
-                  <div className="flex items-baseline justify-between mb-3">
-                    <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Vibe Chart</h2>
-                    <p className="text-[10px] md:text-xs text-zinc-500 font-medium">Hover a segment</p>
+              <div className="relative z-10 flex flex-col items-center gap-6 md:flex-row md:justify-start lg:gap-10 max-w-full">
+                <div className="relative flex flex-shrink-0 items-center justify-center w-full max-w-[170px] md:max-w-[220px]" style={{ aspectRatio: '1/1' }}>
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${size} ${size}`}
+                    role="img"
+                    aria-label="Genre distribution donut chart"
+                    className="drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
+                  >
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      fill="transparent"
+                      stroke="rgba(255,255,255,0.02)"
+                      strokeWidth={stroke}
+                    />
+
+                    {segments.map((seg, idx) => {
+                      const baseDash = (circumference * seg.value) / 100;
+                      const adjustedDash = Math.max(0, baseDash - gapSize);
+                      const dashArray = `${adjustedDash} ${circumference - adjustedDash}`;
+                      const dashOffset = -offset;
+                      offset += baseDash;
+
+                      const isActive = seg.id === activeGenreId;
+                      const isAnyActive = activeGenreId !== null;
+                      const color = colors[idx % colors.length];
+
+                      return (
+                        <circle
+                          key={seg.id}
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          fill="transparent"
+                          stroke={color}
+                          strokeWidth={isActive ? stroke + 4 : stroke}
+                          strokeLinecap="butt"
+                          strokeDasharray={dashArray}
+                          strokeDashoffset={dashOffset}
+                          transform={`rotate(-90 ${cx} ${cy})`}
+                          style={{
+                            filter: isActive ? `drop-shadow(0 0 16px ${color}50)` : 'none',
+                            opacity: !isAnyActive || isActive ? 1 : 0.25,
+                            transition: 'all 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={() => setActiveGenreId(seg.id)}
+                          onMouseLeave={() => setActiveGenreId(null)}
+                          onFocus={() => setActiveGenreId(seg.id)}
+                          onBlur={() => setActiveGenreId(null)}
+                          tabIndex={0}
+                          aria-label={`${seg.name}: ${seg.value.toFixed(1)}%`}
+                        />
+                      );
+                    })}
+                  </svg>
+
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-4 md:p-6">
+                    <span className="w-full text-[10px] md:text-[11px] font-medium tracking-wider text-zinc-400 uppercase transition-all duration-300 max-w-[100px] md:max-w-[140px] truncate">
+                      {centerTitle}
+                    </span>
+                    <span className="text-2xl md:text-3xl font-bold tracking-tight text-white mt-0.5 font-sans tabular-nums">
+                      {centerPct.toFixed(0)}%
+                    </span>
                   </div>
+                </div>
 
-                  {/* Compact Chart Area */}
-                  <div className="relative flex items-center justify-center h-40 md:h-44 my-2 group/chart">
-                    <svg className="w-36 h-36 md:w-40 md:h-40 transform -rotate-90 transition-transform duration-500" viewBox="0 0 100 100">
-                      {data.map((segment, index) => {
-                        const segmentLength = (segment.value / 100) * availableCircumference;
-                        const strokeOffset = currentOffset;
+                <div className="w-full flex-1">
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
+                    {segments.map((s, idx) => {
+                      const color = colors[idx % colors.length];
+                      const isActive = s.id === activeGenreId;
+                      const isAnyActive = activeGenreId !== null;
 
-                        currentOffset -= (segmentLength + (GAP_DEG / 360) * CIRCUMFERENCE);
-                        const isSelected = localHoveredIndex === index;
-
-                        return (
-                          <circle
-                            key={`${segment.name}-${segment.value}`}
-                            cx="50"
-                            cy="50"
-                            r={RADIUS}
-                            fill="transparent"
-                            stroke={segment.strokeColor}
-                            strokeWidth={isSelected ? 11 : 9} // Thinned down stroke for scaled precision
-                            strokeDasharray={`${segmentLength} ${CIRCUMFERENCE}`}
-                            strokeDashoffset={strokeOffset}
-                            strokeLinecap="butt"
-                            onMouseEnter={() => setLocalHoveredIndex(index)}
-                            onMouseLeave={() => setLocalHoveredIndex(null)}
+                      return (
+                        <li
+                          key={s.id}
+                          className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-300 ${isActive
+                            ? 'border-white/[0.08] bg-white/[0.04] shadow-[0_4px_12px_rgba(0,0,0,0.1)]'
+                            : 'border-transparent bg-transparent hover:bg-white/[0.01]'
+                            }`}
+                          style={{
+                            opacity: !isAnyActive || isActive ? 1 : 0.4,
+                          }}
+                        >
+                          <div
+                            className="h-2.5 w-2.5 rounded-full flex-shrink-0 transition-transform duration-300 group-hover:scale-125"
                             style={{
-                              transform: isSelected ? 'scale(1.03)' : 'scale(1)',
+                              backgroundColor: color,
+                              boxShadow: isActive ? `0 0 10px ${color}` : `0 0 0px ${color}`,
                             }}
-                            className={`transition-all duration-300 origin-center cursor-pointer ${isSelected ? segment.shadowClass : 'opacity-80 hover:opacity-100'
-                              }`}
                           />
-                        );
-                      })}
-                    </svg>
-
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-xs md:text-sm font-medium text-zinc-400 tracking-wide transition-all duration-300 mix-blend-screen max-w-[70px] truncate text-center">
-                        {activeVibe?.name}
-                      </span>
-                      <span className="text-2xl md:text-3xl font-bold tracking-tight text-white transition-all duration-300 font-mono">
-                        {activeVibe?.value ?? 0}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Dense List Content */}
-                <div className="space-y-2 pt-3">
-                  {data.map((vibe, index) => {
-                    const isSelected = localHoveredIndex === index;
-                    const paletteMap: Record<string, string> = {
-                      '#0052CC': 'bg-[#0052CC]',
-                      '#591BC5': 'bg-[#591BC5]',
-                      '#724E3B': 'bg-[#724E3B]',
-                      '#EAB308': 'bg-yellow-500',
-                      '#F43F5E': 'bg-rose-500',
-                      '#34D399': 'bg-emerald-500',
-                    };
-                    const bgClass = paletteMap[vibe.strokeColor] ?? 'bg-zinc-500';
-
-                    return (
-                      <div
-                        key={vibe.name}
-                        className={`flex items-center justify-between text-xs md:text-sm py-1 px-2 rounded-lg transition-all duration-200 cursor-pointer ${isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'
-                          }`}
-                        onMouseEnter={() => setLocalHoveredIndex(index)}
-                        onMouseLeave={() => setLocalHoveredIndex(null)}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className={`w-2.5 h-2.5 rounded-full ${bgClass} flex-shrink-0 transition-transform duration-200 ${isSelected ? 'scale-110' : ''}`} />
-                          <span className={`font-medium transition-colors duration-200 ${isSelected ? 'text-white' : 'text-zinc-300'}`}>
-                            {vibe.name}
+                          <button
+                            type="button"
+                            onMouseEnter={() => setActiveGenreId(s.id)}
+                            onMouseLeave={() => setActiveGenreId(null)}
+                            onFocus={() => setActiveGenreId(s.id)}
+                            onBlur={() => setActiveGenreId(null)}
+                            className={`text-xs font-semibold tracking-wide text-left transition-colors duration-200 outline-none flex-1 ${isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}
+                          >
+                            {s.name}
+                          </button>
+                          <span
+                            className={`text-xs font-semibold font-mono tracking-tight transition-colors duration-200 tabular-nums ${isActive ? 'text-zinc-200' : 'text-zinc-500 group-hover:text-zinc-400'}`}
+                          >
+                            {s.value.toFixed(0)}%
                           </span>
-                        </div>
-                        <span className={`font-semibold tracking-wide transition-colors duration-200 font-mono ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
-                          {vibe.value}%
-                        </span>
-                      </div>
-                    );
-                  })}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
-              </>
+              </div>
             );
           })()}
         </motion.section>
@@ -956,12 +940,11 @@ const MovieDetails = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="relative lg:col-span-2 bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_16px_48px_rgba(0,0,0,0.6)] overflow-hidden group flex flex-col justify-between gap-8"
+          className="relative lg:col-span-2 w-full bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_16px_48px_rgba(0,0,0,0.6)] overflow-hidden group flex flex-col justify-between gap-8"
         >
           <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/25 to-transparent blur-sm pointer-events-none" />
           <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-gradient-to-br from-red-600/5 via-orange-600/5 to-transparent rounded-full blur-3xl opacity-60 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none" />
 
-          {/* Top Half: Synopsis */}
           <div className="relative z-10">
             <h2 className="text-xl md:text-2xl font-black mb-4 text-white tracking-tight">
               Synopsis
@@ -977,7 +960,6 @@ const MovieDetails = () => {
             )}
           </div>
 
-          {/* Bottom Half: Inline Metadata Grid */}
           <div className="relative z-10 pt-6 border-t border-white/[0.06]">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition-colors duration-300 hover:bg-white/[0.04]">
