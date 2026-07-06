@@ -214,7 +214,7 @@ const WatchlistPage = () => {
   const totalSeries = fullWatchlist.filter((i) => i.mediaType === 'tv').length;
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 pb-20 selection:bg-red-500/30">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 pb-20 selection:bg-red-500/30 overflow-x-clip relative">
       <div className="absolute top-0 inset-x-0 h-[500px] bg-gradient-to-b from-red-950/10 via-transparent to-transparent pointer-events-none z-0" />
       <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-red-600/[0.02] rounded-full blur-[160px] pointer-events-none" />
       <div className="absolute top-[10%] left-[-5%] w-[500px] h-[500px] bg-orange-500/[0.01] rounded-full blur-[140px] pointer-events-none" />
@@ -374,7 +374,7 @@ const WatchlistPage = () => {
                 transition={{ duration: 0.2, ease: 'easeInOut' }}
                 className="overflow-hidden border-t border-white/[0.04] pt-3 mt-0.5"
               >
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-thin snap-x snap-mandatory">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
                   {availableGenres.map((genre) => (
                     <button
                       key={genre}
@@ -423,7 +423,7 @@ const WatchlistPage = () => {
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-7"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-7 w-full"
         >
           <AnimatePresence mode="popLayout">
             {filteredAndSortedWatchlist.map((item) => (
@@ -449,7 +449,7 @@ const WatchlistPage = () => {
                         <span className="text-[10px] font-medium tracking-wide">Missing Poster</span>
                       </div>
 
-                      <div className="absolute top-2 inset-x-2 flex items-center justify-between pointer-events-none">
+                      <div className="absolute top-2 left-2 flex items-center justify-between pointer-events-none">
                         <div className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800/80 rounded-md px-1.5 py-0.5 flex items-center gap-1 shadow-md">
                           <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
                           <span className="text-zinc-200 text-[10px] font-bold">

@@ -256,64 +256,64 @@ const HeroBanner = ({
       <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950/60" />
 
-      <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8 lg:p-12">
+      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-10 lg:p-14 pt-32">
         <AnimatePresence mode="wait">
           <motion.div
             key={current.id}
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="max-w-3xl"
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="max-w-4xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           >
-            <div className="flex items-center gap-2.5 md:gap-3 mb-3 flex-wrap">
-              <span className="px-3 py-1 bg-red-600/90 backdrop-blur-md rounded-full text-xs font-bold text-white uppercase tracking-wider shadow-lg shadow-red-900/30">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="px-2.5 py-1 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg text-[10px] font-black uppercase tracking-wider text-white shadow-[0_4px_12px_rgba(239,68,68,0.25)]">
                 {mediaType === "movie" ? "Featured Movie" : "Featured Series"}
               </span>
-              <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-md border border-white/10 px-2.5 py-1 rounded-full">
-                <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                <span className="text-white font-bold text-sm">
+              <div className="flex items-center gap-1.5 bg-neutral-950/60 backdrop-blur-md border border-white/[0.06] px-2.5 py-1 rounded-lg shadow-md">
+                <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                <span className="text-zinc-100 font-bold text-xs">
                   {current.rating.toFixed(1)}
                 </span>
               </div>
               {current.year > 0 && (
-                <span className="text-white/70 text-sm bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full">
+                <span className="text-zinc-200 text-xs font-bold bg-neutral-950/60 backdrop-blur-md border border-white/[0.06] px-2.5 py-1 rounded-lg shadow-md">
                   {current.year}
                 </span>
               )}
             </div>
 
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold text-white mb-3 leading-tight drop-shadow-xl">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-2.5 tracking-tight leading-[1.1] uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               {current.title}
             </h1>
 
             {current.overview && (
-              <p className="text-white/70 text-sm md:text-base line-clamp-2 mb-5 max-w-2xl">
+              <p className="text-zinc-100 text-xs sm:text-sm md:text-base line-clamp-2 md:line-clamp-3 mb-5 max-w-2xl leading-relaxed tracking-wide font-medium drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                 {current.overview}
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <Link
-                to={
-                  mediaType === "movie"
-                    ? `/movie/${current.id}`
-                    : `/tv/${current.id}`
-                }
-                className="inline-flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-105 shadow-lg shadow-red-900/30 active:scale-95"
+                to={mediaType === "movie" ? `/movie/${current.id}` : `/tv/${current.id}`}
+                className="hero-btn-glow group relative flex items-center justify-center gap-2.5 px-6 py-3 sm:px-8 sm:py-3.5 rounded-xl font-bold text-white text-xs sm:text-sm uppercase tracking-wider overflow-hidden w-full sm:w-fit shrink-0 shadow-lg"
+                aria-label="View Details"
               >
-                <Play className="w-4 h-4 fill-current" />
-                View Details
+                <span className="hero-btn-shine" aria-hidden="true" />
+                <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white relative z-10 group-hover:scale-110 transition-transform duration-200" />
+                <span className="relative z-10">View Details</span>
               </Link>
 
-              {current.genre.slice(0, 3).map((g) => (
-                <span
-                  key={g}
-                  className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-xs font-medium text-white/80"
-                >
-                  {g}
-                </span>
-              ))}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+                {current.genre.slice(0, 3).map((g) => (
+                  <span
+                    key={g}
+                    className="shrink-0 px-3 py-1.5 bg-neutral-950/70 backdrop-blur-md border border-white/[0.08] rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-200 shadow-md"
+                  >
+                    {g}
+                  </span>
+                ))}
+              </div>
             </div>
           </motion.div>
         </AnimatePresence>
@@ -545,31 +545,38 @@ const MovieList = () => {
 
         <div className="sticky top-[72px] z-30 mb-8 -mx-4 px-4 py-3 bg-zinc-950/80 backdrop-blur-xl border-y border-white/5">
           <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-            <div className="flex items-center p-1 bg-zinc-900/80 rounded-full w-fit border border-white/5">
+            <div className="relative flex items-center p-1 bg-neutral-900/40 backdrop-blur-xl rounded-xl border border-white/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.5)] w-fit">
               <div className="relative flex items-center">
                 <button
+                  type="button"
                   onClick={() => handleMediaTypeChange("movie")}
-                  className={`relative z-10 px-4 py-2 text-sm font-semibold transition-colors duration-300 rounded-full flex items-center gap-2 ${mediaType === "movie" ? "text-white" : "text-zinc-500"
+                  className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "movie" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
                     }`}
                 >
-                  <Clapperboard className="w-4 h-4" />
-                  Movies
+                  <Clapperboard className="w-3.5 h-3.5 stroke-[2]" />
+                  <span>Movies</span>
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => handleMediaTypeChange("tv")}
-                  className={`relative z-10 px-4 py-2 text-sm font-semibold transition-colors duration-300 rounded-full flex items-center gap-2 ${mediaType === "tv" ? "text-white" : "text-zinc-500"
+                  className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "tv" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
                     }`}
                 >
-                  <Tv className="w-4 h-4" />
-                  Series
+                  <Tv className="w-3.5 h-3.5 stroke-[2]" />
+                  <span>Series</span>
                 </button>
+
                 <motion.div
-                  className="absolute inset-0 bg-red-600 rounded-full"
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-[0_4px_15px_rgba(239,68,68,0.3)] pointer-events-none"
                   animate={{
-                    x: mediaType === "movie" ? 0 : 110,
-                    width: mediaType === "movie" ? 110 : 100,
+                    x: mediaType === "movie" ? "0%" : "100%",
                   }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    width: "50%",
+                    zIndex: 0,
+                  }}
                 />
               </div>
             </div>

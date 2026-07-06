@@ -59,21 +59,28 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
   }, [items]);
 
   const triggerConfetti = useCallback(() => {
-    if (!modalCanvasRef.current) return;
+    const canvasElement = modalCanvasRef.current;
+    if (!canvasElement || typeof canvasElement.getBoundingClientRect !== 'function') {
+      return;
+    }
 
-    const localizedConfetti = confetti.create(modalCanvasRef.current, {
-      resize: true,
-      useWorker: true
-    });
+    try {
+      const localizedConfetti = confetti.create(canvasElement, {
+        resize: true,
+        useWorker: true
+      });
 
-    localizedConfetti({
-      particleCount: 60,
-      spread: 55,
-      gravity: 1.1,
-      scalar: 0.9,
-      origin: { x: 0.5, y: 0.4 },
-      colors: ['#f59e0b', '#fbbf24', '#ffffff', '#d97706', '#78350f']
-    });
+      localizedConfetti({
+        particleCount: 60,
+        spread: 55,
+        gravity: 1.1,
+        scalar: 0.9,
+        origin: { x: 0.5, y: 0.4 },
+        colors: ['#f59e0b', '#fbbf24', '#ffffff', '#d97706', '#78350f']
+      });
+    } catch (err) {
+      console.warn("Confetti dropped execution cleanly due to canvas layout shifts:", err);
+    }
   }, []);
 
   const startSpin = useCallback(() => {
@@ -137,7 +144,7 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
     if (showResult && winner) {
       const timer = setTimeout(() => {
         triggerConfetti();
-      }, 60);
+      }, 120);
       return () => clearTimeout(timer);
     }
   }, [showResult, winner, triggerConfetti]);
@@ -223,7 +230,7 @@ const WatchlistRoulette: React.FC<WatchlistRouletteProps> = ({ isOpen, onClose, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
           >
             <canvas 
               ref={modalCanvasRef} 
