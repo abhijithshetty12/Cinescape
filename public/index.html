@@ -2,23 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Cinescape is a high-performance movie discovery platform designed for cinephiles."
-    />
-    
+    <meta name="description" content="Cinescape is a high-performance movie discovery platform designed for cinephiles." />
     <meta name="author" content="Abhijith Shetty" />
     <meta name="publish-date" content="2025-12-17" />
+
+    <title>Cinescape — High-Performance Movie Discovery Platform</title>
+    <link rel="canonical" href="https://cinescape-films.vercel.app/" />
+
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
     <meta property="og:title" content="Cinescape — High-Performance Movie Discovery Platform" />
     <meta property="og:description" content="Explore comprehensive movie databases, curate custom watchlists, and enjoy a seamless tracking experience designed for cinephiles." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://cinescape-films.vercel.app/" />
     <meta property="og:site_name" content="Cinescape" />
-    <meta property="og:image" content="/og-image1.png" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://cinescape-films.vercel.app/og-image1.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Cinescape application interface layout preview highlighting trending cinema dashboards." />
@@ -33,12 +38,27 @@
     <meta name="twitter:image" content="https://cinescape-films.vercel.app/og-image1.png" />
     <meta name="twitter:image:alt" content="Cinescape application interface layout preview highlighting trending cinema dashboards." />
 
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>Cinescape</title>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Cinescape",
+      "url": "https://cinescape-films.vercel.app/",
+      "description": "Cinescape is a high-performance movie discovery platform designed for cinephiles.",
+      "author": {
+        "@type": "Person",
+        "name": "Abhijith Shetty"
+      }
+    }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    
+    <h1 style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">
+      Cinescape — Movie Discovery Platform for Cinephiles
+    </h1>
+
     <div id="root"></div>
   </body>
 </html>
