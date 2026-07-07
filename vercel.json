@@ -1,0 +1,9 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/((?!.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|js|css|json)$).*)" ,
+      "destination": "/index.html"
+    }
+  ]
+}
