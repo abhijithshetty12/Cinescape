@@ -74,7 +74,7 @@ const fetchPopularMovies = async (page: number = 1) => {
         id: movie.id,
         title: movie.title,
         rating: movie.vote_average,
-        image: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
+        image: `https://image.tmdb.org/t/p/w780${movie.poster_path}`,
         year,
         genre: genres,
         videoUrl,
@@ -165,7 +165,7 @@ export const searchTMDB = async (
         id,
         title: item.title || item.name || 'Untitled',
         rating: item.vote_average || 0,
-        image: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
+        image: item.poster_path ? `https://image.tmdb.org/t/p/w780${item.poster_path}` : '',
         backdrop: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
         year: item.release_date || item.first_air_date
           ? new Date(item.release_date || item.first_air_date).getFullYear()
@@ -212,7 +212,7 @@ export const fetchMediaByType = async (
         id: item.id,
         title: item.title || item.name || 'Untitled',
         rating: item.vote_average || 0,
-        image: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
+        image: item.poster_path ? `https://image.tmdb.org/t/p/w780${item.poster_path}` : '',
         backdrop: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : undefined,
         year: item.release_date || item.first_air_date
           ? new Date(item.release_date || item.first_air_date).getFullYear()
