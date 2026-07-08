@@ -206,7 +206,6 @@ const Home = () => {
                     </h2>
                   </div>
 
-                  {/* Mobile-Only Premium 'View All' Link */}
                   <Link
                     to="/trending"
                     className="sm:hidden group/btn inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-orange-400 bg-orange-500/[0.04] border border-orange-500/20 backdrop-blur-md active:scale-[0.98] shrink-0"
@@ -216,7 +215,6 @@ const Home = () => {
                   </Link>
                 </div>
 
-                {/* Animated Glass Switcher: Under Title on Mobile, Inline on Desktop */}
                 <div className="inline-flex items-center bg-zinc-900/60 p-0.5 rounded-xl border border-zinc-800/80 backdrop-blur-md self-start sm:self-auto shrink-0 mt-0.5 sm:mt-0">
                   <button
                     onClick={() => handleMediaTypeChange('movie')}
@@ -239,7 +237,6 @@ const Home = () => {
                 </div>
               </div>
 
-              {/* Desktop-Only Premium 'View All' Link */}
               <Link
                 to="/trending"
                 className="hidden sm:inline-flex group/btn items-center justify-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-semibold text-orange-400 bg-orange-500/[0.04] hover:bg-orange-500/10 border border-orange-500/20 hover:border-orange-500/40 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(249,115,22,0.15)] shrink-0 min-h-[32px]"

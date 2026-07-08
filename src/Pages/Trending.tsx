@@ -123,10 +123,8 @@ const TrendingMovies = () => {
   return (
     <div className="min-h-screen bg-black">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Animated background glow */}
         <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-600/10 rounded-full blur-[120px] pointer-events-none" />
 
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -151,7 +149,6 @@ const TrendingMovies = () => {
               </div>
             </div>
 
-            {/* Media Type Toggle */}
             <div className="flex items-center">
               <div
                 className="relative flex items-center bg-white/5 border border-white/10 backdrop-blur-xl rounded-full p-1 shadow-lg"
@@ -200,7 +197,6 @@ const TrendingMovies = () => {
               exit={{ opacity: 0 }}
               className="space-y-8"
             >
-              {/* Featured skeleton */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[0, 1, 2].map((i) => (
                   <div
@@ -209,7 +205,6 @@ const TrendingMovies = () => {
                   />
                 ))}
               </div>
-              {/* Grid skeleton */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-5">
                 {Array.from({ length: 10 }).map((_, i) => (
                   <div key={i} className="space-y-3">
@@ -228,7 +223,6 @@ const TrendingMovies = () => {
               animate="visible"
               exit="exit"
             >
-              {/* Featured Section */}
               {featured.length > 0 && (
                 <div className="mb-10">
                   <h2 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
@@ -261,17 +255,14 @@ const TrendingMovies = () => {
                                 alt={title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                               />
-                              {/* Gradient overlay */}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
-                              {/* Rank number */}
                               <div className="absolute top-3 left-3">
                                 <span className="text-5xl font-black text-white/20 drop-shadow-lg">
                                   #{index + 1}
                                 </span>
                               </div>
 
-                              {/* Rating */}
                               <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-2.5 py-1 flex items-center gap-1.5">
                                 <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" />
                                 <span className="text-white font-bold text-xs">
@@ -279,14 +270,12 @@ const TrendingMovies = () => {
                                 </span>
                               </div>
 
-                              {/* Play icon on hover */}
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                 <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                                   <Play className="w-6 h-6 text-white fill-white ml-1" />
                                 </div>
                               </div>
 
-                              {/* Bottom info */}
                               <div className="absolute bottom-0 left-0 right-0 p-4">
                                 <h3 className="text-lg font-bold text-white truncate mb-1 drop-shadow-lg">
                                   {title}
@@ -317,7 +306,6 @@ const TrendingMovies = () => {
                 </div>
               )}
 
-              {/* Grid Section */}
               {rest.length > 0 && (
                 <div>
                   <h2 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
@@ -345,24 +333,20 @@ const TrendingMovies = () => {
                         >
                           <Link to={to} className="block group">
                             <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-500 hover:-translate-y-1.5">
-                              {/* Poster */}
                               <div className="relative aspect-[2/3] overflow-hidden">
                                 <img
                                   src={poster}
                                   alt={title}
                                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                 />
-                                {/* Subtle gradient overlay */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                                {/* Rank badge */}
                                 <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-0.5">
                                   <span className="text-xs font-bold text-white">
                                     #{rank}
                                   </span>
                                 </div>
 
-                                {/* Rating */}
                                 <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-2 py-0.5 flex items-center gap-1">
                                   <Star className="w-3 h-3 text-yellow-400 fill-current" />
                                   <span className="text-white font-bold text-[10px]">
@@ -370,7 +354,6 @@ const TrendingMovies = () => {
                                   </span>
                                 </div>
 
-                                {/* Hover play overlay */}
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                   <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center">
                                     <Play className="w-5 h-5 text-white fill-white ml-0.5" />
@@ -378,7 +361,6 @@ const TrendingMovies = () => {
                                 </div>
                               </div>
 
-                              {/* Info */}
                               <div className="p-3.5">
                                 <h3 className="text-sm font-bold text-white truncate mb-1.5 group-hover:text-red-400 transition-colors duration-300">
                                   {title}
@@ -408,7 +390,6 @@ const TrendingMovies = () => {
                 </div>
               )}
 
-              {/* Load More */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -437,7 +418,6 @@ const TrendingMovies = () => {
                       </>
                     )}
                   </span>
-                  {/* Shine effect */}
                   <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 </button>
               </motion.div>

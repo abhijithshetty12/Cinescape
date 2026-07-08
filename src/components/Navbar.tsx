@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Menu, X, Compass, Users, Heart, Award, Clapperboard, Tv, User, Loader2, AlertCircle, SearchX } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.tsx';
+import { db } from '../firebase.ts';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface SearchResult {
   id: number;
@@ -18,8 +21,31 @@ const Navbar = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user } = useAuth();
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setPhotoUrl(null);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.photoDataUrl) {
+          setPhotoUrl(data.photoDataUrl);
+        } else {
+          setPhotoUrl(null);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const fetchSearchResults = async (query: string) => {
     if (!query) return;
@@ -342,7 +368,7 @@ const Navbar = () => {
             className="relative group p-1.5 rounded-full bg-zinc-900/40 border border-zinc-800/50 hover:bg-zinc-800/60 transition-all duration-300"
           >
             <img
-              src="/user-icon.jpg"
+              src={photoUrl || "/user-icon.jpg"}
               alt="Profile"
               className="w-8 h-8 rounded-full object-cover ring-2 ring-transparent group-hover:ring-red-500/30 transition-all duration-300"
             />
@@ -533,7 +559,7 @@ const Navbar = () => {
             onClick={() => setIsMenuOpen(false)}
           >
             <div className="relative">
-              <img src="/user-icon.jpg" alt="Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-zinc-700 group-hover:ring-red-500/30 transition-all duration-300" />
+              <img src={photoUrl || "/user-icon.jpg"} alt="Profile" className="w-10 h-10 rounded-full object-cover ring-2 ring-zinc-700 group-hover:ring-red-500/30 transition-all duration-300" />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full" />
             </div>
             <div>

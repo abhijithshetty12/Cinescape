@@ -105,7 +105,6 @@ const TopRated = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 relative overflow-hidden">
-      {/* Animated background elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-500/5 rounded-full blur-3xl" />
@@ -113,7 +112,6 @@ const TopRated = () => {
       </div>
 
       <div className="relative z-10">
-        {/* Hero Header Section */}
         <motion.div
           ref={containerRef}
           style={{ opacity: headerOpacity }}
@@ -126,7 +124,6 @@ const TopRated = () => {
               transition={{ duration: 0.7, ease: "easeOut" }}
               className="text-center mb-10"
             >
-              {/* Badge */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -137,7 +134,6 @@ const TopRated = () => {
                 <span>All Time Best</span>
               </motion.div>
 
-              {/* Title */}
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-white tracking-tight mb-4">
                 Top Rated{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500">
@@ -150,7 +146,6 @@ const TopRated = () => {
               </p>
             </motion.div>
 
-            {/* Media Type Toggle */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -194,7 +189,6 @@ const TopRated = () => {
           </div>
         </motion.div>
 
-        {/* Content Grid */}
         <div className="container mx-auto px-4 max-w-7xl pb-20">
           <AnimatePresence mode="wait">
             <motion.div
@@ -229,7 +223,6 @@ const TopRated = () => {
                     >
                       <Link to={to} className="block group">
                         <div className="relative bg-zinc-900/40 backdrop-blur-sm rounded-2xl overflow-hidden border border-zinc-800/50 hover:border-amber-500/40 transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/10 hover:-translate-y-2">
-                          {/* Rank Badge */}
                           <div className="absolute top-3 left-3 z-20">
                             <div
                               className={`flex items-center justify-center w-8 h-8 rounded-lg shadow-lg backdrop-blur-md ${getRankStyle(
@@ -240,7 +233,6 @@ const TopRated = () => {
                             </div>
                           </div>
 
-                          {/* Rating Badge */}
                           <div className="absolute top-3 right-3 z-20">
                             <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
                               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
@@ -250,7 +242,6 @@ const TopRated = () => {
                             </div>
                           </div>
 
-                          {/* Poster */}
                           <div className="relative aspect-[2/3] overflow-hidden">
                             <img
                               src={poster}
@@ -259,15 +250,12 @@ const TopRated = () => {
                               loading="lazy"
                             />
                             
-                            {/* === GLASS SWEEP EFFECT === */}
                             <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
                               <div className="absolute top-0 -inset-full h-full w-1/2 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-none transition-opacity duration-300 group-hover:left-full group-hover:transition-all group-hover:duration-1000 group-hover:ease-out" />
                             </div>
 
-                            {/* Gradient Overlay */}
                             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                             
-                            {/* Hover Info */}
                             <div className="absolute inset-0 flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 z-20">
                               <p className="text-white/90 text-sm font-medium line-clamp-2 mb-2">
                                 {item.overview || "No description available."}
@@ -286,7 +274,6 @@ const TopRated = () => {
                             </div>
                           </div>
 
-                          {/* Info */}
                           <div className="p-4">
                             <h2 className="text-white font-bold text-base truncate mb-2 group-hover:text-amber-400 transition-colors duration-300">
                               {title}
@@ -309,10 +296,8 @@ const TopRated = () => {
             </motion.div>
           </AnimatePresence>
 
-          {/* Infinite Scroll Sentinel */}
           <div ref={sentinelRef} className="h-px w-full mt-16" />
 
-          {/* Subtle Loading Indicator */}
           {loading && page > 1 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -331,7 +316,6 @@ const TopRated = () => {
         </div>
       </div>
 
-      {/* Scroll to Top Button */}
       <AnimatePresence>
         {showScrollTop && (
           <motion.button

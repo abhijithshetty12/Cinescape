@@ -469,22 +469,17 @@ export const useWatchedStatus = (movieId: number, mediaType: 'movie' | 'tv') => 
       const historyQ = query(historyRef, where('movieId', '==', movieId), where('mediaType', '==', mediaType));
       const historySnapshot = await getDocs(historyQ);
 
-      // Watchlist is stored without mediaType in MovieDetails.tsx (movieId only),
-      // so when marking as watched we remove by movieId.
       const watchlistRef = collection(db, `users/${userId}/watchlist`);
       const watchlistQ = query(watchlistRef, where('movieId', '==', movieId));
 
       if (isWatched) {
-        // Unwatch: remove from history only. Do not re-add to watchlist.
         if (!historySnapshot.empty) await deleteDoc(historySnapshot.docs[0].ref);
         setIsWatched(false);
       } else {
-        // Mark watched: upsert history, and remove from watchlist.
         if (!historySnapshot.empty) await deleteDoc(historySnapshot.docs[0].ref);
         await addDoc(historyRef, { ...movieData, watchedDate: new Date().toISOString() });
         setIsWatched(true);
 
-        // Remove from watchlist (online)
         const watchlistSnapshot = await getDocs(watchlistQ);
         if (!watchlistSnapshot.empty) {
           await Promise.all(watchlistSnapshot.docs.map((d) => deleteDoc(d.ref)));

@@ -1,657 +1,677 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback, useMemo } from 'react';
 import { AuthContext } from '../context/AuthContext.tsx';
 import { getAuth, signOut } from 'firebase/auth';
-import { db, storage } from '../firebase.ts';
+import { db } from '../firebase.ts';
 import { doc, setDoc, getDoc, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import ReviewList from '../components/ReviewList.tsx';
-import { User, ChevronRight, LogOut, Star, Heart, Settings, Film, Bookmark, History, SquarePen, Tv } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import {
+  User, ChevronRight, LogOut, Star, Heart, Settings, Film,
+  Bookmark, History, SquarePen, Tv, Camera, Loader2, Check,
+  ImageOff, X,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import BingeWatchStats from '../components/BingeWatchStats.tsx';
+import Toast from '../components/Toast.tsx';
 
 const BASE_POSTER_URL = 'https://image.tmdb.org/t/p/original/';
-const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
+const TMDB_API_KEY = '859afbb4b98e3b467da9c99ac390e950';
+const MAX_PHOTO_PX = 256;
+const PHOTO_QUALITY = 0.72;
 
-const ProfilePage = () => {
-  const auth = useContext(AuthContext);
-  const user = auth?.user;
-  const [username, setUsername] = useState(user?.username ?? '');
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(user?.preferences?.split(',') ?? []);
+const GENRE_MAP: Record<string, number> = {
+  Action: 28, Adventure: 12, Animation: 16, Comedy: 35, Crime: 80,
+  Documentary: 99, Drama: 18, Family: 10751, Fantasy: 14, History: 36,
+  Horror: 27, Music: 10402, Mystery: 9648, Romance: 10749, 'Sci-Fi': 878,
+  'TV Movie': 10770, Thriller: 53, War: 10752, Western: 37,
+};
+const ALL_GENRES = Object.keys(GENRE_MAP);
 
-  const [ratedMovies, setRatedMovies] = useState<{ id: string; title: string; posterPath: string; rating: number }[]>([]);
-  const navigate = useNavigate();
-  const [isFileTooLarge, setIsFileTooLarge] = useState(false);
-  const [watchlist, setWatchlist] = useState<{ id: string; title: string; posterPath: string; mediaType: string }[]>([]);
-  const [history, setHistory] = useState<{ id: string; title: string; posterPath: string; mediaType: string; genres: string[]; watchedDate: string }[]>([]);
-  const [favouriteActors, setFavouriteActors] = useState<{ id: string; name: string; profilePath: string }[]>([]);
-  const [historyFilter, setHistoryFilter] = useState<'movie' | 'tv'>('movie');
-  const [watchlistFilter, setWatchlistFilter] = useState<'movie' | 'tv'>('movie');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const filteredHistory = history.filter(item => item.mediaType === historyFilter);
-  const filteredWatchlist = watchlist.filter(item => item.mediaType === watchlistFilter);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
-    message: '',
-    type: 'success',
-    isVisible: false,
+const compressImageToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = MAX_PHOTO_PX;
+        canvas.height = MAX_PHOTO_PX;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('Canvas unavailable')); return; }
+        const scale = Math.max(MAX_PHOTO_PX / img.width, MAX_PHOTO_PX / img.height);
+        const scaledW = img.width * scale;
+        const scaledH = img.height * scale;
+        const offsetX = (MAX_PHOTO_PX - scaledW) / 2;
+        const offsetY = (MAX_PHOTO_PX - scaledH) / 2;
+        ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
+        resolve(canvas.toDataURL('image/jpeg', PHOTO_QUALITY));
+      };
+      img.src = evt.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   });
 
+type RecommendedItem = {
+  id: string;
+  title: string;
+  posterPath: string;
+  mediaType: string;
+  overview: string;
+  voteAverage: number;
+};
+
+type WatchlistItem = { id: string; title: string; posterPath: string; mediaType: string };
+type HistoryItem = {
+  id: string; title: string; posterPath: string;
+  mediaType: string; genres: string[]; watchedDate: string;
+};
+type FavouriteActor = { id: string; name: string; profilePath: string };
+type RatedMovie = { id: string; title: string; posterPath: string; rating: number };
+
+const RecommendationSection = ({
+  watchlist,
+  history,
+  favouriteActors,
+  selectedGenres,
+  ratedMovies,
+  onMediaClick,
+}: {
+  watchlist: WatchlistItem[];
+  history: HistoryItem[];
+  favouriteActors: FavouriteActor[];
+  selectedGenres: string[];
+  ratedMovies: RatedMovie[];
+  onMediaClick: (id: string, mediaType: string) => void;
+}) => {
+  const [items, setItems] = useState<RecommendedItem[]>([]);
+  const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
+  const [loading, setLoading] = useState(false);
+
+  const seqRef = useRef(0);
+  const mountedRef = useRef(true);
+
   useEffect(() => {
-    if (user?.uid) {
-      const fetchUserData = async () => {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          setUsername(userData.username);
-          setSelectedGenres(userData.preferences?.split(',') ?? []);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const fetchRecommendations = useCallback(async (type: 'movie' | 'tv') => {
+    const seq = ++seqRef.current;
+    setLoading(true);
+
+    const watchedOrWatchlistIds = new Set<string>();
+    history.forEach((h) => { if (h.mediaType === type) watchedOrWatchlistIds.add(h.id); });
+    watchlist.forEach((w) => { if (w.mediaType === type) watchedOrWatchlistIds.add(w.id); });
+
+    const highlyRated = ratedMovies.filter((m) => m.rating >= 7).map((m) => m.id);
+    const watchlistIds = watchlist.filter((m) => m.mediaType === type).map((m) => m.id);
+    const historyIds = history.filter((h) => h.mediaType === type).map((h) => h.id);
+
+    const genreIdsSet = new Set<number>(
+      selectedGenres.map((g) => GENRE_MAP[g.trim()]).filter(Boolean),
+    );
+
+    let recommended: any[] = [];
+
+    try {
+      if (highlyRated.length > 0) {
+        await Promise.all(
+          highlyRated.slice(0, 3).map(async (movieId) => {
+            try {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/${type}/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`,
+              );
+              (res.data.genres ?? []).forEach((g: any) => genreIdsSet.add(g.id));
+            } catch {}
+          }),
+        );
+
+        const results = await Promise.all(
+          highlyRated.slice(0, 5).map(async (movieId) => {
+            try {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`,
+              );
+              return res.data.results ?? [];
+            } catch { return []; }
+          }),
+        );
+        results.forEach((r) => recommended.push(...r.slice(0, 12)));
+      }
+
+      if (watchlistIds.length > 0 && recommended.length < 20) {
+        const results = await Promise.all(
+          watchlistIds.slice(0, 5).map(async (movieId) => {
+            try {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`,
+              );
+              return res.data.results ?? [];
+            } catch { return []; }
+          }),
+        );
+        results.forEach((r) => recommended.push(...r.slice(0, 10)));
+      }
+
+      if (historyIds.length > 0 && recommended.length < 20) {
+        const results = await Promise.all(
+          historyIds.slice(0, 5).map(async (movieId) => {
+            try {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`,
+              );
+              return res.data.results ?? [];
+            } catch { return []; }
+          }),
+        );
+        results.forEach((r) => recommended.push(...r.slice(0, 8)));
+      }
+
+      if (favouriteActors.length > 0 && recommended.length < 20) {
+        const results = await Promise.all(
+          favouriteActors.slice(0, 10).map(async (actor) => {
+            try {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/person/${actor.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`,
+              );
+              return res.data.cast ?? [];
+            } catch { return []; }
+          }),
+        );
+        results.forEach((r) => recommended.push(...r.slice(0, 10)));
+      }
+
+      const genreIds = Array.from(genreIdsSet);
+      if (genreIds.length > 0 && recommended.length < 20) {
+        const results = await Promise.all(
+          genreIds.slice(0, 3).map(async (genreId) => {
+            try {
+              const res = await axios.get(
+                `https://api.themoviedb.org/3/discover/${type}?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`,
+              );
+              return res.data.results ?? [];
+            } catch { return []; }
+          }),
+        );
+        results.forEach((r) => recommended.push(...r.slice(0, 8)));
+      }
+
+      try {
+        const res = await axios.get(
+          `https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_API_KEY}`,
+        );
+        recommended.push(...(res.data.results ?? []).slice(0, 15));
+      } catch {}
+
+      try {
+        const res = await axios.get(
+          `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`,
+        );
+        recommended.push(...(res.data.results ?? []).slice(0, 15));
+      } catch {}
+
+      if (recommended.length === 0) {
+        try {
+          const res = await axios.get(
+            `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`,
+          );
+          recommended.push(...(res.data.results ?? []).slice(0, 20));
+        } catch {}
+      }
+    } catch {}
+
+    if (!mountedRef.current || seq !== seqRef.current) return;
+
+    const unique = new Map<string, RecommendedItem>();
+    recommended.forEach((m: any) => {
+      const mid = m.id?.toString();
+      if (mid && !unique.has(mid) && !watchedOrWatchlistIds.has(mid)) {
+        const mType = m.media_type || type;
+        if (mType === type) {
+          unique.set(mid, {
+            id: mid,
+            title: m.title ?? m.name ?? '',
+            posterPath: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
+            mediaType: mType,
+            overview: m.overview ?? '',
+            voteAverage: m.vote_average ?? 0,
+          });
         }
-      };
+      }
+    });
 
-      const watchlistRef = collection(db, `users/${user.uid}/watchlist`);
-      const unsubscribeWatchlist = onSnapshot(watchlistRef, (snapshot) => {
-        const updatedWatchlist = snapshot.docs.map((doc) => ({
-          id: doc.data().movieId,
-          title: doc.data().title,
-          posterPath: `${BASE_POSTER_URL}${doc.data().posterPath}`,
-          mediaType: doc.data().mediaType || 'movie',
-        }));
-        setWatchlist(updatedWatchlist);
-      });
+    const sorted = Array.from(unique.values()).sort((a, b) => b.voteAverage - a.voteAverage);
+    setItems(sorted.slice(0, 50));
+    setLoading(false);
+  }, [watchlist, history, favouriteActors, selectedGenres, ratedMovies]);
 
-      const ratingsRef = collection(db, `users/${user.uid}/ratings`);
-      const unsubscribeRatings = onSnapshot(ratingsRef, (snapshot) => {
-        const moviesMap = new Map();
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          if (!moviesMap.has(data.title)) {
-            moviesMap.set(data.title, {
-              id: doc.id,
+  useEffect(() => {
+    setItems([]);
+    fetchRecommendations(mediaType);
+  }, [mediaType, fetchRecommendations]);
+
+  useEffect(() => {
+    const refresh = () => {
+      setItems([]);
+      fetchRecommendations(mediaType);
+    };
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+      window.clearInterval(interval);
+    };
+  }, [mediaType, fetchRecommendations]);
+
+  const switchType = (t: 'movie' | 'tv') => {
+    if (t === mediaType) return;
+    setItems([]);
+    setMediaType(t);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.5, delay: 0.35 }}
+      className="bg-zinc-900/60 backdrop-blur-xl rounded-2xl p-5 sm:p-6 md:p-8 border border-zinc-700/50 shadow-2xl"
+    >
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+          <img src="/recommendation-icon.png" alt="Recommendations" className="w-9 h-10 shadow-lg" />
+          Recommendations
+        </h2>
+      </div>
+
+      <div className="flex justify-center mb-5">
+        <div className="relative flex items-center bg-white/10 border border-white/20 backdrop-blur-xl rounded-full p-0.5 shadow-lg">
+          {(['movie', 'tv'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => switchType(t)}
+              className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 font-semibold text-xs sm:text-sm transition-all duration-300 rounded-full ${
+                mediaType === t ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {t === 'movie' ? <Film className="w-3.5 h-3.5" /> : <Tv className="w-3.5 h-3.5" />}
+              {t === 'movie' ? 'Movies' : 'Series'}
+            </button>
+          ))}
+          <motion.div
+            className="absolute inset-y-0.5 bg-gradient-to-r from-red-600 to-red-500 rounded-full shadow-lg shadow-red-500/40"
+            layoutId="rec-media-toggle"
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            style={{
+              left: mediaType === 'movie' ? 2 : '50%',
+              right: mediaType === 'tv' ? 2 : '50%',
+            }}
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <div className="w-10 h-10 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
+          <p className="text-zinc-500 text-sm">Loading {mediaType === 'movie' ? 'movies' : 'series'}…</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-12">
+          <Film className="w-14 h-14 text-zinc-700 mx-auto mb-3" />
+          <p className="text-zinc-400 font-semibold mb-1">No recommendations yet</p>
+          <p className="text-zinc-500 text-sm">Watch more to get personalised picks</p>
+        </div>
+      ) : (
+        <div>
+          <div className="overflow-x-auto pb-3 -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="flex gap-3">
+              {items.map((item) => (
+                <motion.div
+                  key={item.id}
+                  whileHover={{ scale: 1.04, y: -4 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => onMediaClick(item.id, item.mediaType)}
+                  className="group flex-shrink-0 w-28 sm:w-32 bg-zinc-800/50 border border-zinc-700/40 rounded-2xl overflow-hidden shadow-lg cursor-pointer"
+                >
+                  <div className="relative aspect-[2/3]">
+                    {item.posterPath ? (
+                      <img
+                        src={item.posterPath}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                        <Film className="w-8 h-8 text-zinc-700" />
+                      </div>
+                    )}
+                    <div className="absolute top-1.5 right-1.5 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md px-1.5 py-0.5">
+                      <span className={`text-[9px] font-bold uppercase ${item.mediaType === 'tv' ? 'text-cyan-400' : 'text-zinc-300'}`}>
+                        {item.mediaType === 'tv' ? 'TV' : 'Film'}
+                      </span>
+                    </div>
+                    {item.voteAverage > 0 && (
+                      <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm border border-amber-500/20 rounded-md px-1.5 py-0.5 flex items-center gap-0.5">
+                        <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                        <span className="text-[9px] font-bold text-amber-300">{item.voteAverage.toFixed(1)}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
+                  </div>
+                  <div className="p-2.5">
+                    <p className="text-xs font-semibold leading-tight line-clamp-2 text-white/90 group-hover:text-white">
+                      {item.title}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          <p className="text-center text-zinc-600 text-xs mt-2">
+            {items.length} {mediaType === 'movie' ? 'movies' : 'series'}
+          </p>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+const MediaRow = ({
+  items,
+  emptyLabel,
+  accentClass,
+  to,
+}: {
+  items: { id: string; title: string; posterPath: string; mediaType: string }[];
+  emptyLabel: string;
+  accentClass: string;
+  to: (item: { id: string; mediaType: string }) => string;
+}) => (
+  items.length === 0 ? (
+    <p className="text-zinc-500 text-center py-4 text-sm">{emptyLabel}</p>
+  ) : (
+    <div className="overflow-x-auto -mx-1 px-1 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex gap-3">
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            to={to(item)}
+            className={`group flex-shrink-0 w-[110px] sm:w-[120px] rounded-2xl overflow-hidden border border-white/5 hover:${accentClass} transition-all duration-500 bg-zinc-900/60`}
+          >
+            <div className="relative aspect-[2/3]">
+              {item.posterPath ? (
+                <img
+                  src={item.posterPath}
+                  alt={item.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                  <ImageOff className="w-6 h-6 text-zinc-600" />
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
+            </div>
+            <div className="p-2">
+              <p className="text-xs font-semibold truncate text-white/80 group-hover:text-white">
+                {item.title}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+);
+
+const TogglePill = ({
+  value,
+  onChange,
+  options,
+  layoutId,
+  activeColor,
+}: {
+  value: string;
+  onChange: (v: any) => void;
+  options: { value: string; label: string }[];
+  layoutId: string;
+  activeColor: string;
+}) => (
+  <div className="flex justify-center mb-4">
+    <div className="relative flex items-center bg-zinc-800/60 border border-white/10 rounded-full p-0.5 shadow-lg">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`relative z-10 px-4 py-1.5 font-semibold text-xs rounded-full transition-all duration-300 ${
+            value === opt.value ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+      <motion.div
+        className={`absolute inset-y-1 ${activeColor} rounded-full shadow-lg`}
+        layoutId={layoutId}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        style={{
+          left: value === options[0].value ? 2 : '50%',
+          right: value === options[1].value ? 2 : '50%',
+        }}
+      />
+    </div>
+  </div>
+);
+
+const ProfilePage = () => {
+  const authCtx = useContext(AuthContext);
+  const user = authCtx?.user;
+  const navigate = useNavigate();
+
+  const [username, setUsername] = useState(user?.username ?? '');
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(
+    user?.preferences?.split(',').filter(Boolean) ?? [],
+  );
+  const [ratedMovies, setRatedMovies] = useState<RatedMovie[]>([]);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [favouriteActors, setFavouriteActors] = useState<FavouriteActor[]>([]);
+  const [historyFilter, setHistoryFilter] = useState<'movie' | 'tv'>('movie');
+  const [watchlistFilter, setWatchlistFilter] = useState<'movie' | 'tv'>('movie');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
+    message: '', type: 'success', isVisible: false,
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type, isVisible: true });
+  };
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const fetchProfile = async () => {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if (snap.exists()) {
+        const data = snap.data();
+        setUsername(data.username ?? '');
+        setSelectedGenres(data.preferences?.split(',').filter(Boolean) ?? []);
+        if (data.photoDataUrl) setPhotoDataUrl(data.photoDataUrl);
+      }
+    };
+    fetchProfile();
+
+    const unsubs = [
+      onSnapshot(collection(db, `users/${user.uid}/watchlist`), (snap) => {
+        setWatchlist(snap.docs.map((d) => ({
+          id: d.data().movieId?.toString(),
+          title: d.data().title,
+          posterPath: `${BASE_POSTER_URL}${d.data().posterPath}`,
+          mediaType: d.data().mediaType || 'movie',
+        })));
+      }),
+
+      onSnapshot(collection(db, `users/${user.uid}/ratings`), (snap) => {
+        const seen = new Map<string, RatedMovie>();
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (!seen.has(data.title)) {
+            seen.set(data.title, {
+              id: d.id,
               title: data.title,
               posterPath: `${BASE_POSTER_URL}${data.posterPath}`,
               rating: data.rating,
             });
           }
         });
-        setRatedMovies(Array.from(moviesMap.values()));
-      });
+        setRatedMovies(Array.from(seen.values()));
+      }),
 
-      const historyRef = collection(db, `users/${user.uid}/history`);
-      const historyQuery = query(historyRef, orderBy("watchedDate", "desc"));
-      const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
-        const updatedHistory = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: data.movieId.toString(),
-            title: data.title || data.name || '',
-            posterPath: `${BASE_POSTER_URL}${data.posterPath}`,
-            mediaType: data.mediaType || 'movie',
-            genres: data.genres || [],
-            watchedDate: data.watchedDate || new Date().toISOString(),
-          };
-        });
-        setHistory(updatedHistory);
-      });
+      onSnapshot(
+        query(collection(db, `users/${user.uid}/history`), orderBy('watchedDate', 'desc')),
+        (snap) => {
+          setHistory(snap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: data.movieId?.toString(),
+              title: data.title ?? data.name ?? '',
+              posterPath: `${BASE_POSTER_URL}${data.posterPath}`,
+              mediaType: data.mediaType || 'movie',
+              genres: data.genres ?? [],
+              watchedDate: data.watchedDate ?? new Date().toISOString(),
+            };
+          }));
+        },
+      ),
 
-      const favouriteActorsRef = collection(db, `users/${user.uid}/favouriteActors`);
-      const unsubscribeFavouriteActors = onSnapshot(favouriteActorsRef, (snapshot) => {
-        const actorMap = new Map();
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          const id = data.actorId || data.id;
-          if (id && data.name && !actorMap.has(id)) {
-            actorMap.set(id, {
+      onSnapshot(collection(db, `users/${user.uid}/favouriteActors`), (snap) => {
+        const seen = new Map<string, FavouriteActor>();
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          const id = data.actorId ?? data.id;
+          if (id && data.name && !seen.has(id)) {
+            seen.set(id, {
               id,
               name: data.name,
               profilePath: data.profile_path
                 ? `${BASE_POSTER_URL}${data.profile_path}`
-                : (data.profilePath ? `${BASE_POSTER_URL}${data.profilePath}` : ''),
+                : data.profilePath
+                ? `${BASE_POSTER_URL}${data.profilePath}`
+                : '',
             });
           }
         });
-        setFavouriteActors(Array.from(actorMap.values()));
-      });
+        setFavouriteActors(Array.from(seen.values()));
+      }),
+    ];
 
-      fetchUserData();
-      return () => {
-        unsubscribeWatchlist();
-        unsubscribeRatings();
-        unsubscribeHistory();
-        unsubscribeFavouriteActors();
-      };
-    }
+    return () => unsubs.forEach((u) => u());
   }, [user?.uid]);
 
-  const handleSave = async () => {
-    // 1. Guard clause: Exit early if user is not authenticated
-    if (!user || !user.uid) {
-      setToast({
-        message: 'You must be logged in to update your profile.',
-        type: 'error',
-        isVisible: true,
-      });
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.uid) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file', 'error');
       return;
     }
 
-    // From this point onward, TypeScript knows 'user' is definitely defined
-    setIsLoading(true);
-
+    setIsUploadingPhoto(true);
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await setDoc(
-        userRef,
-        {
-          username,
-          preferences: selectedGenres.join(','),
-        },
-        { merge: true }
-      );
-
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
-        setUsername(userData.username);
-        setSelectedGenres(userData.preferences?.split(',') ?? []);
+      const dataUrl = await compressImageToBase64(file);
+      const sizeBytes = Math.round((dataUrl.length * 3) / 4);
+      if (sizeBytes > 900_000) {
+        showToast('Image too large even after compression. Try a smaller photo.', 'error');
+        setIsUploadingPhoto(false);
+        return;
       }
-
-      setToast({
-        message: 'Profile updated successfully!',
-        type: 'success',
-        isVisible: true,
-      });
-      setTimeout(() => {
-        setToast((prev) => ({ ...prev, isVisible: false }));
-      }, 3000);
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      setToast({
-        message: 'Error updating profile, please try again.',
-        type: 'error',
-        isVisible: true,
-      });
-      setTimeout(() => {
-        setToast((prev) => ({ ...prev, isVisible: false }));
-      }, 3000);
+      setPhotoPreview(dataUrl);
+      await setDoc(doc(db, 'users', user.uid), { photoDataUrl: dataUrl }, { merge: true });
+      setPhotoDataUrl(dataUrl);
+      setPhotoPreview(null);
+      showToast('Profile photo updated!', 'success');
+    } catch {
+      showToast('Failed to update photo. Please try again.', 'error');
     } finally {
-      setIsLoading(false);
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
+  const handleRemovePhoto = async () => {
+    if (!user?.uid) return;
+    setIsUploadingPhoto(true);
+    try {
+      await setDoc(doc(db, 'users', user.uid), { photoDataUrl: null }, { merge: true });
+      setPhotoDataUrl(null);
+      setPhotoPreview(null);
+      showToast('Photo removed', 'info');
+    } catch {
+      showToast('Failed to remove photo', 'error');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user?.uid) { showToast('You must be logged in', 'error'); return; }
+    setIsSaving(true);
+    try {
+      await setDoc(
+        doc(db, 'users', user.uid),
+        { username, preferences: selectedGenres.join(',') },
+        { merge: true },
+      );
+      showToast('Profile updated!', 'success');
+    } catch {
+      showToast('Error updating profile, please try again.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleLogout = () => {
-    const auth = getAuth();
-    signOut(auth)
-      .then(() => {
-        navigate('/login');
-      })
-      .catch((error) => {
-        console.error('Error logging out:', error);
-      });
+    signOut(getAuth())
+      .then(() => navigate('/login'))
+      .catch(() => {});
   };
 
-  const handleMediaClick = (id: string, mediaType: string): void => {
-    navigate(`/${mediaType}/${id}`);
-  };
+  const handleMediaClick = (id: string, mediaType: string) => navigate(`/${mediaType}/${id}`);
 
+  const filteredHistory = useMemo(
+    () => history.filter((h) => h.mediaType === historyFilter),
+    [history, historyFilter],
+  );
+  const filteredWatchlist = useMemo(
+    () => watchlist.filter((w) => w.mediaType === watchlistFilter),
+    [watchlist, watchlistFilter],
+  );
 
-  const RecommendationSection = ({
-    watchlist,
-    history,
-    favouriteActors,
-    selectedGenres,
-    ratedMovies,
-    onMediaClick,
-  }: {
-    watchlist: { id: string; title: string; posterPath: string; mediaType: string }[];
-    history: { id: string; title: string; posterPath: string; mediaType: string }[];
-    favouriteActors: { id: string; name: string; profilePath: string }[];
-    selectedGenres: string[];
-    ratedMovies: { id: string; title: string; posterPath: string; rating: number }[];
-    onMediaClick: (id: string, mediaType: string) => void;
-  }) => {
-    const [trendingMovies, setTrendingMovies] = useState<
-      { id: string; title: string; posterPath: string; mediaType: string; overview?: string; voteAverage?: number }[]
-    >([]);
-    const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
-    const [page, setPage] = useState(1);
-    const [loading, setLoading] = useState(false);
-
-    const handleMediaTypeChange = (type: 'movie' | 'tv') => {
-      if (type === mediaType) return;
-      setMediaType(type);
-      setTrendingMovies([]);
-      setPage(1);
-      setLoading(true);
-    };
-
-    // Refresh recommendations when page becomes visible or gains focus
-    useEffect(() => {
-      let isMounted = true;
-
-      const fetchRecommendations = async () => {
-        setLoading(true);
-
-        let movieIds: string[] = [];
-        let actorIds: string[] = [];
-        let watchedOrWatchlistIds = new Set<string>();
-
-        // Build exclude set from history and watchlist (already watched or in watchlist)
-        history.forEach(h => {
-          if (h.mediaType === mediaType) {
-            watchedOrWatchlistIds.add(h.id);
-          }
-        });
-        watchlist.forEach(w => {
-          if (w.mediaType === mediaType) {
-            watchedOrWatchlistIds.add(w.id);
-          }
-        });
-
-        // Add highly-rated movies (7+ stars) as priority sources
-        const highlyRatedMovies = ratedMovies
-          .filter(m => m.rating >= 7)
-          .map(m => m.id);
-
-        // Get movie IDs from different sources with priority
-        const watchlistIds = watchlist
-          .filter(m => m.mediaType === mediaType)
-          .map(m => m.id);
-
-        const historyIds = history
-          .filter(h => h.mediaType === mediaType)
-          .map(h => h.id);
-
-        // Deduplicate while preserving priority order (highly rated first)
-        const priorityMovieIds = [...highlyRatedMovies];
-        watchlistIds.forEach(id => {
-          if (!priorityMovieIds.includes(id)) priorityMovieIds.push(id);
-        });
-        historyIds.forEach(id => {
-          if (!priorityMovieIds.includes(id)) priorityMovieIds.push(id);
-        });
-
-        movieIds = priorityMovieIds;
-        actorIds = favouriteActors.map((a) => a.id);
-
-        let recommended: any[] = [];
-        try {
-          const genreMap: { [key: string]: number } = {
-            'Action': 28,
-            'Adventure': 12,
-            'Animation': 16,
-            'Comedy': 35,
-            'Crime': 80,
-            'Documentary': 99,
-            'Drama': 18,
-            'Family': 10751,
-            'Fantasy': 14,
-            'History': 36,
-            'Horror': 27,
-            'Music': 10402,
-            'Mystery': 9648,
-            'Romance': 10749,
-            'Sci-Fi': 878,
-            'TV Movie': 10770,
-            'Thriller': 53,
-            'War': 10752,
-            'Western': 37,
-          };
-
-          // Also collect genres from watched/rated content for better recommendations
-          const genreIdsSet = new Set<number>(
-            selectedGenres
-              .map(g => genreMap[g.trim()])
-              .filter(id => id !== undefined)
-          );
-
-          // Fetch genres from rated movies
-          if (highlyRatedMovies.length > 0) {
-            const genreFetchPromises = highlyRatedMovies.slice(0, 3).map(async (movieId) => {
-              try {
-                const endpoint = mediaType === 'movie'
-                  ? `https://api.themoviedb.org/3/movie/${movieId}`
-                  : `https://api.themoviedb.org/3/tv/${movieId}`;
-                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                const genres = res.data.genres || [];
-                genres.forEach((g: any) => genreIdsSet.add(g.id));
-                return genres;
-              } catch (err) {
-                return [];
-              }
-            });
-            await Promise.all(genreFetchPromises);
-          }
-
-          const genreIds = Array.from(genreIdsSet);
-
-          // Fetch recommendations from highly-rated movies first (highest priority)
-          if (highlyRatedMovies.length > 0) {
-            const MAX_MOVIE_SOURCES = Math.min(highlyRatedMovies.length, 5);
-            const moviePromises = highlyRatedMovies.slice(0, MAX_MOVIE_SOURCES).map(async (movieId) => {
-              try {
-                const endpoint = mediaType === 'movie'
-                  ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
-                  : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
-                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                return res.data.results || [];
-              } catch (err) {
-                console.error(`Error fetching recommendations for ${movieId}:`, err);
-                return [];
-              }
-            });
-
-            const results = await Promise.all(moviePromises);
-            results.forEach(r => recommended.push(...r.slice(0, 12)));
-          }
-
-          // Fetch from watchlist
-          if (watchlistIds.length > 0 && recommended.length < 20) {
-            const watchlistPromises = watchlistIds.slice(0, 5).map(async (movieId) => {
-              try {
-                const endpoint = mediaType === 'movie'
-                  ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
-                  : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
-                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                return res.data.results || [];
-              } catch (err) {
-                console.error(`Error fetching recommendations for ${movieId}:`, err);
-                return [];
-              }
-            });
-
-            const results = await Promise.all(watchlistPromises);
-            results.forEach(r => recommended.push(...r.slice(0, 10)));
-          }
-
-          // Fetch from history
-          if (historyIds.length > 0 && recommended.length < 20) {
-            const historyPromises = historyIds.slice(0, 5).map(async (movieId) => {
-              try {
-                const endpoint = mediaType === 'movie'
-                  ? `https://api.themoviedb.org/3/movie/${movieId}/recommendations`
-                  : `https://api.themoviedb.org/3/tv/${movieId}/recommendations`;
-                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                return res.data.results || [];
-              } catch (err) {
-                console.error(`Error fetching recommendations for ${movieId}:`, err);
-                return [];
-              }
-            });
-
-            const results = await Promise.all(historyPromises);
-            results.forEach(r => recommended.push(...r.slice(0, 8)));
-          }
-
-          // Fetch from favorite actors
-          if (actorIds.length > 0 && recommended.length < 20) {
-            const actorPromises = actorIds.slice(0, 10).map(async (actorId) => {
-              try {
-                const endpoint = mediaType === 'movie'
-                  ? `https://api.themoviedb.org/3/person/${actorId}/movie_credits`
-                  : `https://api.themoviedb.org/3/person/${actorId}/tv_credits`;
-                const res = await axios.get(`${endpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
-                return mediaType === 'movie' ? (res.data.cast || []) : (res.data.cast || []);
-              } catch (err) {
-                console.error(`Error fetching credits for actor ${actorId}:`, err);
-                return [];
-              }
-            });
-
-            const actorResults = await Promise.all(actorPromises);
-            actorResults.forEach(r => recommended.push(...r.slice(0, 10)));
-          }
-
-          // Fallback to genre-based discovery
-          if (genreIds.length > 0 && recommended.length < 20) {
-            const genrePromises = genreIds.slice(0, 3).map(async (genreId) => {
-              try {
-                const url = mediaType === 'movie'
-                  ? `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`
-                  : `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`;
-                const res = await axios.get(url);
-                return res.data.results || [];
-              } catch (err) {
-                console.error(`Error fetching genre ${genreId}:`, err);
-                return [];
-              }
-            });
-
-            const genreResults = await Promise.all(genrePromises);
-            genreResults.forEach(r => recommended.push(...r.slice(0, 8)));
-          }
-
-          // Blend Trending + Popular to keep recommendations fresh (and avoid empty lists)
-          // Trending (week)
-          try {
-            const trendingUrl = mediaType === 'movie'
-              ? `https://api.themoviedb.org/3/trending/movie/week?api_key=${TMDB_API_KEY}`
-              : `https://api.themoviedb.org/3/trending/tv/week?api_key=${TMDB_API_KEY}`;
-            const trendingRes = await axios.get(trendingUrl);
-            if (trendingRes.data?.results) {
-              recommended.push(...trendingRes.data.results.slice(0, 15));
-            }
-          } catch (err) {
-            console.error('Error fetching trending content:', err);
-          }
-
-          // Popular
-          try {
-            const popularUrl = mediaType === 'movie'
-              ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
-              : `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
-            const popularRes = await axios.get(popularUrl);
-            if (popularRes.data?.results) {
-              recommended.push(...popularRes.data.results.slice(0, 15));
-            }
-          } catch (err) {
-            console.error('Error fetching popular content:', err);
-          }
-
-          // If still empty, final fallback to Popular (extra safety)
-          if (recommended.length === 0) {
-            const fallbackUrl = mediaType === 'movie'
-              ? `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
-              : `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
-
-            const fallbackRes = await axios.get(fallbackUrl);
-            if (fallbackRes.data?.results) {
-              recommended.push(...fallbackRes.data.results.slice(0, 20));
-            }
-          }
-        } catch (err) {
-          console.error('Error fetching recommendations:', err);
-        }
-
-
-        const unique = new Map();
-        recommended.forEach((m: any) => {
-          if (m.id && !unique.has(m.id)) {
-            // Filter out already watched or in watchlist
-            if (!watchedOrWatchlistIds.has(m.id.toString())) {
-              unique.set(m.id, {
-                id: m.id.toString(),
-                title: m.title || m.name || "",
-                posterPath: m.poster_path
-                  ? `https://image.tmdb.org/t/p/w780${m.poster_path}`
-                  : "",
-                mediaType: m.media_type || mediaType,
-                overview: m.overview || "",
-                voteAverage: m.vote_average || 0,
-              });
-            }
-          }
-        });
-
-        const filtered = Array.from(unique.values()).filter(item => item.mediaType === mediaType);
-        const sorted = filtered.sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0));
-
-        if (isMounted) {
-          setTrendingMovies(sorted.slice(0, 50));
-          setLoading(false);
-        }
-      };
-
-
-      fetchRecommendations();
-
-      return () => {
-        isMounted = false;
-      };
-    }, [watchlist, history, favouriteActors, selectedGenres, mediaType, page, ratedMovies]);
-
-    // Handle visibility change to refresh recommendations when user returns to page
-    // Also refresh periodically so recommendations keep updating.
-    useEffect(() => {
-      let intervalId: number | undefined;
-
-      const refreshNow = () => {
-        setTrendingMovies([]);
-        setPage(1);
-        setLoading(true);
-      };
-
-      const handleVisibilityChange = () => {
-        if (!document.hidden) {
-          refreshNow();
-        }
-      };
-
-      const handleFocus = () => {
-        refreshNow();
-      };
-
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      window.addEventListener('focus', handleFocus);
-
-      intervalId = window.setInterval(() => {
-        refreshNow();
-      }, 60 * 1000);
-
-      return () => {
-        if (intervalId) window.clearInterval(intervalId);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('focus', handleFocus);
-      };
-    }, []);
-
-
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, delay: 0.35 }}
-        className="bg-zinc-900/60 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-zinc-700/50 shadow-2xl"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-            <img src="/recommendation-icon.png" alt="Recommendations" className="w-9 h-10 shadow-lg" />
-            Recommendations
-          </h2>
-        </div>
-
-
-        <div className="flex items-center justify-center mb-6">
-          <div
-            className="relative flex items-center bg-white/10 border border-white/20 backdrop-blur-xl rounded-full p-0.5 sm:p-1 shadow-lg min-w-[180px] w-fit mx-auto"
-            style={{
-              WebkitBackdropFilter: 'blur(20px)',
-              backdropFilter: 'blur(20px)',
-            }}
-          >
-            <button
-              onClick={() => handleMediaTypeChange('movie')}
-              className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 font-semibold text-xs sm:text-sm transition-all duration-300 rounded-full ${mediaType === 'movie' ? 'text-white shadow-md shadow-red-500/30' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-            >
-              <Film className="w-3.5 h-3.5 flex-shrink-0" />
-              Movies
-            </button>
-            <button
-              onClick={() => handleMediaTypeChange('tv')}
-              className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 font-semibold text-xs sm:text-sm transition-all duration-300 rounded-full ${mediaType === 'tv' ? 'text-white shadow-md shadow-cyan-500/30' : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-            >
-              <Tv className="w-3.5 h-3.5 flex-shrink-0" />
-              Series
-            </button>
-            <motion.div
-              className="absolute inset-y-0.5 sm:inset-y-1 bg-gradient-to-r from-red-600 to-red-500 rounded-full shadow-lg shadow-red-500/40"
-              layoutId="media-toggle"
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="w-12 h-12 border-4 border-zinc-600/30 border-t-zinc-400 rounded-full animate-spin mb-4" />
-            <p className="text-zinc-500">Loading {mediaType === 'movie' ? 'movies' : 'series'}...</p>
-          </div>
-        ) : trendingMovies.length === 0 ? (
-          <div className="text-center py-12">
-            <Film className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-zinc-400 mb-2">No recommendations</h3>
-            <p className="text-zinc-500 text-sm">Watch more to get personalized recommendations</p>
-          </div>
-        ) : (
-          <div className="w-full">
-            <div className="overflow-x-auto no-scrollbar pb-4">
-              <div className="flex gap-4">
-                {trendingMovies.map((movie) => (
-                  <motion.div
-                    key={movie.id}
-                    layout
-                    className="group flex-shrink-0 w-32 hover:w-36 transition-all duration-300 bg-zinc-800/50 backdrop-blur-sm border border-zinc-600/30 rounded-2xl overflow-hidden shadow-lg hover:shadow-zinc-500/20 hover:-translate-y-1 cursor-pointer"
-                    whileHover={{ scale: 1.05 }}
-                    onClick={() => onMediaClick(movie.id, movie.mediaType)}
-                  >
-                    <div className="relative aspect-[2/3]">
-                      {movie.posterPath ? (
-                        <img
-                          src={movie.posterPath}
-                          alt={movie.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-900 border border-zinc-700">
-                          <Film className="w-8 h-8 text-zinc-600" />
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-1 flex items-center gap-1">
-                        <div className={`text-[10px] font-bold uppercase tracking-wide ${movie.mediaType === 'tv' ? 'text-cyan-400' : 'text-zinc-200'
-                          }`}>
-                          {movie.mediaType === 'tv' ? 'TV' : 'MOVIE'}
-                        </div>
-                      </div>
-                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
-                    </div>
-                    <div className="p-3">
-                      <h3 className="font-semibold text-xs leading-tight line-clamp-2 text-white group-hover:text-zinc-200 transition-colors">
-                        {movie.title}
-                      </h3>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-            <div className="text-center pt-4">
-              <p className="text-zinc-500 text-sm">
-                Showing {trendingMovies.length} {mediaType === 'movie' ? 'movies' : 'series'}
-              </p>
-            </div>
-          </div>
-        )}
-      </motion.div>
-    );
-  };
-
+  const displayPhoto = photoPreview ?? photoDataUrl;
 
   return (
-    <div className="profile-page bg-black text-white min-h-screen">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="bg-black text-white min-h-screen">
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
+      />
+
+      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -660,100 +680,155 @@ const ProfilePage = () => {
         >
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl shadow-lg">
-              <Settings className="text-white w-8 h-8" />
+              <Settings className="text-white w-7 h-7 sm:w-8 sm:h-8" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white">Profile</h1>
-              <p className="text-gray-400 text-sm md:text-base">Manage your account and preferences</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">Profile</h1>
+              <p className="text-gray-400 text-sm">Manage your account and preferences</p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
-            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg shadow-red-500/25 flex items-center gap-2"
+            className="self-start sm:self-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm transition-all duration-300 hover:scale-105 shadow-lg shadow-red-500/25 flex items-center gap-2"
           >
-            <LogOut className="w-5 h-5" />
-            <span className=" sm:inline">Logout</span>
+            <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+            Logout
           </button>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+          <div className="lg:col-span-2 space-y-6 lg:space-y-8">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-              // Premium Liquid Glass: High blur, low opacity background, double specular highlights, and deep ambient glow
-              className="bg-white/20 dark:bg-zinc-950/35 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-white/20 dark:border-white/10 shadow-[0_12px_40px_0_rgba(0,0,0,0.06)] dark:shadow-[0_16px_48px_0_rgba(0,0,0,0.45)] max-w-3xl w-full transition-all duration-300"
+              className="bg-zinc-950/40 backdrop-blur-xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.06] shadow-2xl"
             >
-              {/* Card Header with Glass Highlight Accent */}
-              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-black/5 dark:border-white/5">
-                <div className="p-2 rounded-xl bg-grey-500/10 border border-white/20 shadow-inner">
-                  <User className="w-5 h-5" />
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/[0.05]">
+                <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+                  <User className="w-5 h-5 text-white/70" />
                 </div>
-                <h2 className="text-xl font-semibold text-zinc-900 dark:text-white tracking-tight">
+                <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
                   Profile Information
                 </h2>
               </div>
 
-              <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                {/* Avatar Left Column */}
-                <div className="flex flex-col items-center gap-4 group">
-                  <div className="relative">
-                    {/* Outer Frosted Glass Decorative Ring */}
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-red-500/20 to-orange-500/20 blur-md opacity-70 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8">
+                <div className="flex flex-col items-center gap-3 flex-shrink-0">
+                  <div className="relative group">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-red-500/30 to-orange-500/20 blur-lg opacity-60 group-hover:opacity-90 transition-opacity duration-300" />
 
-                    {/* Core Fluid Avatar Container */}
-                    <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-full border border-white/40 dark:border-white/10 flex justify-center items-center bg-gradient-to-br from-white/40 to-white/10 dark:from-zinc-900/50 dark:to-zinc-900/20 backdrop-blur-md shadow-2xl select-none overflow-hidden transition-transform duration-500 group-hover:scale-[1.02]">
-                      <span className="text-5xl md:text-6xl font-bold bg-gradient-to-br from-zinc-900 to-zinc-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent drop-shadow-sm">
-                        {username ? username.charAt(0).toUpperCase() : 'U'}
-                      </span>
+                    <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full border-2 border-white/20 overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 shadow-2xl">
+                      <AnimatePresence mode="wait">
+                        {displayPhoto ? (
+                          <motion.img
+                            key="photo"
+                            src={displayPhoto}
+                            alt={username}
+                            className="w-full h-full object-cover"
+                            initial={{ opacity: 0, scale: 1.08 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        ) : (
+                          <motion.img
+                            key="default"
+                            src="/user-icon.jpg"
+                            alt="Default Profile"
+                            className="w-full h-full object-cover"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                          />
+                        )}
+                      </AnimatePresence>
+
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingPhoto}
+                        className="absolute inset-0 flex flex-col items-center justify-center bg-black/0 hover:bg-black/55 transition-all duration-300 opacity-0 group-hover:opacity-100 rounded-full cursor-pointer"
+                        aria-label="Change profile picture"
+                      >
+                        {isUploadingPhoto ? (
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        ) : (
+                          <>
+                            <Camera className="w-6 h-6 text-white mb-0.5" />
+                            <span className="text-[10px] font-bold text-white/90 uppercase tracking-wider">
+                              Change
+                            </span>
+                          </>
+                        )}
+                      </button>
                     </div>
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingPhoto}
+                      className="absolute -bottom-1 -right-1 w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-full flex items-center justify-center shadow-lg border-2 border-black transition-all duration-200 hover:scale-110 active:scale-95 z-10"
+                      aria-label="Upload photo"
+                    >
+                      {isUploadingPhoto ? (
+                        <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                      ) : (
+                        <Camera className="w-3.5 h-3.5 text-white" />
+                      )}
+                    </button>
                   </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
 
                   <div className="text-center">
-                    <span className="block text-md font-medium text-zinc-800 dark:text-zinc-200 tracking-wide">
-                      {username || 'Anonymous User'}
-                    </span>
-                    <span className="block text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
-                      Cinescape Member
-                    </span>
+                    <p className="font-semibold text-sm text-white/90 truncate max-w-[140px]">
+                      {username || 'Anonymous'}
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-0.5">Cinescape Member</p>
                   </div>
+
+                  {displayPhoto && (
+                    <button
+                      onClick={handleRemovePhoto}
+                      disabled={isUploadingPhoto}
+                      className="flex items-center gap-1.5 text-zinc-500 hover:text-red-400 text-xs font-medium transition-colors duration-200"
+                    >
+                      <X className="w-3 h-3" />
+                      Remove photo
+                    </button>
+                  )}
                 </div>
 
-                {/* Form Right Column */}
-                <div className="flex-1 w-full space-y-6">
-                  <div className="relative">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
+                <div className="flex-1 w-full space-y-5">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
                       Username
                     </label>
-
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Enter your username"
-                        // Smooth Frosted Glass Input Field
-                        className="w-full bg-black/5 dark:bg-zinc-900/30 backdrop-blur-md border border-black/10 dark:border-zinc-800/60 text-zinc-900 dark:text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500/40 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 transition-all duration-300 text-sm shadow-inner"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter your username"
+                      className="w-full bg-zinc-900/50 border border-zinc-800 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/40 placeholder:text-zinc-600 transition-all duration-300 text-sm"
+                    />
                   </div>
 
-                  {/* Action Button */}
                   <button
                     onClick={handleSave}
-                    disabled={isLoading}
-                    className={`w-full md:w-auto px-8 py-3 rounded-2xl font-medium text-sm transition-all duration-300 transform active:scale-95 border ${isLoading
-                      ? 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/5 text-zinc-400 cursor-not-allowed'
-                      : 'bg-zinc-900 dark:bg-white text-white dark:text-black border-zinc-900 dark:border-white hover:bg-zinc-800 dark:hover:bg-zinc-100 shadow-lg shadow-black/10 dark:shadow-white/5 hover:shadow-xl'
-                      }`}
+                    disabled={isSaving}
+                    className="w-full sm:w-auto px-7 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 active:scale-95 bg-white text-black hover:bg-zinc-100 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    {isLoading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-4 h-4 border-2 border-zinc-400 dark:border-zinc-600 border-t-transparent rounded-full animate-spin" />
-                        <span>Saving Changes...</span>
-                      </div>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving…
+                      </>
                     ) : (
                       'Update Profile'
                     )}
@@ -768,20 +843,14 @@ const ProfilePage = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-gradient-to-br from-zinc-900/80 via-black/80 to-black/80 backdrop-blur-xl rounded-2xl p-4 sm:p-6 md:p-8 border border-white/5 shadow-2xl"
+              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 md:p-8 border border-white/[0.05] shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl sm:text-2xl font-extrabold flex items-center gap-3 text-white drop-shadow-lg tracking-tight">
-                  <SquarePen className="w-6 h-6 text-violet-500" />
-                  Your Reviews
-                </h2>
-              </div>
-              <div className="w-full">
-
-                <ReviewList userId={user?.uid ?? ''} />
-              </div>
+              <h2 className="text-lg sm:text-xl font-extrabold flex items-center gap-2.5 text-white mb-4">
+                <SquarePen className="w-5 h-5 sm:w-6 sm:h-6 text-violet-500" />
+                Your Reviews
+              </h2>
+              <ReviewList userId={user?.uid ?? ''} />
             </motion.div>
-
 
             <RecommendationSection
               watchlist={watchlist}
@@ -792,335 +861,214 @@ const ProfilePage = () => {
               onMediaClick={handleMediaClick}
             />
           </div>
-          <div className="space-y-8">
+
+          <div className="space-y-6">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl p-6 border border-white/5 shadow-xl"
+              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-white/[0.05] shadow-xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
+                <h2 className="text-lg font-bold flex items-center gap-2">
                   <Bookmark className="w-5 h-5 text-cyan-400 fill-current" />
                   Watchlist
                 </h2>
-                <Link to="/watchlist" className="text-cyan-400 hover:text-cyan-500 transition-colors">
+                <Link to="/watchlist" className="text-cyan-400 hover:text-cyan-300 transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
-              {/* Movies/Series Toggle */}
-              <div className="flex items-center justify-center mb-4">
-                <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-sm border border-white/10 rounded-full p-0.5 shadow-lg">
-                  <button
-                    onClick={() => setWatchlistFilter('movie')}
-                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${watchlistFilter === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
-                  >
-                    Movies
-                  </button>
-                  <button
-                    onClick={() => setWatchlistFilter('tv')}
-                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${watchlistFilter === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
-                  >
-                    Series
-                  </button>
-                  <motion.div
-                    className="absolute inset-y-1 bg-gradient-to-r from-cyan-600 to-cyan-500 rounded-full shadow-lg shadow-cyan-500/40"
-                    layoutId="watchlist-toggle"
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    style={{
-                      left: watchlistFilter === 'movie' ? '4px' : '50%',
-                      right: watchlistFilter === 'tv' ? '4px' : '50%',
-                    }}
-                  />
-                </div>
-              </div>
 
-              {filteredWatchlist.length === 0 ? (
-                <p className="text-zinc-500 text-center py-4">No {watchlistFilter === 'movie' ? 'movies' : 'series'} in watchlist yet</p>
-              ) : (
-                <div className="w-full">
-                  <div className="overflow-x-auto no-scrollbar">
-                    <div className="flex gap-4 pb-2">
-                      {[...filteredWatchlist]
-                        .slice()
-                        .reverse()
-                        .map((movie) => (
-                          <Link
-                            key={movie.id}
-                            to={movie.mediaType === 'tv' ? `/tv/${movie.id}` : `/movie/${movie.id}`}
-                            className="group relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-cyan-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-cyan-500/10 min-w-[120px] max-w-[120px]"
-                          >
-                            {/* Media Type Badge */}
-                            <div className="absolute top-2 right-2 z-20 bg-cyan-500/80 text-white text-xs px-2 py-1 rounded-full shadow">
-                              {movie.mediaType === 'tv' ? 'TV' : 'Movie'}
-                            </div>
+              <TogglePill
+                value={watchlistFilter}
+                onChange={setWatchlistFilter}
+                options={[{ value: 'movie', label: 'Movies' }, { value: 'tv', label: 'Series' }]}
+                layoutId="watchlist-pill"
+                activeColor="bg-gradient-to-r from-cyan-600 to-cyan-500 shadow-cyan-500/30"
+              />
 
-                            <div className="relative aspect-[2/3]">
-                              <img
-                                src={movie.posterPath}
-                                alt={movie.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                              />
-                              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
-                            </div>
-                            <div className="p-2">
-                              <h3 className="font-semibold text-xs truncate group-hover:text-cyan-400 transition-colors">
-                                {movie.title}
-                              </h3>
-                            </div>
-                          </Link>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <MediaRow
+                items={filteredWatchlist.slice().reverse()}
+                emptyLabel={`No ${watchlistFilter === 'movie' ? 'movies' : 'series'} in watchlist`}
+                accentClass="border-cyan-500/30 shadow-cyan-500/10"
+                to={(item) => `/${item.mediaType}/${item.id}`}
+              />
             </motion.div>
+
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl p-6 border border-white/5 shadow-xl"
+              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-white/[0.05] shadow-xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
+                <h2 className="text-lg font-bold flex items-center gap-2">
                   <History className="w-5 h-5 text-emerald-500" />
                   History
                 </h2>
-                <Link to="/history" className="text-emerald-400 hover:text-emerald-500 transition-colors">
+                <Link to="/history" className="text-emerald-400 hover:text-emerald-300 transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
 
-              {/* Movies/Series Toggle */}
-              <div className="flex items-center justify-center mb-4">
-                <div className="relative flex items-center bg-zinc-800/60 backdrop-blur-sm border border-white/10 rounded-full p-0.5 shadow-lg">
-                  <button
-                    onClick={() => setHistoryFilter('movie')}
-                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${historyFilter === 'movie' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
-                  >
-                    Movies
-                  </button>
-                  <button
-                    onClick={() => setHistoryFilter('tv')}
-                    className={`relative z-10 px-3 py-1.5 font-semibold text-xs transition-all duration-300 rounded-full ${historyFilter === 'tv' ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
-                  >
-                    Series
-                  </button>
-                  <motion.div
-                    className="absolute inset-y-1 bg-gradient-to-r from-emerald-600 to-emerald-500 rounded-full shadow-lg shadow-emerald-500/40"
-                    layoutId="history-toggle"
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    style={{
-                      left: historyFilter === 'movie' ? '4px' : '50%',
-                      right: historyFilter === 'tv' ? '4px' : '50%',
-                    }}
-                  />
-                </div>
-              </div>
+              <TogglePill
+                value={historyFilter}
+                onChange={setHistoryFilter}
+                options={[{ value: 'movie', label: 'Movies' }, { value: 'tv', label: 'Series' }]}
+                layoutId="history-pill"
+                activeColor="bg-gradient-to-r from-emerald-600 to-emerald-500 shadow-emerald-500/30"
+              />
 
-              {filteredHistory.length === 0 ? (
-                <p className="text-zinc-500 text-center py-4">No history yet</p>
-              ) : (
-                <div className="w-full">
-                  <div className="overflow-x-auto no-scrollbar">
-                    <div className="flex gap-4 pb-2">
-                      {filteredHistory
-                        .slice(0, 10)
-                        .map((movie) => (
-                          <Link
-                            key={movie.id}
-                            to={`/${movie.mediaType || 'movie'}/${movie.id}`}
-                            className="group bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-emerald-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/10 min-w-[120px] max-w-[120px]"
-                          >
-                            <div className="relative aspect-[2/3]">
-                              <img
-                                src={movie.posterPath}
-                                alt={movie.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                              />
-                              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
-                            </div>
-                            <div className="p-2">
-                              <h3 className="font-semibold text-xs truncate group-hover:text-emerald-400 transition-colors">
-                                {movie.title}
-                              </h3>
-                            </div>
-                          </Link>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <MediaRow
+                items={filteredHistory.slice(0, 10)}
+                emptyLabel="No history yet"
+                accentClass="border-emerald-500/30 shadow-emerald-500/10"
+                to={(item) => `/${item.mediaType || 'movie'}/${item.id}`}
+              />
             </motion.div>
+
             <motion.div
               initial={{ opacity: 0, x: 15 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-              className="bg-white/20 dark:bg-zinc-950/35 backdrop-blur-xl rounded-3xl p-5 md:p-6 border border-amber-500/10 dark:border-amber-500/20 shadow-[0_12px_40px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_48px_rgba(212,163,89,0.05)] w-full transition-all duration-300"
+              className="bg-zinc-950/40 backdrop-blur-xl rounded-3xl p-5 sm:p-6 border border-amber-500/10 shadow-xl"
             >
-              {/* Card Header */}
-              <div className="flex items-center justify-between mb-6 pb-3 border-b border-black/5 dark:border-amber-500/10">
+              <div className="flex items-center justify-between mb-5 pb-3 border-b border-amber-500/10">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                    <Star className="w-4 h-4 text-amber-500 dark:text-amber-400 fill-amber-500/20" />
+                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
                   </div>
-                  <h2 className="text-md font-semibold bg-gradient-to-r from-zinc-900 to-amber-700 dark:from-white dark:to-amber-300 bg-clip-text text-transparent tracking-tight">
-                    Rated Movies
-                  </h2>
+                  <h2 className="text-base font-semibold text-white tracking-tight">Rated Movies</h2>
                 </div>
-
                 <Link
                   to="/top-rated"
-                  className="group p-1.5 rounded-lg hover:bg-amber-500/5 border border-transparent hover:border-amber-500/20 text-zinc-400 hover:text-amber-500 dark:hover:text-amber-400 transition-all duration-300"
+                  className="p-1.5 rounded-lg hover:bg-amber-500/10 text-zinc-400 hover:text-amber-400 transition-all duration-200"
                 >
-                  <ChevronRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                  <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
 
-              {/* Empty State */}
               {ratedMovies.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 px-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/5 backdrop-blur-md border border-amber-500/10 flex items-center justify-center mb-3 shadow-inner">
-                    <Star className="w-5 h-5 text-amber-500/40" />
+                <div className="flex flex-col items-center py-8 gap-2">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center justify-center">
+                    <Star className="w-4 h-4 text-amber-500/30" />
                   </div>
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-300 text-center">No rated movies yet</p>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center mt-0.5">Rate media elements across the app to see them here</p>
+                  <p className="text-zinc-300 text-sm font-medium">No rated movies yet</p>
+                  <p className="text-zinc-500 text-xs text-center">Rate media across the app to see them here</p>
                 </div>
               ) : (
-                <div className="w-full">
-                  {/* Scrollable Container */}
-                  <div className="overflow-y-auto max-h-[380px] pr-1.5 space-y-2.5 custom-scrollbar scrollbar-thin scrollbar-thumb-amber-500/20">
-                    {ratedMovies.map((movie, index) => {
+                <div className="overflow-y-auto max-h-[360px] space-y-2 pr-1">
+                  {ratedMovies.map((movie, idx) => {
+                    const raw = movie.posterPath ?? '';
+                    const posterUrl = raw.startsWith('http')
+                      ? raw
+                      : raw.startsWith('//')
+                      ? `https:${raw}`
+                      : raw
+                      ? `https://image.tmdb.org/t/p/w185${raw.startsWith('/') ? '' : '/'}${raw}`
+                      : '';
 
-                      // FIXED: Strictly using posterPath to satisfy the TS compiler definition
-                      const rawPath = movie.posterPath;
-                      let posterUrl = "";
-
-                      if (rawPath) {
-                        if (rawPath.startsWith('http')) {
-                          posterUrl = rawPath;
-                        } else if (rawPath.startsWith('//')) {
-                          posterUrl = `https:${rawPath}`;
-                        } else {
-                          // Appends the base TMDB string cleanly
-                          posterUrl = `https://image.tmdb.org/t/p/w185${rawPath.startsWith('/') ? '' : '/'}${rawPath}`;
-                        }
-                      }
-
-                      return (
-                        <div
-                          key={movie.id}
-                          onClick={() => handleMediaClick(movie.id, 'movie')}
-                          className="group flex items-center gap-3 bg-black/5 dark:bg-zinc-900/20 hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.02] backdrop-blur-md rounded-2xl p-2.5 border border-transparent hover:border-amber-500/20 dark:hover:border-amber-500/10 transition-all duration-300 cursor-pointer shadow-inner"
-                        >
-                          {/* Rank Counter */}
-                          <div className="w-7 h-7 shrink-0 rounded-lg bg-black/5 dark:bg-zinc-900/50 flex items-center justify-center border border-black/5 dark:border-zinc-800">
-                            <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors duration-200">
-                              {String(index + 1).padStart(2, '0')}
-                            </span>
-                          </div>
-
-                          {/* Poster Image Layer */}
-                          <div className="w-8 h-11 rounded-md bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-900 dark:to-zinc-950 overflow-hidden relative border border-black/10 dark:border-amber-500/10 shrink-0 shadow-sm flex items-center justify-center">
-                            {posterUrl ? (
-                              <img
-                                src={posterUrl}
-                                alt={movie.title}
-                                loading="lazy"
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                              />
-                            ) : (
-                              <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-amber-950/20 to-zinc-900 flex items-center justify-center">
-                                <span className="text-[9px] font-bold text-amber-500/30 uppercase tracking-tighter">Film</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-xs md:text-sm text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors duration-200 truncate">
-                              {movie.title}
-                            </h3>
-                            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
-                              Movie
-                            </p>
-                          </div>
-
-                          {/* Gold Score Badge */}
-                          <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-bold shadow-sm group-hover:bg-amber-500 group-hover:text-black dark:group-hover:text-black group-hover:border-transparent transition-all duration-300">
-                            <Star className="w-3 h-3 fill-current" />
-                            <span>{movie.rating}</span>
-                          </div>
+                    return (
+                      <div
+                        key={movie.id}
+                        onClick={() => handleMediaClick(movie.id, 'movie')}
+                        className="group flex items-center gap-3 bg-zinc-900/20 hover:bg-amber-500/5 rounded-2xl p-2.5 border border-transparent hover:border-amber-500/20 transition-all duration-300 cursor-pointer"
+                      >
+                        <div className="w-6 h-6 shrink-0 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-zinc-400 group-hover:text-amber-400 transition-colors">
+                            {String(idx + 1).padStart(2, '0')}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        <div className="w-8 h-11 shrink-0 rounded-md overflow-hidden border border-amber-500/10 bg-zinc-900">
+                          {posterUrl ? (
+                            <img
+                              src={posterUrl}
+                              alt={movie.title}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                              <Film className="w-3 h-3 text-zinc-700" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs sm:text-sm font-medium text-zinc-200 group-hover:text-amber-300 transition-colors truncate">
+                            {movie.title}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 mt-0.5">Movie</p>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[11px] font-bold group-hover:bg-amber-500 group-hover:text-black group-hover:border-transparent transition-all duration-300">
+                          <Star className="w-3 h-3 fill-current" />
+                          {movie.rating}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
+
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.25 }}
-              className="bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl p-6 md:p-8 border border-white/5 shadow-xl"
+              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-white/[0.05] shadow-xl"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3 text-white drop-shadow-lg">
-                  <Heart className="w-6 h-6 text-red-500 fill-current" />
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2.5 text-white">
+                  <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 fill-current" />
                   Favourite Talents
                 </h2>
-                <Link
-                  to="/fav-talents"
-                  className="text-red-400 hover:text-red-500 transition-colors flex items-center"
-                  aria-label="Go to Favourite Actors page"
-                >
+                <Link to="/fav-talents" className="text-red-400 hover:text-red-300 transition-colors">
                   <ChevronRight className="w-5 h-5" />
                 </Link>
               </div>
-              {favouriteActors.length === 0 ? (
-                <p className="text-zinc-500 text-center py-4">No favourite talents yet</p>
-              ) : (
-                <div className="w-full">
-                  <div className="overflow-x-auto no-scrollbar">
-                    <div className="flex gap-4 pb-2">
-                      {favouriteActors.map((actor, index) => (
-                        <Link
-                          key={actor.id}
-                          to={`/actor/${actor.id}`}
-                          className="group relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 hover:shadow-2xl hover:shadow-red-500/10 min-w-[100px] max-w-[100px]"
-                        >
-                          <div className="absolute top-2 left-2 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-1.5 py-0.5">
-                            <span className="text-[10px] font-bold text-zinc-300">
-                              #{index + 1}
-                            </span>
-                          </div>
 
-                          <div className="absolute top-2 right-2 z-20 bg-gradient-to-br from-red-500 to-red-600 p-1 rounded-full shadow-lg shadow-red-500/30">
+              {favouriteActors.length === 0 ? (
+                <p className="text-zinc-500 text-center text-sm py-4">No favourite talents yet</p>
+              ) : (
+                <div className="overflow-x-auto -mx-1 px-1 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-3">
+                    {favouriteActors.map((actor, idx) => (
+                      <Link
+                        key={actor.id}
+                        to={`/actor/${actor.id}`}
+                        className="group flex-shrink-0 w-[90px] sm:w-[100px] rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 bg-zinc-900/60"
+                      >
+                        <div className="relative aspect-[3/4]">
+                          <div className="absolute top-1.5 left-1.5 z-10 bg-black/60 backdrop-blur-sm border border-white/10 rounded-md px-1.5 py-0.5">
+                            <span className="text-[9px] font-bold text-zinc-300">#{idx + 1}</span>
+                          </div>
+                          <div className="absolute top-1.5 right-1.5 z-10 bg-red-500 p-1 rounded-full shadow-lg shadow-red-500/30">
                             <Heart className="w-2.5 h-2.5 text-white fill-current" />
                           </div>
-
-                          <div className="relative aspect-[3/4]">
-                            {actor.profilePath ? (
-                              <img
-                                src={actor.profilePath}
-                                alt={actor.name}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                                <User className="w-8 h-8 text-zinc-500" />
-                              </div>
-                            )}
-                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
-                          </div>
-                          <div className="p-2">
-                            <h3 className="font-semibold text-xs truncate transition-colors group-hover:text-red-400">
-                              {actor.name}
-                            </h3>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
+                          {actor.profilePath ? (
+                            <img
+                              src={actor.profilePath}
+                              alt={actor.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                              <User className="w-7 h-7 text-zinc-500" />
+                            </div>
+                          )}
+                          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/60 to-transparent" />
+                        </div>
+                        <div className="p-2">
+                          <p className="text-xs font-semibold truncate group-hover:text-red-400 transition-colors">
+                            {actor.name}
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1128,16 +1076,6 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
-      {toast.isVisible && (
-        <div
-          className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-50 px-6 py-4 rounded-xl shadow-lg text-white font-semibold transition-all duration-300
-          ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}
-        `}
-          onAnimationEnd={() => setToast((prev) => ({ ...prev, isVisible: false }))}
-        >
-          {toast.message}
-        </div>
-      )}
     </div>
   );
 };
