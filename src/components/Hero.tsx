@@ -148,11 +148,11 @@ const Hero = () => {
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-red-600/60 via-red-500/30 to-transparent" />
 
       {/* ── Main content ── */}
-      <div className="relative flex-grow flex items-center px-4 sm:px-8 lg:px-16 z-10">
+      <div className="relative flex-grow flex items-center px-4 sm:px-8 lg:px-16 z-10 pb-16 md:pb-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={`content-${currentMovie}`}
-            className="max-w-2xl ml-10 sm:ml-14 lg:ml-16"
+            className="max-w-2xl ml-2 sm:ml-6 lg:ml-12"
             variants={FADE_VARIANTS}
             initial="enter"
             animate="center"
@@ -240,40 +240,77 @@ const Hero = () => {
             </div>
           </motion.div>
         </AnimatePresence>
-
-        {/* ── Nav arrows ── */}
-        {trendingMovies.length > 1 && (
-          <>
-            <button
-              onClick={prevMovie}
-              className="hero-nav-btn absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </button>
-            <button
-              onClick={nextMovie}
-              className="hero-nav-btn absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20"
-              aria-label="Next"
-            >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </button>
-          </>
-        )}
       </div>
 
-      {/* ── Dot pagination ── */}
+      {/* ── Mobile Combined Control Bar (< md) ── */}
       {trendingMovies.length > 1 && (
-        <div className="absolute bottom-5 sm:bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+        <div className="flex md:hidden absolute bottom-4 right-4 z-20 items-center gap-2 px-3 py-2 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+          <button
+            onClick={prevMovie}
+            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
+            aria-label="Previous Slide"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <div className="flex items-center gap-1.5 px-1">
+            {trendingMovies.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToMovie(index)}
+                aria-label={`Go to slide ${index + 1}`}
+                aria-current={currentMovie === index}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  currentMovie === index
+                    ? "w-5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
+                    : "w-1.5 bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={nextMovie}
+            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
+            aria-label="Next Slide"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Desktop Nav Arrows (≥ md) ── */}
+      {trendingMovies.length > 1 && (
+        <div className="hidden md:flex absolute bottom-6 right-8 lg:right-16 z-20 items-center gap-2">
+          <button
+            onClick={prevMovie}
+            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-xl border border-white/20 transition-all duration-200 text-white shadow-xl hover:border-white/30"
+            aria-label="Previous Slide"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={nextMovie}
+            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-xl border border-white/20 transition-all duration-200 text-white shadow-xl hover:border-white/30"
+            aria-label="Next Slide"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Desktop Glassmorphic Pill Dot Pagination (≥ md) ── */}
+      {trendingMovies.length > 1 && (
+        <div className="hidden md:flex absolute bottom-6 left-8 lg:left-16 z-20 items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
           {trendingMovies.map((_, index) => (
             <button
               key={index}
               onClick={() => goToMovie(index)}
               aria-label={`Go to slide ${index + 1}`}
               aria-current={currentMovie === index}
-              className={`h-2 rounded-full transition-all duration-400 ${
+              className={`h-2 rounded-full transition-all duration-500 ${
                 currentMovie === index
-                  ? "w-8 sm:w-10 bg-red-500 hero-dot-glow"
+                  ? "w-8 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]"
                   : "w-2 bg-white/30 hover:bg-white/60"
               }`}
             />

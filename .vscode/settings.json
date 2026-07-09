@@ -1,4 +1,7 @@
 {
-    "Codegeex.GenerationPreference": "automatic",
-    "CodeGPT.apiKey": "Perplexity"
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "Codegeex.GenerationPreference": "automatic",
+  "CodeGPT.apiKey": "Perplexity"
 }
