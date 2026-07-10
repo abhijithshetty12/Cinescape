@@ -476,6 +476,30 @@ const MovieDetails = () => {
     });
   }, [crew]);
 
+  const embedUrl = useMemo(() =>
+    `https://www.vidking.net/embed/movie/${id}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`,
+    [id]
+  );
+
+  // Memoize player to prevent re-renders (and pausing) when typing reviews/ratings
+  const VideoPlayer = useMemo(() => (
+    <div className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-black shadow-[0_0_50px_-12px_rgba(239,68,68,0.15)] group-hover:shadow-[0_0_60px_-10px_rgba(239,68,68,0.25)] group-hover:border-white/[0.12] transition-all duration-500">
+      <div className="w-full aspect-video bg-zinc-950">
+        <iframe
+          key={id}
+          src={embedUrl}
+          width="100%"
+          height="100%"
+          allowFullScreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; orientation-lock"
+          title="Movie Player"
+          className="w-full h-full border-0"
+          loading="lazy"
+        />
+      </div>
+    </div>
+  ), [embedUrl, id]);
+
   if (loading) return <Loading />;
   if (error || !movieDetails) return <p className="text-center text-red-500 py-20">{error}</p>;
 
@@ -485,7 +509,6 @@ const MovieDetails = () => {
     : 'N/A';
   const posterUrl = `https://image.tmdb.org/t/p/w780/${movieDetails.poster_path}`;
   const heroBackdrop = heroBackdropUrl ?? posterUrl;
-  const embedUrl = `https://www.vidking.net/embed/movie/${id}?color=e50914&nextEpisode=true&episodeSelector=true`;
 
   const genres = movieDetails.genres ?? [];
   const segments = genres.map((g) => ({
@@ -828,19 +851,7 @@ const MovieDetails = () => {
             </div>
           </div>
 
-          <div className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-black shadow-[0_0_50px_-12px_rgba(239,68,68,0.15)] group-hover:shadow-[0_0_60px_-10px_rgba(239,68,68,0.25)] group-hover:border-white/[0.12] transition-all duration-500">
-            <div className="w-full aspect-video bg-zinc-950">
-              <iframe
-                src={embedUrl}
-                width="100%"
-                height="100%"
-                allowFullScreen
-                allow="fullscreen; picture-in-picture; autoplay; orientation-lock"
-                title="Movie Player"
-                className="w-full h-full border-0"
-              />
-            </div>
-          </div>
+          {VideoPlayer}
         </motion.section>
 
         <motion.div
