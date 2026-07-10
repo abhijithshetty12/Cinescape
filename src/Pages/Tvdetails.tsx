@@ -12,6 +12,7 @@ import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
 import { collection, addDoc, getDocs, query, deleteDoc } from 'firebase/firestore';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
@@ -141,6 +142,8 @@ const WatchedButton = ({
 const TvDetails = () => {
   const { id } = useParams<{ id: string }>();
   useAuth();
+  
+  useAutoLandscapeFullscreen();
 
   const [show, setShow] = useState<TvShow | null>(null);
   const [loading, setLoading] = useState(true);

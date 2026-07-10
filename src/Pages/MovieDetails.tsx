@@ -12,6 +12,7 @@ import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
 import { collection, addDoc, query, setDoc, doc, getDocs, deleteDoc } from 'firebase/firestore';
+import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
@@ -162,6 +163,8 @@ const MovieDetails = () => {
   const moviePartsContainerRef = useRef<HTMLDivElement>(null);
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+
+  useAutoLandscapeFullscreen();
 
   const [userReview, setUserReview] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
