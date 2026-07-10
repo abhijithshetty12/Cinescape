@@ -71,7 +71,7 @@ type HistoryItem = {
 type FavouriteActor = { id: string; name: string; profilePath: string };
 type RatedMovie = { id: string; title: string; posterPath: string; rating: number };
 
-const RecommendationSection = ({
+export const RecommendationSection = ({
   watchlist,
   history,
   favouriteActors,
@@ -87,7 +87,7 @@ const RecommendationSection = ({
   onMediaClick: (id: string, mediaType: string) => void;
 }) => {
   const [items, setItems] = useState<RecommendedItem[]>([]);
-  const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
+  const [mediaType, setMediaType] = useState<"movie" | "tv">("movie");
   const [loading, setLoading] = useState(false);
 
   const seqRef = useRef(0);
@@ -95,158 +95,181 @@ const RecommendationSection = ({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
-  const fetchRecommendations = useCallback(async (type: 'movie' | 'tv') => {
-    const seq = ++seqRef.current;
-    setLoading(true);
+  const fetchRecommendations = useCallback(
+    async (type: "movie" | "tv") => {
+      const seq = ++seqRef.current;
+      setLoading(true);
 
-    const watchedOrWatchlistIds = new Set<string>();
-    history.forEach((h) => { if (h.mediaType === type) watchedOrWatchlistIds.add(h.id); });
-    watchlist.forEach((w) => { if (w.mediaType === type) watchedOrWatchlistIds.add(w.id); });
+      const watchedOrWatchlistIds = new Set<string>();
+      history.forEach((h) => {
+        if (h.mediaType === type) watchedOrWatchlistIds.add(h.id);
+      });
+      watchlist.forEach((w) => {
+        if (w.mediaType === type) watchedOrWatchlistIds.add(w.id);
+      });
 
-    const highlyRated = ratedMovies.filter((m) => m.rating >= 7).map((m) => m.id);
-    const watchlistIds = watchlist.filter((m) => m.mediaType === type).map((m) => m.id);
-    const historyIds = history.filter((h) => h.mediaType === type).map((h) => h.id);
+      const highlyRated = ratedMovies.filter((m) => m.rating >= 7).map((m) => m.id);
+      const watchlistIds = watchlist.filter((m) => m.mediaType === type).map((m) => m.id);
+      const historyIds = history.filter((h) => h.mediaType === type).map((h) => h.id);
 
-    const genreIdsSet = new Set<number>(
-      selectedGenres.map((g) => GENRE_MAP[g.trim()]).filter(Boolean),
-    );
+      const genreIdsSet = new Set<number>(
+        selectedGenres.map((g) => GENRE_MAP[g.trim()]).filter(Boolean)
+      );
 
-    let recommended: any[] = [];
-
-    try {
-      if (highlyRated.length > 0) {
-        await Promise.all(
-          highlyRated.slice(0, 3).map(async (movieId) => {
-            try {
-              const res = await axios.get(
-                `https://api.themoviedb.org/3/${type}/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`,
-              );
-              (res.data.genres ?? []).forEach((g: any) => genreIdsSet.add(g.id));
-            } catch {}
-          }),
-        );
-
-        const results = await Promise.all(
-          highlyRated.slice(0, 5).map(async (movieId) => {
-            try {
-              const res = await axios.get(
-                `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`,
-              );
-              return res.data.results ?? [];
-            } catch { return []; }
-          }),
-        );
-        results.forEach((r) => recommended.push(...r.slice(0, 12)));
-      }
-
-      if (watchlistIds.length > 0 && recommended.length < 20) {
-        const results = await Promise.all(
-          watchlistIds.slice(0, 5).map(async (movieId) => {
-            try {
-              const res = await axios.get(
-                `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`,
-              );
-              return res.data.results ?? [];
-            } catch { return []; }
-          }),
-        );
-        results.forEach((r) => recommended.push(...r.slice(0, 10)));
-      }
-
-      if (historyIds.length > 0 && recommended.length < 20) {
-        const results = await Promise.all(
-          historyIds.slice(0, 5).map(async (movieId) => {
-            try {
-              const res = await axios.get(
-                `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`,
-              );
-              return res.data.results ?? [];
-            } catch { return []; }
-          }),
-        );
-        results.forEach((r) => recommended.push(...r.slice(0, 8)));
-      }
-
-      if (favouriteActors.length > 0 && recommended.length < 20) {
-        const results = await Promise.all(
-          favouriteActors.slice(0, 10).map(async (actor) => {
-            try {
-              const res = await axios.get(
-                `https://api.themoviedb.org/3/person/${actor.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`,
-              );
-              return res.data.cast ?? [];
-            } catch { return []; }
-          }),
-        );
-        results.forEach((r) => recommended.push(...r.slice(0, 10)));
-      }
-
-      const genreIds = Array.from(genreIdsSet);
-      if (genreIds.length > 0 && recommended.length < 20) {
-        const results = await Promise.all(
-          genreIds.slice(0, 3).map(async (genreId) => {
-            try {
-              const res = await axios.get(
-                `https://api.themoviedb.org/3/discover/${type}?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`,
-              );
-              return res.data.results ?? [];
-            } catch { return []; }
-          }),
-        );
-        results.forEach((r) => recommended.push(...r.slice(0, 8)));
-      }
+      let recommended: any[] = [];
 
       try {
-        const res = await axios.get(
-          `https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_API_KEY}`,
-        );
-        recommended.push(...(res.data.results ?? []).slice(0, 15));
-      } catch {}
+        if (highlyRated.length > 0) {
+          await Promise.all(
+            highlyRated.slice(0, 3).map(async (movieId) => {
+              try {
+                const res = await axios.get(
+                  `https://api.themoviedb.org/3/${type}/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
+                );
+                (res.data.genres ?? []).forEach((g: any) => genreIdsSet.add(g.id));
+              } catch { }
+            })
+          );
 
-      try {
-        const res = await axios.get(
-          `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`,
-        );
-        recommended.push(...(res.data.results ?? []).slice(0, 15));
-      } catch {}
+          const results = await Promise.all(
+            highlyRated.slice(0, 5).map(async (movieId) => {
+              try {
+                const res = await axios.get(
+                  `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
+                );
+                return res.data.results ?? [];
+              } catch {
+                return [];
+              }
+            })
+          );
+          results.forEach((r) => recommended.push(...r.slice(0, 12)));
+        }
 
-      if (recommended.length === 0) {
+        if (watchlistIds.length > 0 && recommended.length < 20) {
+          const results = await Promise.all(
+            watchlistIds.slice(0, 5).map(async (movieId) => {
+              try {
+                const res = await axios.get(
+                  `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
+                );
+                return res.data.results ?? [];
+              } catch {
+                return [];
+              }
+            })
+          );
+          results.forEach((r) => recommended.push(...r.slice(0, 10)));
+        }
+
+        if (historyIds.length > 0 && recommended.length < 20) {
+          const results = await Promise.all(
+            historyIds.slice(0, 5).map(async (movieId) => {
+              try {
+                const res = await axios.get(
+                  `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
+                );
+                return res.data.results ?? [];
+              } catch {
+                return [];
+              }
+            })
+          );
+          results.forEach((r) => recommended.push(...r.slice(0, 8)));
+        }
+
+        if (favouriteActors.length > 0 && recommended.length < 20) {
+          const results = await Promise.all(
+            favouriteActors.slice(0, 10).map(async (actor) => {
+              try {
+                const res = await axios.get(
+                  `https://api.themoviedb.org/3/person/${actor.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`
+                );
+                return res.data.cast ?? [];
+              } catch {
+                return [];
+              }
+            })
+          );
+          results.forEach((r) => recommended.push(...r.slice(0, 10)));
+        }
+
+        const genreIds = Array.from(genreIdsSet);
+        if (genreIds.length > 0 && recommended.length < 20) {
+          const results = await Promise.all(
+            genreIds.slice(0, 3).map(async (genreId) => {
+              try {
+                const res = await axios.get(
+                  `https://api.themoviedb.org/3/discover/${type}?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`
+                );
+                return res.data.results ?? [];
+              } catch {
+                return [];
+              }
+            })
+          );
+          results.forEach((r) => recommended.push(...r.slice(0, 8)));
+        }
+
         try {
           const res = await axios.get(
-            `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`,
+            `https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_API_KEY}`
           );
-          recommended.push(...(res.data.results ?? []).slice(0, 20));
-        } catch {}
-      }
-    } catch {}
+          recommended.push(...(res.data.results ?? []).slice(0, 15));
+        } catch { }
 
-    if (!mountedRef.current || seq !== seqRef.current) return;
+        try {
+          const res = await axios.get(
+            `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
+          );
+          recommended.push(...(res.data.results ?? []).slice(0, 15));
+        } catch { }
 
-    const unique = new Map<string, RecommendedItem>();
-    recommended.forEach((m: any) => {
-      const mid = m.id?.toString();
-      if (mid && !unique.has(mid) && !watchedOrWatchlistIds.has(mid)) {
-        const mType = m.media_type || type;
-        if (mType === type) {
-          unique.set(mid, {
-            id: mid,
-            title: m.title ?? m.name ?? '',
-            posterPath: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-            mediaType: mType,
-            overview: m.overview ?? '',
-            voteAverage: m.vote_average ?? 0,
-          });
+        if (recommended.length === 0) {
+          try {
+            const res = await axios.get(
+              `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
+            );
+            recommended.push(...(res.data.results ?? []).slice(0, 20));
+          } catch { }
         }
-      }
-    });
+      } catch { }
 
-    const sorted = Array.from(unique.values()).sort((a, b) => b.voteAverage - a.voteAverage);
-    setItems(sorted.slice(0, 50));
-    setLoading(false);
-  }, [watchlist, history, favouriteActors, selectedGenres, ratedMovies]);
+      if (!mountedRef.current || seq !== seqRef.current) return;
+
+      const unique = new Map<string, RecommendedItem>();
+      recommended.forEach((m: any) => {
+        const mid = m.id?.toString();
+        if (mid && !unique.has(mid) && !watchedOrWatchlistIds.has(mid)) {
+          const mType = m.media_type || type;
+          if (mType === type) {
+            unique.set(mid, {
+              id: mid,
+              title: m.title ?? m.name ?? "",
+              posterPath: m.poster_path
+                ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
+                : "",
+              mediaType: mType,
+              overview: m.overview ?? "",
+              voteAverage: m.vote_average ?? 0,
+            });
+          }
+        }
+      });
+
+      const sorted = Array.from(unique.values()).sort(
+        (a, b) => b.voteAverage - a.voteAverage
+      );
+      setItems(sorted.slice(0, 50));
+      setLoading(false);
+    },
+    [watchlist, history, favouriteActors, selectedGenres, ratedMovies]
+  );
 
   useEffect(() => {
     setItems([]);
@@ -258,18 +281,20 @@ const RecommendationSection = ({
       setItems([]);
       fetchRecommendations(mediaType);
     };
-    const onVisible = () => { if (!document.hidden) refresh(); };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', refresh);
+    const onVisible = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
     const interval = window.setInterval(refresh, 60_000);
     return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
       window.clearInterval(interval);
     };
   }, [mediaType, fetchRecommendations]);
 
-  const switchType = (t: 'movie' | 'tv') => {
+  const switchType = (t: "movie" | "tv") => {
     if (t === mediaType) return;
     setItems([]);
     setMediaType(t);
@@ -277,107 +302,163 @@ const RecommendationSection = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, delay: 0.35 }}
-      className="bg-zinc-900/60 backdrop-blur-xl rounded-2xl p-5 sm:p-6 md:p-8 border border-zinc-700/50 shadow-2xl"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="relative rounded-3xl bg-neutral-900/40 border border-white/[0.08] backdrop-blur-2xl p-4 xs:p-5 sm:p-7 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden"
     >
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-          <img src="/recommendation-icon.png" alt="Recommendations" className="w-9 h-10 shadow-lg" />
-          Recommendations
-        </h2>
-      </div>
+      <div className="absolute top-0 left-1/4 -translate-y-1/2 w-72 sm:w-96 h-32 bg-red-600/10 blur-[100px] pointer-events-none rounded-full" />
+      <div className="absolute bottom-0 right-1/4 translate-y-1/2 w-72 sm:w-96 h-32 bg-amber-500/10 blur-[100px] pointer-events-none rounded-full" />
 
-      <div className="flex justify-center mb-5">
-        <div className="relative flex items-center bg-white/10 border border-white/20 backdrop-blur-xl rounded-full p-0.5 shadow-lg">
-          {(['movie', 'tv'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => switchType(t)}
-              className={`relative z-10 flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 font-semibold text-xs sm:text-sm transition-all duration-300 rounded-full ${
-                mediaType === t ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+      <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8 pb-4 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 bg-indigo-500/25 blur-md rounded-full animate-pulse" />
+            <img
+              src="/recommendation-icon.png"
+              alt="Recommendations"
+              className="relative z-10 w-9 h-9 sm:w-11 sm:h-11 object-contain filter brightness-110 drop-shadow-[0_4px_20px_rgba(124,58,237,0.7)]"
+            />
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+              Recommendations
+            </h2>
+            <p className="text-xs sm:text-sm text-zinc-400 font-medium">
+              Curated based on your preferences
+            </p>
+          </div>
+        </div>
+
+        <div className="relative self-stretch sm:self-auto flex items-center bg-black/40 border border-white/10 backdrop-blur-2xl rounded-2xl p-1 shadow-inner">
+          <button
+            onClick={() => switchType("movie")}
+            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors duration-300 ${mediaType === "movie" ? "text-white" : "text-zinc-400 hover:text-zinc-200"
               }`}
-            >
-              {t === 'movie' ? <Film className="w-3.5 h-3.5" /> : <Tv className="w-3.5 h-3.5" />}
-              {t === 'movie' ? 'Movies' : 'Series'}
-            </button>
-          ))}
+          >
+            <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Movies</span>
+          </button>
+
+          <button
+            onClick={() => switchType("tv")}
+            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors duration-300 ${mediaType === "tv" ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+          >
+            <Tv className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span>Series</span>
+          </button>
+
           <motion.div
-            className="absolute inset-y-0.5 bg-gradient-to-r from-red-600 to-red-500 rounded-full shadow-lg shadow-red-500/40"
-            layoutId="rec-media-toggle"
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="absolute inset-y-1 bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 rounded-xl shadow-lg shadow-red-600/30"
+            layoutId="recommendation-toggle"
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
             style={{
-              left: mediaType === 'movie' ? 2 : '50%',
-              right: mediaType === 'tv' ? 2 : '50%',
+              left: mediaType === "movie" ? "4px" : "calc(50% + 2px)",
+              width: "calc(50% - 6px)",
             }}
           />
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <div className="w-10 h-10 border-4 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
-          <p className="text-zinc-500 text-sm">Loading {mediaType === 'movie' ? 'movies' : 'series'}…</p>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-12">
-          <Film className="w-14 h-14 text-zinc-700 mx-auto mb-3" />
-          <p className="text-zinc-400 font-semibold mb-1">No recommendations yet</p>
-          <p className="text-zinc-500 text-sm">Watch more to get personalised picks</p>
-        </div>
-      ) : (
-        <div>
-          <div className="overflow-x-auto pb-3 -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <div className="flex gap-3">
+      <div className="relative z-10">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="relative w-10 h-10">
+              <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+              <div className="absolute inset-0 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+            </div>
+            <p className="text-zinc-400 text-xs sm:text-sm font-medium tracking-wide uppercase">
+              Curating {mediaType === "movie" ? "movies" : "series"}…
+            </p>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="text-center py-16 px-4">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-white/[0.03] border border-white/10 flex items-center justify-center">
+              <Film className="w-8 h-8 text-zinc-500" />
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+              No Recommendations Yet
+            </h3>
+            <p className="text-zinc-400 text-xs sm:text-sm max-w-xs mx-auto">
+              Watch more to get personalised picks
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div
+              className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 px-1 -mx-1 scrollbar-none"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               {items.map((item) => (
                 <motion.div
                   key={item.id}
-                  whileHover={{ scale: 1.04, y: -4 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => onMediaClick(item.id, item.mediaType)}
-                  className="group flex-shrink-0 w-28 sm:w-32 bg-zinc-800/50 border border-zinc-700/40 rounded-2xl overflow-hidden shadow-lg cursor-pointer"
+                  className="group relative flex-shrink-0 w-32 xs:w-36 sm:w-44 bg-neutral-900/60 border border-white/[0.08] hover:border-white/20 rounded-2xl overflow-hidden shadow-xl cursor-pointer transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.08)]"
                 >
-                  <div className="relative aspect-[2/3]">
+                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-neutral-950">
                     {item.posterPath ? (
                       <img
                         src={item.posterPath}
                         alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                         loading="lazy"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                      <div className="w-full h-full flex items-center justify-center bg-neutral-950">
                         <Film className="w-8 h-8 text-zinc-700" />
                       </div>
                     )}
-                    <div className="absolute top-1.5 right-1.5 bg-black/70 backdrop-blur-sm border border-white/10 rounded-md px-1.5 py-0.5">
-                      <span className={`text-[9px] font-bold uppercase ${item.mediaType === 'tv' ? 'text-cyan-400' : 'text-zinc-300'}`}>
-                        {item.mediaType === 'tv' ? 'TV' : 'Film'}
-                      </span>
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent opacity-60 group-hover:opacity-30 transition-opacity duration-300" />
+
+                    <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-[-20deg] transition-transform duration-1000 ease-in-out" />
                     </div>
-                    {item.voteAverage > 0 && (
-                      <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm border border-amber-500/20 rounded-md px-1.5 py-0.5 flex items-center gap-0.5">
-                        <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
-                        <span className="text-[9px] font-bold text-amber-300">{item.voteAverage.toFixed(1)}</span>
+
+                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                      {item.voteAverage > 0 ? (
+                        <div className="flex items-center gap-1 bg-black/60 border border-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-md">
+                          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                          <span className="text-[10px] sm:text-xs font-bold text-amber-300">
+                            {item.voteAverage.toFixed(1)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div />
+                      )}
+
+                      <div className="bg-black/60 border border-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-md">
+                        <span
+                          className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${item.mediaType === "tv" ? "text-cyan-400" : "text-amber-400"
+                            }`}
+                        >
+                          {item.mediaType === "tv" ? "TV" : "FILM"}
+                        </span>
                       </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
+                    </div>
                   </div>
-                  <div className="p-2.5">
-                    <p className="text-xs font-semibold leading-tight line-clamp-2 text-white/90 group-hover:text-white">
+
+                  <div className="p-3 bg-neutral-900/90 border-t border-white/[0.04] transition-colors duration-300 group-hover:bg-neutral-900">
+                    <h3 className="text-xs sm:text-sm font-bold text-white/90 group-hover:text-white transition-colors duration-300 truncate">
                       {item.title}
-                    </p>
+                    </h3>
                   </div>
                 </motion.div>
               ))}
             </div>
+
+            <div className="flex items-center justify-between mt-3 px-1 pt-3 border-t border-white/[0.04] text-xs text-zinc-500 font-medium">
+              <span>Swipe for more</span>
+              <span>
+                {items.length} {mediaType === "movie" ? "movies" : "series"}
+              </span>
+            </div>
           </div>
-          <p className="text-center text-zinc-600 text-xs mt-2">
-            {items.length} {mediaType === 'movie' ? 'movies' : 'series'}
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -450,9 +531,8 @@ const TogglePill = ({
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`relative z-10 px-4 py-1.5 font-semibold text-xs rounded-full transition-all duration-300 ${
-            value === opt.value ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
-          }`}
+          className={`relative z-10 px-4 py-1.5 font-semibold text-xs rounded-full transition-all duration-300 ${value === opt.value ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'
+            }`}
         >
           {opt.label}
         </button>
@@ -476,6 +556,9 @@ const ProfilePage = () => {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState(user?.username ?? '');
+  const [bio, setBio] = useState('');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [isEditingBio, setIsEditingBio] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [selectedGenres, setSelectedGenres] = useState<string[]>(
@@ -507,6 +590,7 @@ const ProfilePage = () => {
       if (snap.exists()) {
         const data = snap.data();
         setUsername(data.username ?? '');
+        setBio(data.bio ?? '');
         setSelectedGenres(data.preferences?.split(',').filter(Boolean) ?? []);
         if (data.photoDataUrl) setPhotoDataUrl(data.photoDataUrl);
       }
@@ -568,8 +652,8 @@ const ProfilePage = () => {
               profilePath: data.profile_path
                 ? `${BASE_POSTER_URL}${data.profile_path}`
                 : data.profilePath
-                ? `${BASE_POSTER_URL}${data.profilePath}`
-                : '',
+                  ? `${BASE_POSTER_URL}${data.profilePath}`
+                  : '',
             });
           }
         });
@@ -632,10 +716,12 @@ const ProfilePage = () => {
     try {
       await setDoc(
         doc(db, 'users', user.uid),
-        { username, preferences: selectedGenres.join(',') },
+        { username, bio, preferences: selectedGenres.join(',') },
         { merge: true },
       );
       showToast('Profile updated!', 'success');
+      setIsEditingUsername(false);
+      setIsEditingBio(false);
     } catch {
       showToast('Error updating profile, please try again.', 'error');
     } finally {
@@ -646,7 +732,7 @@ const ProfilePage = () => {
   const handleLogout = () => {
     signOut(getAuth())
       .then(() => navigate('/login'))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const handleMediaClick = (id: string, mediaType: string) => navigate(`/${mediaType}/${id}`);
@@ -673,27 +759,36 @@ const ProfilePage = () => {
 
       <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8"
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 pb-6 mb-8 px-4 border-b border-white/[0.06]"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl shadow-lg">
-              <Settings className="text-white w-7 h-7 sm:w-8 sm:h-8" />
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 flex items-center justify-center shrink-0 group hover:scale-[1.05] transition-transform duration-300">
+              <img
+                src="settings-icon.jpeg"
+                alt="Settings"
+                className="w-full h-full object-contain rounded-[22px]"
+              />
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">Profile</h1>
-              <p className="text-gray-400 text-sm">Manage your account and preferences</p>
+
+            <div className="space-y-1.5">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Profile
+              </h1>
+              <p className="text-zinc-400 text-xs sm:text-sm font-medium tracking-wide">
+                Manage your account and preferences
+              </p>
             </div>
           </div>
 
           <button
             onClick={handleLogout}
-            className="self-start sm:self-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm transition-all duration-300 hover:scale-105 shadow-lg shadow-red-500/25 flex items-center gap-2"
+            className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all duration-300 active:scale-[0.98] bg-gradient-to-r from-red-500 via-red-600 to-orange-600 text-white shadow-[0_0_20px_rgba(239,68,68,0.4),0_0_40px_rgba(239,68,68,0.2)] hover:shadow-[0_0_25px_rgba(239,68,68,0.6),0_0_50px_rgba(239,68,68,0.3)] hover:brightness-110 flex items-center justify-center gap-2.5 relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:-translate-x-full hover:before:animate-[shimmer_1.5s_infinite]"
           >
-            <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-            Logout
+            <LogOut className="w-4 h-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]" />
+            <span className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">Logout</span>
           </button>
         </motion.div>
 
@@ -805,34 +900,117 @@ const ProfilePage = () => {
                   )}
                 </div>
 
-                <div className="flex-1 w-full space-y-5">
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter your username"
-                      className="w-full bg-zinc-900/50 border border-zinc-800 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/40 placeholder:text-zinc-600 transition-all duration-300 text-sm"
-                    />
+                <div className="flex-1 w-full space-y-6">
+                  <div className="group/edit relative">
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                        Username
+                      </label>
+                      {!isEditingUsername && (
+                        <button
+                          onClick={() => setIsEditingUsername(true)}
+                          className="opacity-0 group-hover/edit:opacity-100 transition-all duration-200 p-1.5 hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10"
+                          title="Edit Username"
+                        >
+                          <SquarePen className="w-3.5 h-3.5 text-zinc-400 hover:text-white" />
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditingUsername ? (
+                      <div className="relative animate-in fade-in slide-in-from-top-1 duration-200">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                          placeholder="Enter your username"
+                          className="w-full bg-zinc-900/50 border border-zinc-700 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/40 placeholder:text-zinc-600 transition-all duration-300 text-sm"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => setIsEditingUsername(true)}
+                        className="cursor-pointer py-1 group-hover/edit:text-zinc-200 transition-colors duration-300"
+                      >
+                        <p className="text-sm text-white font-medium tracking-tight">
+                          {username || 'Anonymous'}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="w-full sm:w-auto px-7 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 active:scale-95 bg-white text-black hover:bg-zinc-100 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving…
-                      </>
+                  <div className="group/edit relative">
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                        Bio
+                      </label>
+                      {!isEditingBio && (
+                        <button
+                          onClick={() => setIsEditingBio(true)}
+                          className="opacity-0 group-hover/edit:opacity-100 transition-all duration-200 p-1.5 hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10"
+                          title="Edit Bio"
+                        >
+                          <SquarePen className="w-3.5 h-3.5 text-zinc-400 hover:text-white" />
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditingBio ? (
+                      <div className="relative animate-in fade-in slide-in-from-top-1 duration-200">
+                        <textarea
+                          autoFocus
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          placeholder="Tell us about yourself..."
+                          rows={4}
+                          className="w-full bg-zinc-900/50 border border-zinc-700 text-white px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/40 placeholder:text-zinc-600 transition-all duration-300 text-sm resize-none"
+                        />
+                      </div>
                     ) : (
-                      'Update Profile'
+                      <div
+                        onClick={() => setIsEditingBio(true)}
+                        className="cursor-pointer py-1 group-hover/edit:text-zinc-200 transition-colors duration-300"
+                      >
+                        <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                          {bio || 'No bio provided. Write something about yourself!'}
+                        </p>
+                      </div>
                     )}
-                  </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 active:scale-[0.98] bg-white text-black hover:bg-zinc-100 shadow-xl shadow-white/5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5"
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Saving Changes…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Update Profile</span>
+                        </>
+                      )}
+                    </button>
+
+                    {(isEditingUsername || isEditingBio) && (
+                      <button
+                        onClick={() => {
+                          setIsEditingUsername(false);
+                          setIsEditingBio(false);
+                        }}
+                        className="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 active:scale-[0.98] bg-zinc-900 text-zinc-400 hover:text-white border border-white/5 hover:bg-zinc-800 shadow-xl"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -963,10 +1141,10 @@ const ProfilePage = () => {
                     const posterUrl = raw.startsWith('http')
                       ? raw
                       : raw.startsWith('//')
-                      ? `https:${raw}`
-                      : raw
-                      ? `https://image.tmdb.org/t/p/w185${raw.startsWith('/') ? '' : '/'}${raw}`
-                      : '';
+                        ? `https:${raw}`
+                        : raw
+                          ? `https://image.tmdb.org/t/p/w185${raw.startsWith('/') ? '' : '/'}${raw}`
+                          : '';
 
                     return (
                       <div

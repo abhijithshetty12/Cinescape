@@ -449,6 +449,9 @@ const MovieDetails = () => {
         author: user.displayName ?? 'Anonymous',
         content: userReview,
         title: movieDetails?.title,
+        movieId: movieDetails?.id,
+        posterPath: movieDetails?.poster_path,
+        mediaType: 'movie',
         timestamp: new Date(),
       });
       setUserReview('');

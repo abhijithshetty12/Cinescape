@@ -117,7 +117,6 @@ const Hero = () => {
 
   return (
     <div className="relative h-[72vh] min-h-[360px] sm:h-[92vh] sm:min-h-[520px] flex flex-col overflow-hidden bg-black">
-      {/* ── Animated backdrop ── */}
       <AnimatePresence mode="sync">
         <motion.div
           key={`bg-${currentMovie}`}
@@ -131,11 +130,9 @@ const Hero = () => {
         />
       </AnimatePresence>
 
-      {/* ── Cinematic gradient overlays ── */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-black/20" />
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
 
-      {/* ── Red ambient glow at bottom-left ── */}
       <div
         className="absolute bottom-0 left-0 w-96 h-48 pointer-events-none"
         style={{
@@ -144,10 +141,8 @@ const Hero = () => {
         }}
       />
 
-      {/* ── Thin red accent line ── */}
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-red-600/60 via-red-500/30 to-transparent" />
 
-      {/* ── Main content ── */}
       <div className="relative flex-grow flex items-center px-4 sm:px-8 lg:px-16 z-10 pb-16 md:pb-0">
         <AnimatePresence mode="wait">
           <motion.div
@@ -159,9 +154,7 @@ const Hero = () => {
             exit="exit"
             transition={{ duration: 0.55, ease: "easeOut" }}
           >
-            {/* ── Badges ── */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-              {/* Rating badge */}
               <div className="hero-glass-badge flex items-center gap-1.5">
                 <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
                 <span className="text-white font-semibold text-xs sm:text-sm">
@@ -169,7 +162,6 @@ const Hero = () => {
                 </span>
               </div>
 
-              {/* Date badge */}
               <div className="hero-glass-badge flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-green-600" />
                 <span className="text-zinc-200 text-xs sm:text-sm">
@@ -177,13 +169,11 @@ const Hero = () => {
                 </span>
               </div>
 
-              {/* Media type badge */}
               <div
-                className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg ${
-                  movie?.media_type === "tv"
+                className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg ${movie?.media_type === "tv"
                     ? "bg-blue-600/80 text-white border border-blue-400/30"
                     : "bg-red-600/80 text-white border border-red-400/30"
-                }`}
+                  }`}
                 style={{
                   boxShadow:
                     movie?.media_type === "tv"
@@ -195,19 +185,15 @@ const Hero = () => {
               </div>
             </div>
 
-            {/* ── Title ── */}
             <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 sm:mb-5 text-white leading-tight tracking-tight drop-shadow-2xl">
               {movie?.title || movie?.name}
             </h1>
 
-            {/* ── Overview ── */}
             <p className="text-zinc-300 text-sm sm:text-base md:text-lg mb-7 sm:mb-10 line-clamp-3 max-w-xl leading-relaxed">
               {movie?.overview}
             </p>
 
-            {/* ── CTA Buttons ── */}
             <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 sm:gap-4">
-              {/* Watch Trailer — glowy red button */}
               <button
                 onClick={() =>
                   window.open(
@@ -218,13 +204,11 @@ const Hero = () => {
                 className="hero-btn-glow group relative flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base overflow-hidden"
                 aria-label="Watch Trailer"
               >
-                {/* Shine sweep */}
                 <span className="hero-btn-shine" aria-hidden="true" />
                 <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white relative z-10 group-hover:scale-110 transition-transform duration-200" />
                 <span className="relative z-10">Watch Trailer</span>
               </button>
 
-              {/* More Info — glass button */}
               <Link
                 to={
                   movie?.media_type === "tv"
@@ -242,9 +226,8 @@ const Hero = () => {
         </AnimatePresence>
       </div>
 
-      {/* ── Mobile Combined Control Bar (< md) ── */}
       {trendingMovies.length > 1 && (
-        <div className="flex md:hidden absolute bottom-4 right-4 z-20 items-center gap-2 px-3 py-2 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl">
+        <div className="flex md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-20 items-center gap-2">
           <button
             onClick={prevMovie}
             className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
@@ -260,11 +243,10 @@ const Hero = () => {
                 onClick={() => goToMovie(index)}
                 aria-label={`Go to slide ${index + 1}`}
                 aria-current={currentMovie === index}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  currentMovie === index
+                className={`h-1.5 rounded-full transition-all duration-300 ${currentMovie === index
                     ? "w-5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
                     : "w-1.5 bg-white/40"
-                }`}
+                  }`}
               />
             ))}
           </div>
@@ -279,7 +261,6 @@ const Hero = () => {
         </div>
       )}
 
-      {/* ── Desktop Nav Arrows (≥ md) ── */}
       {trendingMovies.length > 1 && (
         <div className="hidden md:flex absolute bottom-6 right-8 lg:right-16 z-20 items-center gap-2">
           <button
@@ -299,7 +280,6 @@ const Hero = () => {
         </div>
       )}
 
-      {/* ── Desktop Glassmorphic Pill Dot Pagination (≥ md) ── */}
       {trendingMovies.length > 1 && (
         <div className="hidden md:flex absolute bottom-6 left-8 lg:left-16 z-20 items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
           {trendingMovies.map((_, index) => (
@@ -308,11 +288,10 @@ const Hero = () => {
               onClick={() => goToMovie(index)}
               aria-label={`Go to slide ${index + 1}`}
               aria-current={currentMovie === index}
-              className={`h-2 rounded-full transition-all duration-500 ${
-                currentMovie === index
+              className={`h-2 rounded-full transition-all duration-500 ${currentMovie === index
                   ? "w-8 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]"
                   : "w-2 bg-white/30 hover:bg-white/60"
-              }`}
+                }`}
             />
           ))}
         </div>
