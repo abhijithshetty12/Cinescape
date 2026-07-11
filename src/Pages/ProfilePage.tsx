@@ -477,31 +477,34 @@ const MediaRow = ({
   items.length === 0 ? (
     <p className="text-zinc-500 text-center py-4 text-sm">{emptyLabel}</p>
   ) : (
-    <div className="overflow-x-auto -mx-1 px-1 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-      <div className="flex gap-3">
+    <div className="overflow-x-auto -mx-1 px-1 pb-2 custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex gap-2.5 sm:gap-3">
         {items.map((item) => (
           <Link
             key={item.id}
             to={to(item)}
-            className={`group flex-shrink-0 w-[110px] sm:w-[120px] rounded-2xl overflow-hidden border border-white/5 hover:${accentClass} transition-all duration-500 bg-zinc-900/60`}
+            className={`group relative flex-shrink-0 w-[95px] sm:w-[110px] rounded-xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-colors duration-200 ${accentClass}`}
           >
-            <div className="relative aspect-[2/3]">
+            <div className="relative aspect-[2/3] overflow-hidden bg-zinc-900">
               {item.posterPath ? (
                 <img
                   src={item.posterPath}
                   alt={item.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                  <ImageOff className="w-6 h-6 text-zinc-600" />
+                <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                  <ImageOff className="w-5 h-5 text-zinc-600" />
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/60 to-transparent" />
+
+              <div className="absolute inset-0 -translate-x-full -translate-y-full bg-gradient-to-br from-transparent via-white/25 to-transparent transition-transform duration-700 ease-in-out group-hover:translate-x-full group-hover:translate-y-full pointer-events-none -rotate-45 scale-150 z-10" />
+              <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-950/80 to-transparent" />
             </div>
-            <div className="p-2">
-              <p className="text-xs font-semibold truncate text-white/80 group-hover:text-white">
+
+            <div className="p-1.5 sm:p-2">
+              <p className="text-[11px] sm:text-xs font-medium truncate text-zinc-200 group-hover:text-white transition-colors">
                 {item.title}
               </p>
             </div>
@@ -767,7 +770,7 @@ const ProfilePage = () => {
           <div className="flex items-center gap-6">
             <div className="w-14 h-14 flex items-center justify-center shrink-0 group hover:scale-[1.05] transition-transform duration-300">
               <img
-                src="settings-icon.jpeg"
+                src="cd.jpg"
                 alt="Settings"
                 className="w-full h-full object-contain rounded-[22px]"
               />
@@ -1017,6 +1020,15 @@ const ProfilePage = () => {
 
             <BingeWatchStats history={history} />
 
+            <RecommendationSection
+              watchlist={watchlist}
+              history={history}
+              favouriteActors={favouriteActors}
+              selectedGenres={selectedGenres}
+              ratedMovies={ratedMovies}
+              onMediaClick={handleMediaClick}
+            />
+
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1029,113 +1041,133 @@ const ProfilePage = () => {
               </h2>
               <ReviewList userId={user?.uid ?? ''} />
             </motion.div>
-
-            <RecommendationSection
-              watchlist={watchlist}
-              history={history}
-              favouriteActors={favouriteActors}
-              selectedGenres={selectedGenres}
-              ratedMovies={ratedMovies}
-              onMediaClick={handleMediaClick}
-            />
           </div>
 
           <div className="space-y-6">
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-white/[0.05] shadow-xl"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-white/10 bg-zinc-950/60 p-3 sm:p-4 backdrop-blur-xl shadow-xl"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <Bookmark className="w-5 h-5 text-cyan-400 fill-current" />
-                  Watchlist
-                </h2>
-                <Link to="/watchlist" className="text-cyan-400 hover:text-cyan-300 transition-colors">
-                  <ChevronRight className="w-5 h-5" />
-                </Link>
-              </div>
-
-              <TogglePill
-                value={watchlistFilter}
-                onChange={setWatchlistFilter}
-                options={[{ value: 'movie', label: 'Movies' }, { value: 'tv', label: 'Series' }]}
-                layoutId="watchlist-pill"
-                activeColor="bg-gradient-to-r from-cyan-600 to-cyan-500 shadow-cyan-500/30"
-              />
-
-              <MediaRow
-                items={filteredWatchlist.slice().reverse()}
-                emptyLabel={`No ${watchlistFilter === 'movie' ? 'movies' : 'series'} in watchlist`}
-                accentClass="border-cyan-500/30 shadow-cyan-500/10"
-                to={(item) => `/${item.mediaType}/${item.id}`}
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-white/[0.05] shadow-xl"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <History className="w-5 h-5 text-emerald-500" />
-                  History
-                </h2>
-                <Link to="/history" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-                  <ChevronRight className="w-5 h-5" />
-                </Link>
-              </div>
-
-              <TogglePill
-                value={historyFilter}
-                onChange={setHistoryFilter}
-                options={[{ value: 'movie', label: 'Movies' }, { value: 'tv', label: 'Series' }]}
-                layoutId="history-pill"
-                activeColor="bg-gradient-to-r from-emerald-600 to-emerald-500 shadow-emerald-500/30"
-              />
-
-              <MediaRow
-                items={filteredHistory.slice(0, 10)}
-                emptyLabel="No history yet"
-                accentClass="border-emerald-500/30 shadow-emerald-500/10"
-                to={(item) => `/${item.mediaType || 'movie'}/${item.id}`}
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-              className="bg-zinc-950/40 backdrop-blur-xl rounded-3xl p-5 sm:p-6 border border-amber-500/10 shadow-xl"
-            >
-              <div className="flex items-center justify-between mb-5 pb-3 border-b border-amber-500/10">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
-                    <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+              <div className="relative z-10 flex items-center justify-between mb-2.5 sm:mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-md shadow-cyan-500/30">
+                    <Bookmark className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
                   </div>
-                  <h2 className="text-base font-semibold text-white tracking-tight">Rated Movies</h2>
+                  <h2 className="text-sm sm:text-base font-semibold tracking-tight text-white/90">
+                    Watchlist
+                  </h2>
                 </div>
+
+                <Link
+                  to="/watchlist"
+                  className="p-1 rounded-lg text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors duration-200"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              <div className="relative z-10 space-y-2.5 sm:space-y-3">
+                <TogglePill
+                  value={watchlistFilter}
+                  onChange={setWatchlistFilter}
+                  options={[
+                    { value: 'movie', label: 'Movies' },
+                    { value: 'tv', label: 'Series' }
+                  ]}
+                  layoutId="watchlist-pill"
+                  activeColor="bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20"
+                />
+
+                <MediaRow
+                  items={filteredWatchlist.slice().reverse()}
+                  emptyLabel={`No ${watchlistFilter === 'movie' ? 'movies' : 'series'} in watchlist`}
+                  accentClass="group/card relative overflow-hidden border-cyan-500/20 shadow-cyan-500/10 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:transition-transform before:duration-700 before:ease-in-out hover:before:translate-x-full"
+                  to={(item) => `/${item.mediaType}/${item.id}`}
+                />
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-white/10 bg-zinc-950/60 p-3 sm:p-4 backdrop-blur-xl shadow-xl"
+            >
+              <div className="relative z-10 flex items-center justify-between mb-2.5 sm:mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30">
+                    <History className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <h2 className="text-sm sm:text-base font-semibold tracking-tight text-white/90">
+                    History
+                  </h2>
+                </div>
+
+                <Link
+                  to="/history"
+                  className="p-1 rounded-lg text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors duration-200"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              <div className="relative z-10 space-y-2.5 sm:space-y-3">
+                <TogglePill
+                  value={historyFilter}
+                  onChange={setHistoryFilter}
+                  options={[
+                    { value: 'movie', label: 'Movies' },
+                    { value: 'tv', label: 'Series' }
+                  ]}
+                  layoutId="history-pill"
+                  activeColor="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                />
+
+                <MediaRow
+                  items={filteredHistory.slice(0, 10)}
+                  emptyLabel="No history yet"
+                  accentClass="group/card relative overflow-hidden border-emerald-500/20 shadow-emerald-500/10 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:transition-transform before:duration-700 before:ease-in-out hover:before:translate-x-full"
+                  to={(item) => `/${item.mediaType || 'movie'}/${item.id}`}
+                />
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-white/10 bg-zinc-950/60 p-3 sm:p-4 backdrop-blur-xl shadow-xl"
+            >
+              <div className="relative z-10 flex items-center justify-between mb-2.5 sm:mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
+                  </div>
+                  <h2 className="text-sm sm:text-base font-semibold tracking-tight text-white/90">
+                    Rated Movies
+                  </h2>
+                </div>
+
                 <Link
                   to="/top-rated"
-                  className="p-1.5 rounded-lg hover:bg-amber-500/10 text-zinc-400 hover:text-amber-400 transition-all duration-200"
+                  className="p-1 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors duration-200"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
 
               {ratedMovies.length === 0 ? (
-                <div className="flex flex-col items-center py-8 gap-2">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center justify-center">
-                    <Star className="w-4 h-4 text-amber-500/30" />
+                <div className="flex flex-col items-center justify-center py-6 sm:py-8 gap-1.5 border border-dashed border-white/5 rounded-lg sm:rounded-xl bg-white/[0.01]">
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/30">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
                   </div>
-                  <p className="text-zinc-300 text-sm font-medium">No rated movies yet</p>
-                  <p className="text-zinc-500 text-xs text-center">Rate media across the app to see them here</p>
+                  <p className="text-xs font-medium text-zinc-300">No rated movies yet</p>
+                  <p className="text-[10px] text-zinc-500 text-center px-4">Rate media across the app to see them here</p>
                 </div>
               ) : (
-                <div className="overflow-y-auto max-h-[360px] space-y-2 pr-1">
+                <div className="overflow-y-auto max-h-[300px] sm:max-h-[340px] space-y-1.5 pr-1 custom-scrollbar">
                   {ratedMovies.map((movie, idx) => {
                     const raw = movie.posterPath ?? '';
                     const posterUrl = raw.startsWith('http')
@@ -1150,21 +1182,21 @@ const ProfilePage = () => {
                       <div
                         key={movie.id}
                         onClick={() => handleMediaClick(movie.id, 'movie')}
-                        className="group flex items-center gap-3 bg-zinc-900/20 hover:bg-amber-500/5 rounded-2xl p-2.5 border border-transparent hover:border-amber-500/20 transition-all duration-300 cursor-pointer"
+                        className="group relative flex items-center gap-2.5 p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-amber-500/20 transition-all duration-200 cursor-pointer overflow-hidden"
                       >
-                        <div className="w-6 h-6 shrink-0 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                          <span className="text-[10px] font-bold text-zinc-400 group-hover:text-amber-400 transition-colors">
+                        <div className="w-5 h-5 shrink-0 rounded-md bg-zinc-900/80 border border-white/5 flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-zinc-500 group-hover:text-amber-400 transition-colors">
                             {String(idx + 1).padStart(2, '0')}
                           </span>
                         </div>
 
-                        <div className="w-8 h-11 shrink-0 rounded-md overflow-hidden border border-amber-500/10 bg-zinc-900">
+                        <div className="relative group/poster w-7 sm:w-8 h-10 sm:h-11 shrink-0 rounded-md overflow-hidden border border-white/10 bg-zinc-900">
                           {posterUrl ? (
                             <img
                               src={posterUrl}
                               alt={movie.title}
                               loading="lazy"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              className="w-full h-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                           ) : (
@@ -1172,17 +1204,18 @@ const ProfilePage = () => {
                               <Film className="w-3 h-3 text-zinc-700" />
                             </div>
                           )}
+                          <div className="absolute inset-0 -translate-x-full -translate-y-full bg-gradient-to-br from-transparent via-white/25 to-transparent transition-transform duration-700 ease-in-out group-hover:translate-x-full group-hover:translate-y-full pointer-events-none -rotate-45 scale-150" />
                         </div>
 
                         <div className="flex-1 min-w-0">
                           <p className="text-xs sm:text-sm font-medium text-zinc-200 group-hover:text-amber-300 transition-colors truncate">
                             {movie.title}
                           </p>
-                          <p className="text-[10px] text-zinc-500 mt-0.5">Movie</p>
+                          <p className="text-[9px] sm:text-[10px] text-zinc-500 mt-0.5">Movie</p>
                         </div>
 
-                        <div className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[11px] font-bold group-hover:bg-amber-500 group-hover:text-black group-hover:border-transparent transition-all duration-300">
-                          <Star className="w-3 h-3 fill-current" />
+                        <div className="shrink-0 flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] sm:text-[11px] font-bold group-hover:bg-amber-500 group-hover:text-black group-hover:border-transparent transition-all duration-200">
+                          <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current" />
                           {movie.rating}
                         </div>
                       </div>
@@ -1193,55 +1226,78 @@ const ProfilePage = () => {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.25 }}
-              className="bg-zinc-950/50 backdrop-blur-xl rounded-2xl p-5 sm:p-6 border border-white/[0.05] shadow-xl"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-white/10 bg-zinc-950/60 p-3 sm:p-4 backdrop-blur-xl shadow-xl"
             >
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2.5 text-white">
-                  <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-red-500 fill-current" />
-                  Favourite Talents
-                </h2>
-                <Link to="/fav-talents" className="text-red-400 hover:text-red-300 transition-colors">
-                  <ChevronRight className="w-5 h-5" />
+              <div className="relative z-10 flex items-center justify-between mb-2.5 sm:mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 rounded-lg bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/30">
+                    <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
+                  </div>
+                  <h2 className="text-sm sm:text-base font-semibold tracking-tight text-white/90">
+                    Favourite Talents
+                  </h2>
+                </div>
+
+                <Link
+                  to="/fav-talents"
+                  className="p-1 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors duration-200"
+                >
+                  <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
 
               {favouriteActors.length === 0 ? (
-                <p className="text-zinc-500 text-center text-sm py-4">No favourite talents yet</p>
+                <div className="flex flex-col items-center justify-center py-6 sm:py-8 gap-1.5 border border-dashed border-white/5 rounded-lg sm:rounded-xl bg-white/[0.01]">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+                    <Heart className="w-3.5 h-3.5 fill-current" />
+                  </div>
+                  <p className="text-xs font-medium text-zinc-300">No favourite talents yet</p>
+                  <p className="text-[10px] text-zinc-500 text-center px-4">Save actor profiles to see them featured here</p>
+                </div>
               ) : (
-                <div className="overflow-x-auto -mx-1 px-1 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <div className="flex gap-3">
+                <div className="overflow-x-auto -mx-1 px-1 pb-1 custom-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <div className="flex gap-2.5 sm:gap-3">
                     {favouriteActors.map((actor, idx) => (
                       <Link
                         key={actor.id}
                         to={`/actor/${actor.id}`}
-                        className="group flex-shrink-0 w-[90px] sm:w-[100px] rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/30 transition-all duration-500 bg-zinc-900/60"
+                        className="group relative flex-shrink-0 w-[85px] sm:w-[95px] rounded-lg sm:rounded-xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-red-500/30 transition-all duration-200 cursor-pointer"
                       >
-                        <div className="relative aspect-[3/4]">
-                          <div className="absolute top-1.5 left-1.5 z-10 bg-black/60 backdrop-blur-sm border border-white/10 rounded-md px-1.5 py-0.5">
-                            <span className="text-[9px] font-bold text-zinc-300">#{idx + 1}</span>
+                        <div className="relative aspect-[3/4] overflow-hidden bg-zinc-900 group/poster">
+                          <div className="absolute top-1 left-1 z-10 flex items-center justify-center bg-zinc-950/80 backdrop-blur-md border border-white/10 rounded px-1 py-0.5 min-w-[18px]">
+                            <span className="text-[9px] sm:text-[10px] font-bold leading-none text-zinc-400 group-hover:text-red-400 transition-colors">
+                              #{idx + 1}
+                            </span>
                           </div>
-                          <div className="absolute top-1.5 right-1.5 z-10 bg-red-500 p-1 rounded-full shadow-lg shadow-red-500/30">
-                            <Heart className="w-2.5 h-2.5 text-white fill-current" />
+                          <div className="absolute top-1 right-1 z-10 bg-red-500 p-1 rounded-full shadow-md shadow-red-500/30">
+                            <Heart className="w-2 h-2 text-white fill-current" />
                           </div>
+
                           {actor.profilePath ? (
                             <img
                               src={actor.profilePath}
                               alt={actor.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover/poster:scale-105"
                               loading="lazy"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                              <User className="w-7 h-7 text-zinc-500" />
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                              <User className="w-5 h-5 text-zinc-600" />
                             </div>
                           )}
-                          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/60 to-transparent" />
+
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                            <div className="w-0 h-0 rounded-full bg-gradient-to-tr from-white/20 via-white/5 to-transparent border border-white/30 shadow-[inset_0_0_20px_rgba(255,255,255,0.25)] opacity-0 group-hover/poster:w-[160%] group-hover/poster:h-[160%] group-hover/poster:opacity-100 transition-all duration-700 ease-out" />
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-zinc-950/80 to-transparent" />
                         </div>
-                        <div className="p-2">
-                          <p className="text-xs font-semibold truncate group-hover:text-red-400 transition-colors">
+
+                        <div className="p-1.5">
+                          <p className="text-[11px] sm:text-xs font-medium text-zinc-200 group-hover:text-red-400 transition-colors truncate">
                             {actor.name}
                           </p>
                         </div>
