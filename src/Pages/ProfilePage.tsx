@@ -95,9 +95,7 @@ export const RecommendationSection = ({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
   const fetchRecommendations = useCallback(
@@ -105,95 +103,63 @@ export const RecommendationSection = ({
       const seq = ++seqRef.current;
       setLoading(true);
 
-      const watchedOrWatchlistIds = new Set<string>();
-      history.forEach((h) => {
-        if (h.mediaType === type) watchedOrWatchlistIds.add(h.id);
-      });
-      watchlist.forEach((w) => {
-        if (w.mediaType === type) watchedOrWatchlistIds.add(w.id);
-      });
+      const filterType = <T extends { mediaType: string; id: string }>(arr: T[]) =>
+        arr.filter((x) => x.mediaType === type).map((x) => x.id);
+
+      const watchedOrWatchlistIds = new Set([
+        ...filterType(history),
+        ...filterType(watchlist),
+      ]);
 
       const highlyRated = ratedMovies.filter((m) => m.rating >= 7).map((m) => m.id);
-      const watchlistIds = watchlist.filter((m) => m.mediaType === type).map((m) => m.id);
-      const historyIds = history.filter((h) => h.mediaType === type).map((h) => h.id);
-
+      const watchlistIds = filterType(watchlist);
+      const historyIds = filterType(history);
       const genreIdsSet = new Set<number>(
         selectedGenres.map((g) => GENRE_MAP[g.trim()]).filter(Boolean)
       );
 
       let recommended: any[] = [];
 
+      const fetchBatch = async (ids: string[], endpointFn: (id: string) => string, limit: number) => {
+        const results = await Promise.all(
+          ids.slice(0, 5).map(async (id) => {
+            try {
+              const res = await axios.get(endpointFn(id));
+              return res.data.results ?? [];
+            } catch { return []; }
+          })
+        );
+        results.forEach((r) => recommended.push(...r.slice(0, limit)));
+      };
+
       try {
         if (highlyRated.length > 0) {
           await Promise.all(
             highlyRated.slice(0, 3).map(async (movieId) => {
               try {
-                const res = await axios.get(
-                  `https://api.themoviedb.org/3/${type}/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
-                );
+                const res = await axios.get(`https://api.themoviedb.org/3/${type}/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`);
                 (res.data.genres ?? []).forEach((g: any) => genreIdsSet.add(g.id));
-              } catch { }
+              } catch {}
             })
           );
-
-          const results = await Promise.all(
-            highlyRated.slice(0, 5).map(async (movieId) => {
-              try {
-                const res = await axios.get(
-                  `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
-                );
-                return res.data.results ?? [];
-              } catch {
-                return [];
-              }
-            })
-          );
-          results.forEach((r) => recommended.push(...r.slice(0, 12)));
+          await fetchBatch(highlyRated, (id) => `https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`, 12);
         }
 
         if (watchlistIds.length > 0 && recommended.length < 20) {
-          const results = await Promise.all(
-            watchlistIds.slice(0, 5).map(async (movieId) => {
-              try {
-                const res = await axios.get(
-                  `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
-                );
-                return res.data.results ?? [];
-              } catch {
-                return [];
-              }
-            })
-          );
-          results.forEach((r) => recommended.push(...r.slice(0, 10)));
+          await fetchBatch(watchlistIds, (id) => `https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`, 10);
         }
 
         if (historyIds.length > 0 && recommended.length < 20) {
-          const results = await Promise.all(
-            historyIds.slice(0, 5).map(async (movieId) => {
-              try {
-                const res = await axios.get(
-                  `https://api.themoviedb.org/3/${type}/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`
-                );
-                return res.data.results ?? [];
-              } catch {
-                return [];
-              }
-            })
-          );
-          results.forEach((r) => recommended.push(...r.slice(0, 8)));
+          await fetchBatch(historyIds, (id) => `https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`, 8);
         }
 
         if (favouriteActors.length > 0 && recommended.length < 20) {
           const results = await Promise.all(
             favouriteActors.slice(0, 10).map(async (actor) => {
               try {
-                const res = await axios.get(
-                  `https://api.themoviedb.org/3/person/${actor.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`
-                );
+                const res = await axios.get(`https://api.themoviedb.org/3/person/${actor.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`);
                 return res.data.cast ?? [];
-              } catch {
-                return [];
-              }
+              } catch { return []; }
             })
           );
           results.forEach((r) => recommended.push(...r.slice(0, 10)));
@@ -201,70 +167,43 @@ export const RecommendationSection = ({
 
         const genreIds = Array.from(genreIdsSet);
         if (genreIds.length > 0 && recommended.length < 20) {
-          const results = await Promise.all(
-            genreIds.slice(0, 3).map(async (genreId) => {
-              try {
-                const res = await axios.get(
-                  `https://api.themoviedb.org/3/discover/${type}?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${genreId}&sort_by=popularity.desc&page=1`
-                );
-                return res.data.results ?? [];
-              } catch {
-                return [];
-              }
-            })
-          );
-          results.forEach((r) => recommended.push(...r.slice(0, 8)));
+          await fetchBatch(genreIds.map(String), (id) => `https://api.themoviedb.org/3/discover/${type}?api_key=${TMDB_API_KEY}&language=en-US&with_genres=${id}&sort_by=popularity.desc&page=1`, 8);
         }
 
-        try {
-          const res = await axios.get(
-            `https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_API_KEY}`
-          );
-          recommended.push(...(res.data.results ?? []).slice(0, 15));
-        } catch { }
+        const fetchFallback = async (endpoint: string, limit: number) => {
+          try {
+            const res = await axios.get(endpoint);
+            recommended.push(...(res.data.results ?? []).slice(0, limit));
+          } catch {}
+        };
 
-        try {
-          const res = await axios.get(
-            `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
-          );
-          recommended.push(...(res.data.results ?? []).slice(0, 15));
-        } catch { }
+        await fetchFallback(`https://api.themoviedb.org/3/trending/${type}/week?api_key=${TMDB_API_KEY}`, 15);
+        await fetchFallback(`https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`, 15);
 
         if (recommended.length === 0) {
-          try {
-            const res = await axios.get(
-              `https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
-            );
-            recommended.push(...(res.data.results ?? []).slice(0, 20));
-          } catch { }
+          await fetchFallback(`https://api.themoviedb.org/3/${type}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`, 20);
         }
-      } catch { }
+      } catch {}
 
       if (!mountedRef.current || seq !== seqRef.current) return;
 
       const unique = new Map<string, RecommendedItem>();
       recommended.forEach((m: any) => {
         const mid = m.id?.toString();
-        if (mid && !unique.has(mid) && !watchedOrWatchlistIds.has(mid)) {
-          const mType = m.media_type || type;
-          if (mType === type) {
-            unique.set(mid, {
-              id: mid,
-              title: m.title ?? m.name ?? "",
-              posterPath: m.poster_path
-                ? `https://image.tmdb.org/t/p/w500${m.poster_path}`
-                : "",
-              mediaType: mType,
-              overview: m.overview ?? "",
-              voteAverage: m.vote_average ?? 0,
-            });
-          }
+        const mType = m.media_type || type;
+        if (mid && !unique.has(mid) && !watchedOrWatchlistIds.has(mid) && mType === type) {
+          unique.set(mid, {
+            id: mid,
+            title: m.title ?? m.name ?? "",
+            posterPath: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : "",
+            mediaType: mType,
+            overview: m.overview ?? "",
+            voteAverage: m.vote_average ?? 0,
+          });
         }
       });
 
-      const sorted = Array.from(unique.values()).sort(
-        (a, b) => b.voteAverage - a.voteAverage
-      );
+      const sorted = Array.from(unique.values()).sort((a, b) => b.voteAverage - a.voteAverage);
       setItems(sorted.slice(0, 50));
       setLoading(false);
     },
@@ -277,16 +216,13 @@ export const RecommendationSection = ({
   }, [mediaType, fetchRecommendations]);
 
   useEffect(() => {
-    const refresh = () => {
-      setItems([]);
-      fetchRecommendations(mediaType);
-    };
-    const onVisible = () => {
-      if (!document.hidden) refresh();
-    };
+    const refresh = () => { setItems([]); fetchRecommendations(mediaType); };
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", refresh);
     const interval = window.setInterval(refresh, 60_000);
+
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", refresh);
@@ -333,8 +269,9 @@ export const RecommendationSection = ({
         <div className="relative self-stretch sm:self-auto flex items-center bg-black/40 border border-white/10 backdrop-blur-2xl rounded-2xl p-1 shadow-inner">
           <button
             onClick={() => switchType("movie")}
-            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors duration-300 ${mediaType === "movie" ? "text-white" : "text-zinc-400 hover:text-zinc-200"
-              }`}
+            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors duration-300 ${
+              mediaType === "movie" ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+            }`}
           >
             <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Movies</span>
@@ -342,8 +279,9 @@ export const RecommendationSection = ({
 
           <button
             onClick={() => switchType("tv")}
-            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors duration-300 ${mediaType === "tv" ? "text-white" : "text-zinc-400 hover:text-zinc-200"
-              }`}
+            className={`relative z-10 flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-colors duration-300 ${
+              mediaType === "tv" ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+            }`}
           >
             <Tv className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Series</span>
@@ -363,31 +301,31 @@ export const RecommendationSection = ({
 
       <div className="relative z-10">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="relative w-10 h-10">
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="relative w-8 h-8">
               <div className="absolute inset-0 rounded-full border-2 border-white/10" />
               <div className="absolute inset-0 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
             </div>
-            <p className="text-zinc-400 text-xs sm:text-sm font-medium tracking-wide uppercase">
+            <p className="text-zinc-400 text-xs font-medium tracking-wide uppercase">
               Curating {mediaType === "movie" ? "movies" : "series"}…
             </p>
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-16 px-4">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-3xl bg-white/[0.03] border border-white/10 flex items-center justify-center">
-              <Film className="w-8 h-8 text-zinc-500" />
+          <div className="text-center py-12 px-4">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center">
+              <Film className="w-6 h-6 text-zinc-500" />
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-white mb-1">
+            <h3 className="text-sm font-bold text-white mb-1">
               No Recommendations Yet
             </h3>
-            <p className="text-zinc-400 text-xs sm:text-sm max-w-xs mx-auto">
+            <p className="text-zinc-400 text-xs max-w-xs mx-auto">
               Watch more to get personalised picks
             </p>
           </div>
         ) : (
           <div>
             <div
-              className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 px-1 -mx-1 scrollbar-none"
+              className="flex gap-2.5 sm:gap-3 overflow-x-auto pb-3 pt-1 px-1 -mx-1 scrollbar-none"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
               {items.map((item) => (
@@ -396,7 +334,7 @@ export const RecommendationSection = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onMediaClick(item.id, item.mediaType)}
-                  className="group relative flex-shrink-0 w-32 xs:w-36 sm:w-44 bg-neutral-900/60 border border-white/[0.08] hover:border-white/20 rounded-2xl overflow-hidden shadow-xl cursor-pointer transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.08)]"
+                  className="group relative flex-shrink-0 w-28 sm:w-32 bg-neutral-900/60 border border-white/[0.08] hover:border-white/20 rounded-xl overflow-hidden shadow-lg cursor-pointer transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.08)]"
                 >
                   <div className="relative aspect-[2/3] w-full overflow-hidden bg-neutral-950">
                     {item.posterPath ? (
@@ -408,7 +346,7 @@ export const RecommendationSection = ({
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-neutral-950">
-                        <Film className="w-8 h-8 text-zinc-700" />
+                        <Film className="w-6 h-6 text-zinc-700" />
                       </div>
                     )}
 
@@ -418,11 +356,12 @@ export const RecommendationSection = ({
                       <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-[-20deg] transition-transform duration-1000 ease-in-out" />
                     </div>
 
-                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                    {/* Fixed Badge Header Overlay */}
+                    <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between gap-1 z-10 pointer-events-none">
                       {item.voteAverage > 0 ? (
-                        <div className="flex items-center gap-1 bg-black/60 border border-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-md">
-                          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                          <span className="text-[10px] sm:text-xs font-bold text-amber-300">
+                        <div className="h-5 shrink-0 flex items-center gap-0.5 bg-black/70 border border-white/10 backdrop-blur-md px-1.5 rounded-md shadow-md">
+                          <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400 shrink-0" />
+                          <span className="text-[9px] font-bold text-amber-300 leading-none">
                             {item.voteAverage.toFixed(1)}
                           </span>
                         </div>
@@ -430,10 +369,11 @@ export const RecommendationSection = ({
                         <div />
                       )}
 
-                      <div className="bg-black/60 border border-white/10 backdrop-blur-md px-2 py-0.5 rounded-lg shadow-md">
+                      <div className="h-5 shrink-0 flex items-center justify-center bg-black/70 border border-white/10 backdrop-blur-md px-1.5 rounded-md shadow-md">
                         <span
-                          className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${item.mediaType === "tv" ? "text-cyan-400" : "text-amber-400"
-                            }`}
+                          className={`text-[8px] font-black uppercase tracking-wider leading-none ${
+                            item.mediaType === "tv" ? "text-cyan-400" : "text-amber-400"
+                          }`}
                         >
                           {item.mediaType === "tv" ? "TV" : "FILM"}
                         </span>
@@ -441,8 +381,8 @@ export const RecommendationSection = ({
                     </div>
                   </div>
 
-                  <div className="p-3 bg-neutral-900/90 border-t border-white/[0.04] transition-colors duration-300 group-hover:bg-neutral-900">
-                    <h3 className="text-xs sm:text-sm font-bold text-white/90 group-hover:text-white transition-colors duration-300 truncate">
+                  <div className="p-2 bg-neutral-900/90 border-t border-white/[0.04] transition-colors duration-300 group-hover:bg-neutral-900">
+                    <h3 className="text-xs font-semibold text-white/90 group-hover:text-white transition-colors duration-300 truncate leading-snug">
                       {item.title}
                     </h3>
                   </div>
@@ -450,7 +390,7 @@ export const RecommendationSection = ({
               ))}
             </div>
 
-            <div className="flex items-center justify-between mt-3 px-1 pt-3 border-t border-white/[0.04] text-xs text-zinc-500 font-medium">
+            <div className="flex items-center justify-between mt-2 px-1 pt-2 border-t border-white/[0.04] text-[11px] text-zinc-500 font-medium">
               <span>Swipe for more</span>
               <span>
                 {items.length} {mediaType === "movie" ? "movies" : "series"}
