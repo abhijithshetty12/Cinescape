@@ -8,7 +8,6 @@
     @apply bg-black text-white;
   }
 
-  /* ── Global Immersive Scrollbars ── */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -53,7 +52,6 @@
     mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
   }
 
-  /* ── Custom Fluid Scrollbars ── */
   .custom-scrollbar::-webkit-scrollbar {
     height: 2px;
     width: 2px;
@@ -77,14 +75,12 @@
     @apply bg-white/20;
   }
 
-  /* For Firefox */
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 }
 
-/* ── Hero glassmorphic utilities ── */
 .hero-glass-badge {
   @apply bg-white/[0.08] backdrop-blur-md border border-white/[0.12] px-3 py-1 rounded-full shadow-lg;
   transition: background 0.2s, border-color 0.2s;
@@ -93,7 +89,6 @@
   @apply bg-white/[0.14] border-white/20;
 }
 
-/* Glowy red CTA button */
 .hero-btn-glow {
   background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
   box-shadow:
@@ -113,7 +108,6 @@
   transform: scale(0.98);
 }
 
-/* Shine sweep effect */
 .hero-btn-shine {
   position: absolute;
   inset: 0;
@@ -133,7 +127,6 @@
   transition: background-position 0.5s ease;
 }
 
-/* Glass secondary button */
 .hero-btn-glass {
   background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(14px);
@@ -156,7 +149,6 @@
   transform: scale(0.98);
 }
 
-/* Navigation arrow buttons */
 .hero-nav-btn {
   @apply bg-white/[0.07] backdrop-blur-md border border-white/[0.12] text-white p-2.5 rounded-full shadow-lg cursor-pointer;
   transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
@@ -167,7 +159,6 @@
   box-shadow: 0 0 18px rgba(220, 38, 38, 0.4);
 }
 
-/* Active dot glow */
 .hero-dot-glow {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.8), 0 0 18px rgba(239, 68, 68, 0.4);
 }

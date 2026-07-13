@@ -11,8 +11,8 @@ import {
   Sliders,
   X,
   AlertCircle,
-  TrendingUp,
-  Activity
+  Activity,
+  Maximize2
 } from 'lucide-react';
 
 type MediaType = 'movie' | 'tv';
@@ -66,9 +66,9 @@ function genreColor(genre: string) {
   const idx = hashStringToInt(genre.trim().toLowerCase()) % palette.length;
   const base = palette[idx];
   return {
-    background: `${base}20`,
-    border: `${base}80`,
-    highlight: { background: `${base}40`, border: base },
+    background: `${base}25`,
+    border: `${base}90`,
+    highlight: { background: `${base}50`, border: base },
   };
 }
 
@@ -110,7 +110,7 @@ export default function DirectorsCut() {
   const [error, setError] = useState<string | null>(null);
   const [inspector, setInspector] = useState<GraphNode | null>(null);
 
-  const getColorLegend = useMemo(() => palette.slice(0, 6), []);
+  const getColorLegend = useMemo(() => palette.slice(0, 8), []);
 
   async function searchPerson(q: string): Promise<TMDBPerson[]> {
     const url = `https://api.themoviedb.org/3/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&include_adult=false`;
@@ -387,11 +387,11 @@ export default function DirectorsCut() {
         solver: 'barnesHut',
         barnesHut: { springLength: 140, springConstant: 0.04, gravitationalConstant: -3000 },
       },
-      interaction: { hover: true, multiselect: false },
+      interaction: { hover: true, multiselect: false, zoomView: true },
       nodes: {
-        font: { color: '#f4f4f5', size: 13, face: 'system-ui, -apple-system, sans-serif' },
+        font: { color: '#f4f4f5', size: 12, face: 'system-ui, -apple-system, sans-serif' },
         borderWidth: 1.5,
-        shadow: { enabled: true, color: 'rgba(0,0,0,0.5)', size: 6, x: 0, y: 3 }
+        shadow: { enabled: true, color: 'rgba(0,0,0,0.6)', size: 8, x: 0, y: 4 }
       },
       edges: {
         arrows: { to: { enabled: false } },
@@ -487,53 +487,54 @@ export default function DirectorsCut() {
   }, [inspector]);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased font-sans selection:bg-rose-500/30 selection:text-white">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased font-sans selection:bg-rose-500/30 selection:text-white relative overflow-x-hidden">
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-rose-500/[0.03] rounded-full blur-[140px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/[0.02] rounded-full blur-[120px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f23_1px,transparent_1px),linear-gradient(to_bottom,#1f1f23_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-[0.15]" />
+        <div className="absolute top-[-10%] right-[-10%] w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-rose-500/10 rounded-full blur-[100px] sm:blur-[140px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[250px] sm:w-[500px] h-[250px] sm:h-[500px] bg-indigo-500/10 rounded-full blur-[100px] sm:blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:2rem_2rem] sm:bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 lg:px-8 py-8 max-w-7xl">
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-zinc-800/60 pb-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 shadow-inner group overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 max-w-7xl">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/10 pb-5 mb-6 sm:mb-8 backdrop-blur-md">
+          <div className="flex items-center gap-3.5">
+            <div className="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/[0.03] border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] backdrop-blur-xl group overflow-hidden shrink-0">
+              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <Clapperboard className="w-5 h-5 text-rose-500 relative z-10" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white bg-clip-text">Director’s Cut</h1>
-              <p className="text-xs text-zinc-400 mt-0.5 font-medium tracking-wide">CINEMATIC INTERACTION ARCHITECTURE & LINEAGE</p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Director’s Cut</h1>
+              <p className="text-[10px] sm:text-xs text-zinc-400 mt-0.5 font-medium tracking-wider">CINEMATIC INTERACTION ARCHITECTURE & LINEAGE</p>
             </div>
           </div>
           
           {loading && (
-            <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-zinc-900/60 border border-zinc-800 text-xs font-medium text-zinc-300 backdrop-blur-md">
+            <div className="self-start sm:self-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-xs font-medium text-zinc-300 backdrop-blur-xl shadow-lg">
               <Activity className="w-3.5 h-3.5 text-rose-500 animate-spin" />
-              Compiling Node Relationships...
+              <span>Compiling Lineage...</span>
             </div>
           )}
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
           
-          <aside className="lg:col-span-4 flex flex-col gap-6">
-            <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-              <div className="flex items-center gap-2 mb-5">
+          <aside className="lg:col-span-4 flex flex-col gap-5 sm:gap-6">
+            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] relative overflow-hidden">
+              <div className="flex items-center gap-2 mb-4 sm:mb-5">
                 <Sliders className="w-4 h-4 text-rose-500" />
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Control Deck</h2>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4 sm:space-y-5">
                 <div>
-                  <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Search Node Identity</label>
-                  <div className="relative mt-2 group">
+                  <label className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Search Identity</label>
+                  <div className="relative mt-1.5 group">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4 group-focus-within:text-rose-500 transition-colors" />
                     <input
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2.5 bg-zinc-900/50 border border-zinc-800/80 rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-rose-500/50 focus:border-rose-500/50 transition-all"
+                      onKeyDown={(e) => e.key === 'Enter' && onSubmitSearch()}
+                      className="w-full pl-10 pr-10 py-2.5 bg-zinc-950/40 border border-white/10 rounded-xl text-xs sm:text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 backdrop-blur-md transition-all"
                       placeholder="Enter identity name..."
                     />
                     {query && (
@@ -547,34 +548,34 @@ export default function DirectorsCut() {
                   </div>
                 </div>
 
-                <div className="flex gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setKind('director')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
                       kind === 'director'
-                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.05)]'
-                        : 'bg-zinc-900/40 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.15)] backdrop-blur-md'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
                     }`}
                   >
-                    <User className="w-3.5 h-3.5" /> Director View
+                    <User className="w-3.5 h-3.5" /> Director
                   </button>
                   <button
                     onClick={() => setKind('actor')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
                       kind === 'actor'
-                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.05)]'
-                        : 'bg-zinc-900/40 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                        ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.15)] backdrop-blur-md'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
                     }`}
                   >
-                    <User className="w-3.5 h-3.5" /> Actor View
+                    <User className="w-3.5 h-3.5" /> Actor
                   </button>
                 </div>
 
-                <div className="space-y-4 bg-zinc-900/30 border border-zinc-800/40 rounded-xl p-3.5">
+                <div className="space-y-3.5 bg-white/[0.02] border border-white/5 rounded-xl p-3.5 backdrop-blur-md">
                   <div>
-                    <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                    <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
                       <span>Exploration Depth</span>
-                      <span className="text-zinc-200 font-mono text-xs">{depth} generations</span>
+                      <span className="text-zinc-200 font-mono text-xs">{depth} gen</span>
                     </div>
                     <input
                       type="range"
@@ -582,11 +583,11 @@ export default function DirectorsCut() {
                       max={4}
                       value={depth}
                       onChange={(e) => setDepth(Number(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                      className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
                     />
                   </div>
                   <div>
-                    <div className="flex justify-between items-center text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                    <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
                       <span>Saturation Boundary</span>
                       <span className="text-zinc-200 font-mono text-xs">{maxNodes} units</span>
                     </div>
@@ -596,7 +597,7 @@ export default function DirectorsCut() {
                       max={80}
                       value={maxNodes}
                       onChange={(e) => setMaxNodes(Number(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                      className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
                     />
                   </div>
                 </div>
@@ -604,13 +605,13 @@ export default function DirectorsCut() {
                 <button
                   onClick={onSubmitSearch}
                   disabled={loading || !query.trim()}
-                  className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold text-xs tracking-wider uppercase rounded-xl border border-rose-500/20 shadow-lg shadow-rose-950/20 hover:from-rose-500 hover:to-red-500 active:scale-[0.99] transition-all disabled:opacity-40 disabled:pointer-events-none"
+                  className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs tracking-wider uppercase rounded-xl border border-rose-500/30 shadow-[0_4px_20px_rgba(225,29,72,0.25)] active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  Generate Network Lineage
+                  Generate Network
                 </button>
 
                 {error && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-200 text-xs leading-relaxed">
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-200 text-xs leading-relaxed backdrop-blur-md">
                     <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                     <span>{error}</span>
                   </div>
@@ -618,31 +619,30 @@ export default function DirectorsCut() {
               </div>
             </div>
 
-            <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-4 shadow-xl">
-              <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <TrendingUp className="w-3 h-3 text-zinc-500" /> Metric Genre Distinctions
+            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
+              <div className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                Metric Genre Distinctions
               </div>
               <div className="flex flex-wrap gap-2">
                 {getColorLegend.map((c) => (
                   <div
                     key={c}
-                    className="w-6 h-6 rounded-md border border-white/5 shadow-inner transition-transform hover:scale-110 duration-300"
-                    style={{ background: `${c}25`, borderColor: `${c}60` }}
+                    className="w-6 h-6 rounded-lg border border-white/10 shadow-inner transition-transform hover:scale-110 duration-200 cursor-pointer"
+                    style={{ background: `${c}30`, borderColor: `${c}80` }}
                   />
                 ))}
               </div>
             </div>
           </aside>
 
-          <main className="lg:col-span-8 grid grid-cols-1 md:grid-cols-12 gap-6">
-            
-            <div className="md:col-span-8 bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-4 flex flex-col shadow-2xl">
-              <div className="flex items-center justify-between border-b border-zinc-800/40 pb-3 mb-3">
+          <main className="lg:col-span-8 flex flex-col gap-5 sm:gap-6">
+            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-3.5 sm:p-4 flex flex-col shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] relative">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3 mb-3">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
                   <Info className="w-3.5 h-3.5 text-rose-500" /> Lineage Space Map
                 </div>
                 {selectedPerson && (
-                  <div className="text-[11px] text-zinc-400 tracking-wide font-medium">
+                  <div className="text-[10px] sm:text-[11px] text-zinc-400 tracking-wide font-medium">
                     Anchor: <span className="text-white font-semibold font-mono">{selectedPerson.name}</span>
                   </div>
                 )}
@@ -650,35 +650,37 @@ export default function DirectorsCut() {
 
               <div
                 ref={containerRef}
-                className="w-full h-[520px] bg-zinc-950/20 border border-zinc-900/60 rounded-xl overflow-hidden relative"
+                className="w-full h-[380px] sm:h-[480px] lg:h-[520px] bg-zinc-950/60 border border-white/5 rounded-xl overflow-hidden relative backdrop-blur-inner"
               />
-              <div className="mt-3 text-[11px] text-zinc-500 font-medium">
-                * Left-click nodes to stabilize positions and access inspection modules. Clusters determine heavy collaborative history metrics.
+              
+              <div className="mt-3 flex items-center justify-between text-[10px] sm:text-[11px] text-zinc-500">
+                <span>* Click node to inspect & focus position.</span>
+                <span className="hidden sm:inline">Pinch / Scroll to zoom</span>
               </div>
             </div>
 
-            <div className="md:col-span-4 bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.06] rounded-2xl p-5 flex flex-col justify-between shadow-2xl">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 border-b border-zinc-800/40 pb-3">
-                  <div className="w-7 h-7 rounded-lg bg-zinc-900/80 border border-zinc-800 flex items-center justify-center">
-                    <Info className="w-3.5 h-3.5 text-zinc-400" />
+            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2.5 border-b border-white/10 pb-3 mb-4">
+                  <div className="w-7 h-7 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0">
+                    <Maximize2 className="w-3.5 h-3.5 text-zinc-400" />
                   </div>
                   <div>
                     <h3 className="text-xs font-semibold uppercase text-zinc-300">Inspector</h3>
-                    <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Node Details</p>
+                    <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-wider">Node Metadata Details</p>
                   </div>
                 </div>
 
                 {!inspector ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-center border border-dashed border-zinc-800 rounded-xl p-4 bg-zinc-900/10">
-                    <div className="w-2 h-2 rounded-full bg-zinc-700 animate-ping mb-3" />
-                    <span className="text-xs text-zinc-500 font-medium tracking-wide">Awaiting Canvas Selection Target</span>
+                  <div className="py-8 sm:py-10 flex flex-col items-center justify-center text-center border border-dashed border-white/10 rounded-xl p-4 bg-white/[0.01]">
+                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping mb-2.5" />
+                    <span className="text-xs text-zinc-500 font-medium">Select any graph node on canvas</span>
                   </div>
                 ) : (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-3.5 shadow-inner">
+                  <div className="space-y-4">
+                    <div className="bg-zinc-950/50 border border-white/10 rounded-xl p-3.5 shadow-inner">
                       <div className="text-white font-bold text-sm tracking-tight break-words">{inspector.label}</div>
-                      <div className="text-zinc-400 text-xs font-medium mt-1.5 leading-relaxed bg-zinc-950/40 border border-zinc-900 p-2 rounded border-l-2 border-l-rose-500 font-mono max-h-32 overflow-y-auto">
+                      <div className="text-zinc-300 text-xs font-medium mt-2 leading-relaxed bg-white/[0.03] border border-white/10 p-2.5 rounded-lg border-l-2 border-l-rose-500 font-mono max-h-32 overflow-y-auto whitespace-pre-wrap">
                         {inspector.title ? inspector.title : `Node ID: ${inspector.id}`}
                       </div>
                     </div>
@@ -686,7 +688,7 @@ export default function DirectorsCut() {
                     {inspectorLink && (
                       <button
                         onClick={() => navigate(inspectorLink)}
-                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white bg-zinc-800 border border-zinc-700/80 rounded-xl hover:bg-zinc-700 transition-all shadow-sm"
+                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 rounded-xl transition-all shadow-md active:scale-[0.99]"
                       >
                         Deep Link Matrix <ChevronRight className="w-3.5 h-3.5" />
                       </button>
@@ -695,11 +697,10 @@ export default function DirectorsCut() {
                 )}
               </div>
 
-              <div className="text-[10px] text-zinc-500 leading-relaxed pt-4 border-t border-zinc-800/40 mt-6 font-medium">
-                This architecture graphs full-scale cinematic lineage, indexing shared metadata, actors, and cross-over vectors dynamically.
+              <div className="text-[10px] text-zinc-500 leading-relaxed pt-3 border-t border-white/10 mt-5 font-medium">
+                Cinematic lineage network tracking co-appearance vectors and shared entity graph structures.
               </div>
             </div>
-
           </main>
         </div>
       </div>
