@@ -130,18 +130,18 @@ const Hero = () => {
         />
       </AnimatePresence>
 
-      <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/60 to-black/20" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
       <div
         className="absolute bottom-0 left-0 w-96 h-48 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at bottom left, rgba(220,38,38,0.18) 0%, transparent 70%)",
+            "radial-gradient(ellipse at bottom left, rgba(220,38,38,0.15) 0%, transparent 60%)",
         }}
       />
 
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-red-600/60 via-red-500/30 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-red-600/40 via-red-500/20 to-transparent" />
 
       <div className="relative flex-grow flex items-center px-4 sm:px-8 lg:px-16 z-10 pb-16 md:pb-0">
         <AnimatePresence mode="wait">
@@ -155,41 +155,42 @@ const Hero = () => {
             transition={{ duration: 0.55, ease: "easeOut" }}
           >
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-              <div className="hero-glass-badge flex items-center gap-1.5">
+              <div className="hero-glass-badge flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
                 <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
                 <span className="text-white font-semibold text-xs sm:text-sm">
                   {movie?.vote_average?.toFixed(1)} Rating
                 </span>
               </div>
 
-              <div className="hero-glass-badge flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-green-600" />
+              <div className="hero-glass-badge flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full">
+                <Calendar className="w-3.5 h-3.5 text-green-400" />
                 <span className="text-zinc-200 text-xs sm:text-sm">
                   {movie?.release_date || movie?.first_air_date}
                 </span>
               </div>
 
               <div
-                className={`px-3 py-1 rounded-full text-xs sm:text-sm font-bold shadow-lg ${movie?.media_type === "tv"
-                    ? "bg-blue-600/80 text-white border border-blue-400/30"
-                    : "bg-red-600/80 text-white border border-red-400/30"
-                  }`}
+                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg backdrop-blur-md ${
+                  movie?.media_type === "tv"
+                    ? "bg-blue-600/60 text-white border border-blue-400/30"
+                    : "bg-red-600/60 text-white border border-red-400/30"
+                }`}
                 style={{
                   boxShadow:
                     movie?.media_type === "tv"
-                      ? "0 0 12px rgba(37,99,235,0.4)"
-                      : "0 0 12px rgba(220,38,38,0.4)",
+                      ? "0 0 12px rgba(37,99,235,0.3)"
+                      : "0 0 12px rgba(220,38,38,0.3)",
                 }}
               >
                 {movie?.media_type === "tv" ? "TV Series" : "Movie"}
               </div>
             </div>
 
-            <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 sm:mb-5 text-white leading-tight tracking-tight drop-shadow-2xl">
+            <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 sm:mb-5 text-white leading-tight tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {movie?.title || movie?.name}
             </h1>
 
-            <p className="text-zinc-300 text-sm sm:text-base md:text-lg mb-7 sm:mb-10 line-clamp-3 max-w-xl leading-relaxed">
+            <p className="text-white/90 text-sm sm:text-base md:text-lg mb-7 sm:mb-10 line-clamp-3 max-w-xl leading-relaxed drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] font-medium">
               {movie?.overview}
             </p>
 
@@ -201,7 +202,7 @@ const Hero = () => {
                     "_blank"
                   )
                 }
-                className="hero-btn-glow group relative flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base overflow-hidden"
+                className="hero-btn-glow group relative flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base overflow-hidden bg-red-600 hover:bg-red-500 transition-colors"
                 aria-label="Watch Trailer"
               >
                 <span className="hero-btn-shine" aria-hidden="true" />
@@ -215,7 +216,7 @@ const Hero = () => {
                     ? `/tv/${movie?.id}`
                     : `/movie/${movie?.id}`
                 }
-                className="hero-btn-glass group flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base no-underline"
+                className="hero-btn-glass group flex items-center justify-center gap-2.5 px-7 sm:px-8 py-3 sm:py-3.5 rounded-full font-bold text-white text-sm sm:text-base no-underline bg-black/40 backdrop-blur-md border border-white/20 hover:bg-black/60 hover:border-white/40 transition-all"
                 aria-label="More Info"
               >
                 <Info className="w-4 h-4 sm:w-5 sm:h-5 relative z-10 group-hover:text-red-400 transition-colors duration-200" />
@@ -227,10 +228,10 @@ const Hero = () => {
       </div>
 
       {trendingMovies.length > 1 && (
-        <div className="flex md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-20 items-center gap-2">
+        <div className="flex md:hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-20 items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
           <button
             onClick={prevMovie}
-            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
+            className="p-1 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
             aria-label="Previous Slide"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -243,17 +244,18 @@ const Hero = () => {
                 onClick={() => goToMovie(index)}
                 aria-label={`Go to slide ${index + 1}`}
                 aria-current={currentMovie === index}
-                className={`h-1.5 rounded-full transition-all duration-300 ${currentMovie === index
-                    ? "w-5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  currentMovie === index
+                    ? "w-4 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
                     : "w-1.5 bg-white/40"
-                  }`}
+                }`}
               />
             ))}
           </div>
 
           <button
             onClick={nextMovie}
-            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
+            className="p-1 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-all"
             aria-label="Next Slide"
           >
             <ChevronRight className="w-4 h-4" />
@@ -265,14 +267,14 @@ const Hero = () => {
         <div className="hidden md:flex absolute bottom-6 right-8 lg:right-16 z-20 items-center gap-2">
           <button
             onClick={prevMovie}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-xl border border-white/20 transition-all duration-200 text-white shadow-xl hover:border-white/30"
+            className="p-3 rounded-2xl bg-black/40 hover:bg-black/60 active:scale-95 backdrop-blur-xl border border-white/20 transition-all duration-200 text-white shadow-xl hover:border-white/40"
             aria-label="Previous Slide"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={nextMovie}
-            className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-xl border border-white/20 transition-all duration-200 text-white shadow-xl hover:border-white/30"
+            className="p-3 rounded-2xl bg-black/40 hover:bg-black/60 active:scale-95 backdrop-blur-xl border border-white/20 transition-all duration-200 text-white shadow-xl hover:border-white/40"
             aria-label="Next Slide"
           >
             <ChevronRight className="w-5 h-5" />
@@ -281,17 +283,18 @@ const Hero = () => {
       )}
 
       {trendingMovies.length > 1 && (
-        <div className="hidden md:flex absolute bottom-6 left-8 lg:left-16 z-20 items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl">
+        <div className="hidden md:flex absolute bottom-6 left-8 lg:left-16 z-20 items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 shadow-xl">
           {trendingMovies.map((_, index) => (
             <button
               key={index}
               onClick={() => goToMovie(index)}
               aria-label={`Go to slide ${index + 1}`}
               aria-current={currentMovie === index}
-              className={`h-2 rounded-full transition-all duration-500 ${currentMovie === index
+              className={`h-2 rounded-full transition-all duration-500 ${
+                currentMovie === index
                   ? "w-8 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]"
                   : "w-2 bg-white/30 hover:bg-white/60"
-                }`}
+              }`}
             />
           ))}
         </div>

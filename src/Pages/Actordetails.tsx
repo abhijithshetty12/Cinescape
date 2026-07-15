@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers } from "lucide-react";
+import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Sparkles, CalendarDays, Calendar, ChevronDown, Check } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
@@ -19,6 +19,8 @@ const Actordetails = () => {
   const [actor, setActor] = useState<any>(null);
   const [works, setWorks] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
+  const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'popularity'>('latest');
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteDocId, setFavoriteDocId] = useState<string | null>(null);
@@ -26,6 +28,12 @@ const Actordetails = () => {
 
   const noImageSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 150"><rect width="100%" height="100%" fill="%2327272a"/><g transform="translate(38, 50) scale(1)" stroke="%2371717a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 4.41A2 2 0 0 1 11 4h9a2 2 0 0 1 2 2v9a2 2 0 0 1-.42 1.15"/><path d="M16 16H4a2 2 0 0 1-2-2V6a2 2 0 0 1 .42-1.15"/><path d="m2 18 5.58-5.58a1 1 0 0 1 1.41 0l3.41 3.41"/><path d="m16 11.5 1-1a1 1 0 0 1 .18-.15"/></g><text x="50%" y="95" fill="%2371717a" font-size="6" font-family="sans-serif" text-anchor="middle" font-weight="500">No Image Available</text></svg>`;
   const tmdbAPIKey = "859afbb4b98e3b467da9c99ac390e950";
+
+  const sortOptions = [
+    { id: 'latest', label: 'Latest Release', icon: CalendarDays },
+    { id: 'oldest', label: 'Oldest Release', icon: Calendar },
+    { id: 'popularity', label: 'Most Popular', icon: Sparkles }
+  ] as const;
 
   useEffect(() => {
     const fetchActorData = async () => {
@@ -63,10 +71,7 @@ const Actordetails = () => {
           }
         });
 
-        const sortedWorks = Array.from(combinedWorksMap.values()).sort(
-          (a: any, b: any) => (b.popularity ?? 0) - (a.popularity ?? 0)
-        );
-
+        const sortedWorks = Array.from(combinedWorksMap.values());
         setWorks(sortedWorks);
 
         const socialRes = await axios.get(
@@ -165,11 +170,58 @@ const Actordetails = () => {
   const actorPopularity = actor?.popularity ?? 0;
   const formattedPopularity = actorPopularity.toFixed(1);
 
-  const filteredWorks = works.filter((work) => {
-    if (activeTab === 'all') return true;
-    const mediaType = work.media_type === "tv" ? "tv" : "movie";
-    return mediaType === activeTab;
-  });
+  const filteredWorks = works
+    .filter((work) => {
+      if (activeTab === 'all') return true;
+      const mediaType = work.media_type === "tv" ? "tv" : "movie";
+      return mediaType === activeTab;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'latest') {
+        const dateA = new Date(a.release_date || a.first_air_date || 0).getTime();
+        const dateB = new Date(b.release_date || b.first_air_date || 0).getTime();
+        return dateB - dateA;
+      }
+      if (sortBy === 'oldest') {
+        const dateA = new Date(a.release_date || a.first_air_date || '9999-12-31').getTime();
+        const dateB = new Date(b.release_date || b.first_air_date || '9999-12-31').getTime();
+        return dateA - dateB;
+      }
+      return (b.popularity ?? 0) - (a.popularity ?? 0);
+    });
+
+  const ActiveSortIcon = sortOptions.find(opt => opt.id === sortBy)?.icon || CalendarDays;
+
+  const gridContainerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.04,
+        delayChildren: 0.02
+      }
+    }
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    show: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 24
+      }
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.9,
+      y: -10,
+      transition: { duration: 0.15 }
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
@@ -332,62 +384,122 @@ const Actordetails = () => {
             <div className="h-px bg-gradient-to-r from-zinc-800 to-transparent flex-1 hidden sm:block" />
           </div>
 
-          <div className="relative flex items-center p-1 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-2xl w-full md:w-fit backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.15)] overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-tr before:from-white/[0.02] before:via-transparent before:to-white/[0.05] before:pointer-events-none">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-6 py-2 md:py-2.5 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'all'
-                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
-                }`}
-            >
-              {activeTab === 'all' && (
-                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-              )}
-              {activeTab === 'all' && (
-                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-              )}
-              <Layers className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'all' ? 'scale-105' : 'group-hover:scale-105'}`} />
-              <span className="relative z-10">All</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex items-center p-1 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-2xl w-full sm:w-fit backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.15)] overflow-hidden">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-5 py-2 md:py-2 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'all'
+                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                  }`}
+              >
+                {activeTab === 'all' && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+                )}
+                {activeTab === 'all' && (
+                  <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+                )}
+                <Layers className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'all' ? 'scale-105' : 'group-hover:scale-105'}`} />
+                <span className="relative z-10">All</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('movie')}
-              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-6 py-2 md:py-2.5 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'movie'
-                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
-                }`}
-            >
-              {activeTab === 'movie' && (
-                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-              )}
-              {activeTab === 'movie' && (
-                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-              )}
-              <Clapperboard className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'movie' ? 'scale-105' : 'group-hover:scale-105'}`} />
-              <span className="relative z-10">Movies</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('movie')}
+                className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-5 py-2 md:py-2 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'movie'
+                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                  }`}
+              >
+                {activeTab === 'movie' && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+                )}
+                {activeTab === 'movie' && (
+                  <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+                )}
+                <Clapperboard className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'movie' ? 'scale-105' : 'group-hover:scale-105'}`} />
+                <span className="relative z-10">Movies</span>
+              </button>
 
-            <button
-              onClick={() => setActiveTab('tv')}
-              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-6 py-2 md:py-2.5 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'tv'
-                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
-                }`}
-            >
-              {activeTab === 'tv' && (
-                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-              )}
-              {activeTab === 'tv' && (
-                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-              )}
-              <Tv className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
-              <span className="relative z-10">Series</span>
-            </button>
+              <button
+                onClick={() => setActiveTab('tv')}
+                className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-5 py-2 md:py-2 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${activeTab === 'tv'
+                  ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+                  }`}
+              >
+                {activeTab === 'tv' && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
+                )}
+                {activeTab === 'tv' && (
+                  <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+                )}
+                <Tv className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
+                <span className="relative z-10">Series</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="w-full sm:w-auto flex items-center justify-between gap-2.5 px-4 py-2.5 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-2xl backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.15)] text-white font-semibold text-xs transition-all duration-300 hover:border-white/20 active:scale-98"
+              >
+                <div className="flex items-center gap-2">
+                  <ActiveSortIcon className="w-4 h-4 text-red-500" />
+                  <span>{sortOptions.find(o => o.id === sortBy)?.label}</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-300 ${isSortOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isSortOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsSortOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute right-0 top-full mt-2 w-full sm:w-48 p-1.5 bg-zinc-900/90 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl z-50 overflow-hidden"
+                    >
+                      {sortOptions.map((option) => {
+                        const Icon = option.icon;
+                        const isSelected = sortBy === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            onClick={() => {
+                              setSortBy(option.id);
+                              setIsSortOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 ${isSelected
+                                ? 'bg-gradient-to-r from-red-600/20 to-red-600/10 text-white font-semibold border border-red-500/20'
+                                : 'text-zinc-400 hover:text-white hover:bg-white/[0.05]'
+                              }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-red-500' : 'text-zinc-400'}`} />
+                              <span>{option.label}</span>
+                            </div>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-red-500" />}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
 
         <motion.div
-          layout
+          key={`${activeTab}-${sortBy}`}
+          variants={gridContainerVariants}
+          initial="hidden"
+          animate="show"
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
         >
           <AnimatePresence mode="popLayout">
@@ -402,11 +514,8 @@ const Actordetails = () => {
               return (
                 <motion.div
                   key={work.uniqueKey || work.id}
+                  variants={cardVariants}
                   layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.2 }}
                 >
                   <Link to={`/${mediaType}/${work.id}`} className="block h-full group">
                     <div className="h-full relative overflow-hidden rounded-2xl">

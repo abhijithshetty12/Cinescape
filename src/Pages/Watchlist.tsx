@@ -224,8 +224,8 @@ const WatchlistPage = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3.5">
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]">
-                  <Bookmark className="w-6 h-6 text-red-500" />
+                <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30">
+                  <Bookmark className="w-6 h-6 fill-current" />
                 </div>
                 <div>
                   <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight bg-clip-text">

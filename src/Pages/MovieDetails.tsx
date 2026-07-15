@@ -32,7 +32,7 @@ interface Movie {
   runtime: number;
   vote_average: number;
   poster_path: string;
-  cast: { id: number; name: string; role: string; profile_path: string }[] | null;
+  cast: { id: number; name: string; role: string; profile_path: string; category?: string }[] | null;
   reviews: { id: string; author: string; content: string; likes?: number; dislikes?: number }[];
   trailers: { key: string; name: string }[];
   images: { backdrops: { file_path: string }[] };
@@ -127,8 +127,8 @@ const WatchedButton = ({
       onClick={handleClick}
       disabled={watchedLoading}
       className={`flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-[44px] shadow-lg ${isWatched
-          ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white shadow-green-500/25'
-          : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-gray-300 hover:text-white shadow-zinc-500/25'
+        ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white shadow-green-500/25'
+        : 'bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-gray-300 hover:text-white shadow-zinc-500/25'
         } ${watchedLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
       {watchedLoading ? (
@@ -586,7 +586,7 @@ const MovieDetails = () => {
                   ) : (
                     <div className="w-40 h-56 sm:w-52 sm:h-72 md:w-56 md:h-80 lg:w-64 lg:h-96 bg-zinc-900/80 flex flex-col items-center justify-center text-gray-500 rounded-lg">
                       <ImageOff className="w-10 h-10 mb-2 opacity-50" />
-                      <span className="text-xs text-center px-3">No Image</span>
+                      <p className="text-xs text-center px-3">No Image</p>
                     </div>
                   )}
                 </div>
@@ -657,8 +657,8 @@ const MovieDetails = () => {
                 <button
                   onClick={handleWatchlistToggle}
                   className={`relative group flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl overflow-hidden ${isInWatchlist
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-emerald-500/30'
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-emerald-500/30'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
                     }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
@@ -916,6 +916,7 @@ const MovieDetails = () => {
           className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
         >
           <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+
           <div className="flex items-center gap-3.5 mb-6 relative z-10">
             <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
               <Users className="w-5 h-5 text-blue-500 stroke-[1.5]" />
@@ -931,49 +932,73 @@ const MovieDetails = () => {
             className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            <div className="flex gap-4 sm:gap-5 px-1">
-              {movieDetails.cast?.map((actor, idx) => (
-                <Link key={actor.id} to={`/actor/${actor.id}`} className="flex-shrink-0 snap-start group/card">
-                  <SpatialCard containerRef={castContainerRef} index={idx}>
-                    <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-blue-500/30 group-hover/card:shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+            <div className="flex items-center gap-4 sm:gap-5 px-1">
+              {movieDetails.cast?.map((actor: any, idx: number) => {
+                const category = actor.category || (idx < 3 ? 'Lead' : 'Supporting');
+                const prevCategory =
+                  idx > 0
+                    ? (movieDetails.cast as any)[idx - 1].category || (idx - 1 < 3 ? 'Lead' : 'Supporting')
+                    : null;
+                const isFirstOfCategory = idx === 0 || category !== prevCategory;
 
-                      {/* Blue Corner Glow Blur Effect */}
-                      <div className="absolute -top-10 -left-10 w-28 h-28 bg-blue-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-blue-500 transition-all duration-500 pointer-events-none" />
-
-                      <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-blue-500/20 transition-colors duration-500">
-                        {/* Diagonal Glass Sheen Sweep Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
-
-                        {actor.profile_path ? (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w780${actor.profile_path}`}
-                            alt={actor.name}
-                            className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
-                            <ImageOff className="w-7 h-7 mb-1.5 opacity-30" />
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">No Photo</span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
-                      </div>
-
-                      <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
-                        <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-blue-400 transition-colors duration-300">
-                          {actor.name}
-                        </h3>
-                        <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
-                          <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
-                            {actor.role || 'Character'}
-                          </p>
+                return (
+                  <React.Fragment key={actor.id}>
+                    {isFirstOfCategory && (
+                      <div
+                        key={`divider-${category}`}
+                        className="flex-shrink-0 snap-start flex items-center h-[240px] sm:h-[280px] mr-1 sm:mr-2"
+                      >
+                        <div className="h-full w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+                        <div className="flex items-center pl-1 pr-0.5">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-blue-500/80 -rotate-90 whitespace-nowrap">
+                            {category}
+                          </span>
                         </div>
                       </div>
-                    </div>
-                  </SpatialCard>
-                </Link>
-              ))}
+                    )}
+
+                    <Link to={`/actor/${actor.id}`} className="flex-shrink-0 snap-start group/card">
+                      <SpatialCard containerRef={castContainerRef} index={idx}>
+                        <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-blue-500/30 group-hover/card:shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+                          <div className="absolute -top-10 -left-10 w-28 h-28 bg-blue-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-blue-500 transition-all duration-500 pointer-events-none" />
+
+                          <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-blue-500/20 transition-colors duration-500">
+                            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
+
+                            {actor.profile_path ? (
+                              <img
+                                src={`https://image.tmdb.org/t/p/w780${actor.profile_path}`}
+                                alt={actor.name}
+                                className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                                <ImageOff className="w-7 h-7 mb-1.5 opacity-30" />
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                                  No Photo
+                                </span>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
+                          </div>
+
+                          <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
+                            <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-blue-400 transition-colors duration-300">
+                              {actor.name}
+                            </h3>
+                            <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
+                              <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                                {actor.role || 'Character'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </SpatialCard>
+                    </Link>
+                  </React.Fragment>
+                );
+              })}
             </div>
           </div>
 
@@ -986,73 +1011,131 @@ const MovieDetails = () => {
         </motion.section>
 
         <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.02, ease: [0.22, 1, 0.36, 1] }}
-          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
-        >
-          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
-          <div className="flex items-center gap-3.5 mb-6 relative z-10">
-            <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
-              <Award className="w-5 h-5 text-amber-400 stroke-[1.5]" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Crew</h2>
-              <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">Production Team</span>
-            </div>
-          </div>
+  initial={{ opacity: 0, y: 30 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.8, delay: 1.02, ease: [0.22, 1, 0.36, 1] }}
+  className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+>
+  <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-          <div
-            ref={crewContainerRef}
-            className="overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth relative z-10"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            <div className="flex gap-4 sm:gap-5 px-1">
-              {groupedCrew.map((member: any, idx: number) => (
-                <Link key={member.credit_id} to={`/actor/${member.id}`} className="flex-shrink-0 snap-start group/card">
-                  <SpatialCard containerRef={crewContainerRef} index={idx}>
-                    <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:-translate-y-1.5 group-hover/card:bg-white/[0.05] group-hover/card:border-amber-500/30 group-hover/card:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                      <div className="absolute -top-12 -left-12 w-32 h-32 rounded-full blur-2xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-amber-500/20 transition-all duration-700 pointer-events-none" />
-                      <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-amber-500/20 transition-colors duration-500">
-                        {member.profile_path ? (
-                          <img
-                            src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
-                            alt={member.name}
-                            className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
-                            <ImageOff className="w-7 h-7 mb-1.5 opacity-30" />
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">No Photo</span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
-                      </div>
-                      <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
-                        <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-amber-300 transition-colors duration-300">
-                          {member.name}
-                        </h3>
-                        <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
-                          <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
-                            {member.jobs.slice(0, 2).join(', ')}
-                            {member.jobs.length > 2 && ` +${member.jobs.length - 2}`}
-                          </p>
+  <div className="flex items-center gap-3.5 mb-6 relative z-10">
+    <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
+      <Award className="w-5 h-5 text-amber-400 stroke-[1.5]" />
+    </div>
+    <div>
+      <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Crew</h2>
+      <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">Production Team</span>
+    </div>
+  </div>
+
+  <div
+    ref={crewContainerRef}
+    className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
+    style={{ WebkitOverflowScrolling: 'touch' }}
+  >
+    <div className="flex items-center gap-4 sm:gap-5 px-1">
+      {(() => {
+        // Helper to determine category label
+        const getCategoryLabel = (item: any) => {
+          if (!item) return 'CREW';
+          const dept = (item.category || item.department || item.known_for_department || '').toUpperCase();
+
+          if (dept.includes('DIRECT')) return 'DIRECTING';
+          if (dept.includes('PRODUC')) return 'PRODUCERS';
+
+          return 'CREW';
+        };
+
+        // Priority ordering: DIRECTING (1) -> PRODUCERS (2) -> CREW (3)
+        const getPriority = (item: any) => {
+          const label = getCategoryLabel(item);
+          if (label === 'DIRECTING') return 1;
+          if (label === 'PRODUCERS') return 2;
+          return 3;
+        };
+
+        // Sort members into correct department order
+        const sortedCrew = [...groupedCrew].sort((a, b) => getPriority(a) - getPriority(b));
+
+        return sortedCrew.map((member: any, idx: number) => {
+          const category = getCategoryLabel(member);
+          const prevCategory = idx > 0 ? getCategoryLabel(sortedCrew[idx - 1]) : null;
+          const isFirstOfCategory = idx === 0 || category !== prevCategory;
+
+          return (
+            <React.Fragment key={member.credit_id || idx}>
+              {/* Vertical Divider Label */}
+              {isFirstOfCategory && (
+                <div
+                  key={`divider-${category}`}
+                  className="flex-shrink-0 snap-start flex items-center h-[240px] sm:h-[280px] mr-1 sm:mr-2"
+                >
+                  <div className="h-full w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+                  <div className="flex items-center pl-1 pr-0.5">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-[0.15em] text-amber-500/80 -rotate-90 whitespace-nowrap">
+                      {category}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <Link to={`/actor/${member.id}`} className="flex-shrink-0 snap-start group/card">
+                <SpatialCard containerRef={crewContainerRef} index={idx}>
+                  <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-amber-500/30 group-hover/card:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                    {/* Ambient Amber Glow */}
+                    <div className="absolute -top-10 -left-10 w-28 h-28 bg-amber-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-amber-500 transition-all duration-500 pointer-events-none" />
+
+                    <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-amber-500/20 transition-colors duration-500">
+                      {/* Diagonal Light Sweep Animation */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
+
+                      {member.profile_path ? (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
+                          alt={member.name}
+                          className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                          <ImageOff className="w-7 h-7 mb-1.5 opacity-30" />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                            No Photo
+                          </span>
                         </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
+                    </div>
+
+                    <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
+                      <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-amber-400 transition-colors duration-300">
+                        {member.name}
+                      </h3>
+                      <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
+                        <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                          {Array.isArray(member.jobs)
+                            ? `${member.jobs.slice(0, 2).join(', ')}${member.jobs.length > 2 ? ` +${member.jobs.length - 2}` : ''}`
+                            : member.job || 'Crew'}
+                        </p>
                       </div>
                     </div>
-                  </SpatialCard>
-                </Link>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest">
-            <span>Swipe to explore</span>
-            <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
-              <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
-            </div>
-          </div>
-        </motion.section>
+                  </div>
+                </SpatialCard>
+              </Link>
+            </React.Fragment>
+          );
+        });
+      })()}
+    </div>
+  </div>
+
+  <div className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest">
+    <span>Swipe to explore</span>
+    <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+      <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
+    </div>
+  </div>
+</motion.section>
 
         {movieParts.length > 0 && (
           <motion.section
@@ -1263,12 +1346,12 @@ const MovieDetails = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.05 }}
                     className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider backdrop-blur-md ${userRating >= 8
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : userRating >= 6
-                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          : userRating >= 4
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : userRating >= 6
+                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        : userRating >= 4
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                       }`}
                   >
                     {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
@@ -1371,8 +1454,8 @@ const MovieDetails = () => {
                   whileHover={userReview.length > 0 ? { scale: 1.03 } : {}}
                   whileTap={{ scale: 0.98 }}
                   className={`relative group overflow-hidden py-3 px-10 rounded-xl font-extrabold text-xs uppercase tracking-widest shadow-xl transition-all duration-300 flex items-center gap-2 ${userReview.length === 0
-                      ? 'bg-zinc-900/40 text-zinc-600 border border-white/[0.02] cursor-not-allowed shadow-none'
-                      : 'bg-gradient-to-b from-blue-500 via-blue-600 to-blue-700 text-white border border-white/10 hover:shadow-blue-500/10'
+                    ? 'bg-zinc-900/40 text-zinc-600 border border-white/[0.02] cursor-not-allowed shadow-none'
+                    : 'bg-gradient-to-b from-blue-500 via-blue-600 to-blue-700 text-white border border-white/10 hover:shadow-blue-500/10'
                     }`}
                 >
                   {userReview.length > 0 && (
@@ -1433,8 +1516,8 @@ const MovieDetails = () => {
                     whileTap={{ scale: 0.97 }}
                     onClick={() => setSortOption(option)}
                     className={`px-3 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wider transition-all duration-300 ${sortOption === option
-                        ? 'bg-white/[0.05] text-white border border-white/[0.08]'
-                        : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                      ? 'bg-white/[0.05] text-white border border-white/[0.08]'
+                      : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
                       }`}
                   >
                     {option === 'mostHelpful' ? 'Helpful' : 'Recent'}
