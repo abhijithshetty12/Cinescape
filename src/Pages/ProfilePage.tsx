@@ -246,6 +246,8 @@ const ProfilePage = () => {
     type: "success",
     isVisible: false,
   });
+  const [runtimeDetails, setRuntimeDetails] = useState<Record<string, { runtime: number }>>({});
+  const [loadingRuntimes, setLoadingRuntimes] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -271,9 +273,13 @@ const ProfilePage = () => {
     [history],
   );
   const totalBingeHours = useMemo(() => {
-    const mins = filmsWatched * 120 + seriesWatched * 45;
-    return Math.round(mins / 60);
-  }, [filmsWatched, seriesWatched]);
+    let totalMins = 0;
+    history.forEach((item) => {
+      const runtime = runtimeDetails[item.id]?.runtime || (item.mediaType === "movie" ? 120 : 45);
+      totalMins += runtime;
+    });
+    return Math.round(totalMins / 60);
+  }, [history, runtimeDetails]);
   const avgRating = useMemo(() => {
     if (ratedMovies.length === 0) return null;
     const sum = ratedMovies.reduce((acc, m) => acc + m.rating, 0);
@@ -371,6 +377,42 @@ const ProfilePage = () => {
 
     return () => unsubs.forEach((u) => u());
   }, [user?.uid]);
+
+  useEffect(() => {
+    const fetchRuntimes = async () => {
+      const historyItems = history.filter((item) => item.id && !runtimeDetails[item.id]);
+      if (historyItems.length === 0) return;
+
+      setLoadingRuntimes(true);
+      const newDetails: Record<string, { runtime: number }> = {};
+
+      await Promise.all(
+        historyItems.map(async (item) => {
+          try {
+            const res = await axios.get(
+              `https://api.themoviedb.org/3/${item.mediaType}/${item.id}?api_key=${TMDB_API_KEY}`
+            );
+            const runtime =
+              item.mediaType === "movie"
+                ? (res.data.runtime || 120)
+                : (res.data.episode_run_time?.[0] || 45);
+            newDetails[item.id] = { runtime };
+          } catch {
+            newDetails[item.id] = {
+              runtime: item.mediaType === "movie" ? 120 : 45,
+            };
+          }
+        })
+      );
+
+      setRuntimeDetails((prev) => ({ ...prev, ...newDetails }));
+      setLoadingRuntimes(false);
+    };
+
+    if (history.length > 0) {
+      fetchRuntimes();
+    }
+  }, [history]);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -784,8 +826,17 @@ const ProfilePage = () => {
                   </span>
                 </div>
                 <p className="text-2xl font-black text-white tabular-nums leading-none">
-                  {totalBingeHours}
-                  <span className="text-xs font-bold text-zinc-400 ml-0.5">h</span>
+                  {loadingRuntimes && history.length > 0 && Object.keys(runtimeDetails).length < history.length ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                      <span className="text-xs font-bold text-emerald-400">...</span>
+                    </span>
+                  ) : (
+                    <>
+                      {totalBingeHours}
+                      <span className="text-xs font-bold text-zinc-400 ml-0.5">h</span>
+                    </>
+                  )}
                 </p>
                 <p className="text-[9px] text-zinc-400 font-medium mt-1">
                   Total Binge Time
@@ -881,7 +932,7 @@ const ProfilePage = () => {
               exit="exit"
               className="space-y-6"
             >
-              <BingeWatchStats history={history} />
+              <BingeWatchStats history={history} ratedMovies={ratedMovies} />
               <RecommendationSection
                 watchlist={watchlist}
                 history={history}
@@ -899,9 +950,14 @@ const ProfilePage = () => {
               initial="initial"
               animate="animate"
               exit="exit"
+              className="w-full"
             >
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-4 sm:p-6 backdrop-blur-xl shadow-xl">
-                <div className="flex items-center justify-between mb-4">
+              <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/20 p-5 sm:p-8 backdrop-blur-3xl shadow-2xl">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/5 rounded-full blur-[80px] pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/[0.02] rounded-full blur-[60px] pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+
+                <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2.5">
                     <div className="p-1.5 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-md shadow-cyan-500/30">
                       <Bookmark className="w-4 h-4 fill-current" />
@@ -923,22 +979,64 @@ const ProfilePage = () => {
                     View all <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-                <TogglePill
-                  value={watchlistFilter}
-                  onChange={setWatchlistFilter}
-                  options={[
-                    { value: "movie", label: "Movies" },
-                    { value: "tv", label: "Series" },
-                  ]}
-                  layoutId="watchlist-pill"
-                  activeColor="bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20"
-                />
-                <MediaRow
-                  items={filteredWatchlist.slice().reverse()}
-                  emptyLabel={`No ${watchlistFilter === "movie" ? "movies" : "series"} in watchlist`}
-                  accentClass="hover:border-cyan-500/30"
-                  to={(item) => `/${item.mediaType}/${item.id}`}
-                />
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-1">
+                  <div className="w-full sm:w-auto bg-zinc-950/40 p-1 rounded-xl border border-white/[0.02] shadow-inner">
+                    <TogglePill
+                      value={watchlistFilter}
+                      onChange={setWatchlistFilter}
+                      options={[
+                        { value: "movie", label: "Movies" },
+                        { value: "tv", label: "Series" },
+                      ]}
+                      layoutId="watchlist-pill"
+                      activeColor="bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="relative rounded-2xl bg-zinc-950/10 border border-white/[0.02]">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 w-full">
+                    {filteredWatchlist.length === 0 ? (
+                      <div className="col-span-full py-12 text-center text-xs text-zinc-500 uppercase tracking-wider">
+                        {`No ${watchlistFilter === "movie" ? "movies" : "series"} in watchlist`}
+                      </div>
+                    ) : (
+                      filteredWatchlist.slice().reverse().map((item) => {
+                        const targetLink = `/${item.mediaType}/${item.id}`;
+                        return (
+                          <Link
+                            key={item.id}
+                            to={targetLink}
+                            className="group relative flex flex-col bg-zinc-950/30 border border-zinc-900 rounded-2xl p-1.5 sm:p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-cyan-500/20 hover:shadow-[0_12px_30px_rgba(6,182,212,0.04)] active:scale-[0.98]"
+                          >
+                            <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-cyan-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+                            <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
+                              {item.posterPath ? (
+                                <img
+                                  src={item.posterPath}
+                                  alt={item.title || (item as any).name}
+                                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-700">
+                                  <Bookmark className="w-5 h-5 sm:w-6 sm:h-6" />
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 h-8 sm:h-10 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
+                            </div>
+                            <div className="pt-1.5 px-0.5">
+                              <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-cyan-400 tracking-tight transition-colors truncate">
+                                {(item.title || (item as any).name)}
+                              </p>
+                            </div>
+                          </Link>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -950,9 +1048,16 @@ const ProfilePage = () => {
               initial="initial"
               animate="animate"
               exit="exit"
+              className="w-full"
             >
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-4 sm:p-6 backdrop-blur-xl shadow-xl">
-                <div className="flex items-center justify-between mb-4">
+              <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/20 p-5 sm:p-8 backdrop-blur-3xl shadow-2xl">
+                {/* Glow Effects (Switched to emerald to match your history theme) */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/[0.02] rounded-full blur-[60px] pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+
+                {/* Header Section */}
+                <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2.5">
                     <div className="p-1.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30">
                       <History className="w-4 h-4" />
@@ -962,8 +1067,7 @@ const ProfilePage = () => {
                         Watch History
                       </h2>
                       <p className="text-xs text-zinc-500">
-                        {history.length} item{history.length !== 1 ? "s" : ""}{" "}
-                        watched
+                        {history.length} item{history.length !== 1 ? "s" : ""} watched
                       </p>
                     </div>
                   </div>
@@ -974,22 +1078,70 @@ const ProfilePage = () => {
                     View all <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-                <TogglePill
-                  value={historyFilter}
-                  onChange={setHistoryFilter}
-                  options={[
-                    { value: "movie", label: "Movies" },
-                    { value: "tv", label: "Series" },
-                  ]}
-                  layoutId="history-pill"
-                  activeColor="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-500/20"
-                />
-                <MediaRow
-                  items={filteredHistory.slice(0, 20)}
-                  emptyLabel="No history yet"
-                  accentClass="hover:border-emerald-500/30"
-                  to={(item) => `/${item.mediaType || "movie"}/${item.id}`}
-                />
+
+                {/* Filter Toggle Wrapper (Tightened mb-3 spacing) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+                  <div className="w-full sm:w-auto bg-zinc-950/40 p-1 rounded-xl border border-white/[0.02] shadow-inner">
+                    <TogglePill
+                      value={historyFilter}
+                      onChange={setHistoryFilter}
+                      options={[
+                        { value: "movie", label: "Movies" },
+                        { value: "tv", label: "Series" },
+                      ]}
+                      layoutId="history-pill"
+                      activeColor="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="relative rounded-2xl bg-zinc-950/10 border border-white/[0.02]">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 w-full">
+                    {filteredHistory.length === 0 ? (
+                      <div className="col-span-full py-12 text-center text-xs text-zinc-500 uppercase tracking-wider">
+                        {`No ${historyFilter === "movie" ? "movies" : "series"} in history`}
+                      </div>
+                    ) : (
+                      filteredHistory.slice(0, 20).map((item) => {
+                        const targetLink = `/${item.mediaType || "movie"}/${item.id}`;
+                        return (
+                          <Link
+                            key={item.id}
+                            to={targetLink}
+                            className="group relative flex flex-col bg-zinc-950/30 border border-zinc-900 rounded-2xl p-1.5 sm:p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-emerald-500/20 hover:shadow-[0_12px_30px_rgba(16,185,129,0.04)] active:scale-[0.98]"
+                          >
+                            {/* Subtle Border Glow */}
+                            <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-emerald-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+
+                            {/* Poster Container */}
+                            <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
+                              {item.posterPath ? (
+                                <img
+                                  src={item.posterPath}
+                                  alt={item.title || (item as any).name}
+                                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-700">
+                                  <History className="w-5 h-5 sm:w-6 sm:h-6" />
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 h-8 sm:h-10 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
+                            </div>
+
+                            {/* Meta Text */}
+                            <div className="pt-1.5 px-0.5">
+                              <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-emerald-400 tracking-tight transition-colors truncate">
+                                {item.title || (item as any).name}
+                              </p>
+                            </div>
+                          </Link>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1001,8 +1153,13 @@ const ProfilePage = () => {
               initial="initial"
               animate="animate"
               exit="exit"
+              className="w-full"
             >
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/60 p-4 sm:p-6 backdrop-blur-xl shadow-xl">
+              <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/20 p-5 sm:p-8 backdrop-blur-3xl shadow-2xl">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-red-500/5 rounded-full blur-[80px] pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/[0.02] rounded-full blur-[60px] pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2.5">
                     <div className="p-1.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/30">
@@ -1025,65 +1182,69 @@ const ProfilePage = () => {
                     View all <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
+
                 {favouriteActors.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 border border-dashed border-white/5 rounded-xl bg-white/[0.01]">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
-                      <Heart className="w-4 h-4 fill-current" />
+                  <div className="relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-950/30 p-8 text-center shadow-inner">
+                    <div className="relative z-10 flex flex-col items-center max-w-xs mx-auto">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-600 mb-4 shadow-xl">
+                        <Heart className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-xs font-black tracking-[0.2em] text-zinc-400 uppercase">Roster Empty</h3>
+                      <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+                        Bookmark talent and artist profiles to automatically generate your interactive visual matrix here.
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-zinc-300">
-                      No favourite talents yet
-                    </p>
-                    <p className="text-xs text-zinc-500 text-center px-6">
-                      Save actor profiles to see them here
-                    </p>
                   </div>
                 ) : (
-                  <div
-                    className="overflow-x-auto -mx-1 px-1 pb-2 scrollbar-none"
-                    style={{ WebkitOverflowScrolling: "touch" }}
-                  >
-                    <div className="flex gap-3">
-                      {favouriteActors.map((actor, idx) => (
-                        <Link
-                          key={actor.id}
-                          to={`/actor/${actor.id}`}
-                          className="group relative flex-shrink-0 w-[90px] sm:w-[105px] rounded-xl overflow-hidden border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-red-500/30 transition-all duration-200"
-                        >
-                          <div className="relative aspect-[3/4] overflow-hidden bg-zinc-900">
-                            <div className="absolute top-1 left-1 z-10 flex items-center justify-center bg-zinc-950/80 backdrop-blur-md border border-white/10 rounded px-1 py-0.5 min-w-[18px]">
-                              <span className="text-[9px] font-bold leading-none text-zinc-400 group-hover:text-red-400 transition-colors">
-                                #{idx + 1}
-                              </span>
-                            </div>
-                            <div className="absolute top-1 right-1 z-10 bg-red-500 p-0.5 rounded-full shadow-md shadow-red-500/30">
-                              <Heart className="w-2 h-2 text-white fill-current" />
-                            </div>
-                            {actor.profilePath ? (
-                              <img
-                                src={actor.profilePath}
-                                alt={actor.name}
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                loading="lazy"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                                <User className="w-5 h-5 text-zinc-600" />
-                              </div>
-                            )}
-                            <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-zinc-950/80 to-transparent" />
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 w-full">
+                    {favouriteActors.map((actor, idx) => (
+                      <Link
+                        key={actor.id}
+                        to={`/actor/${actor.id}`}
+                        className="group relative flex flex-col justify-between bg-zinc-950/30 border border-zinc-900 rounded-2xl p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-red-500/20 hover:shadow-[0_12px_30px_rgba(239,68,68,0.04)] active:scale-[0.98]"
+                      >
+                        <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-red-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+
+                        <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
+                          <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm">
+                            <span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">
+                              #{idx + 1}
+                            </span>
                           </div>
-                          <div className="p-1.5">
-                            <p className="text-[11px] sm:text-xs font-medium text-zinc-200 group-hover:text-red-400 transition-colors truncate">
-                              {actor.name}
-                            </p>
+
+                          <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20">
+                            <Heart className="w-2 h-2 text-white fill-current" />
                           </div>
-                        </Link>
-                      ))}
-                    </div>
+
+                          {actor.profilePath ? (
+                            <img
+                              src={actor.profilePath}
+                              alt={actor.name}
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                              <User className="w-5 h-5 text-zinc-700" />
+                            </div>
+                          )}
+
+                          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent pointer-events-none" />
+                        </div>
+
+                        <div className="pt-2 px-0.5">
+                          <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-red-400 tracking-tight transition-colors truncate">
+                            {actor.name}
+                          </p>
+                          <span className="text-[8px] font-semibold uppercase tracking-widest text-zinc-600 block mt-0.5">
+                            Talent
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>
