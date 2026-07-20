@@ -19,6 +19,8 @@ import { useWatchedStatus, WatchedItemData } from './History.tsx';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { enqueueWatchlistOp, registerWatchlistSync } from '../utils/watchlistQueue.ts';
+import { getMovieEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
+import PlayerControl from '../components/PlayerControl.tsx';
 
 interface Movie {
   id: number;
@@ -37,6 +39,7 @@ interface Movie {
   trailers: { key: string; name: string }[];
   images: { backdrops: { file_path: string }[] };
   streamingLinks: any;
+  imdb_id: string;
 }
 
 const TMDB_KEY = '859afbb4b98e3b467da9c99ac390e950';
@@ -183,7 +186,7 @@ const MovieDetails = () => {
     type: 'success' | 'error' | 'info';
     isVisible: boolean;
   }>({ message: '', type: 'success', isVisible: false });
-
+  const [playerSource, setPlayerSource] = useState<PlayerSource>('vidsrc');
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type, isVisible: true });
   };
@@ -266,6 +269,7 @@ const MovieDetails = () => {
           trailers: data.videos?.results ?? [],
           images: { backdrops },
           streamingLinks,
+          imdb_id: data.imdb_id ?? '',
         });
 
         if (data.belongs_to_collection?.id) {
@@ -482,29 +486,36 @@ const MovieDetails = () => {
     });
   }, [crew]);
 
-  const embedUrl = useMemo(() =>
-    `https://www.vidking.net/embed/movie/${id}?color=e50914&autoPlay=true&nextEpisode=true&episodeSelector=true`,
-    [id]
-  );
+  const embedUrls = useMemo(() => {
+    const tmdbId = id ?? '';
+    const imdbId = movieDetails?.imdb_id ?? '';
+    return getMovieEmbedUrls(tmdbId, imdbId);
+  }, [id, movieDetails?.imdb_id]);
+
+  const currentSrc = embedUrls[playerSource];
 
   // Memoize player to prevent re-renders (and pausing) when typing reviews/ratings
-  const VideoPlayer = useMemo(() => (
-    <div className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-black shadow-[0_0_50px_-12px_rgba(239,68,68,0.15)] group-hover:shadow-[0_0_60px_-10px_rgba(239,68,68,0.25)] group-hover:border-white/[0.12] transition-all duration-500">
-      <div className="w-full aspect-video bg-zinc-950">
-        <iframe
-          key={id}
-          src={embedUrl}
-          width="100%"
-          height="100%"
-          allowFullScreen
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; orientation-lock"
-          title="Movie Player"
-          className="w-full h-full border-0"
-          loading="lazy"
-        />
+  const VideoPlayer = useMemo(() => {
+    if (!currentSrc) return null;
+    return (
+      <div className="relative rounded-2xl overflow-hidden border border-white/[0.06] bg-black shadow-[0_0_50px_-12px_rgba(239,68,68,0.15)] group-hover:shadow-[0_0_60px_-10px_rgba(239,68,68,0.25)] group-hover:border-white/[0.12] transition-all duration-500">
+        <div className="w-full aspect-video bg-zinc-950">
+          <iframe
+            key={`${playerSource}-${id}`}
+            src={currentSrc!}
+            width="100%"
+            height="100%"
+            allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; orientation-lock"
+            title="Movie Player"
+            className="w-full h-full border-0"
+            loading="lazy"
+          />
+        </div>
       </div>
-    </div>
-  ), [embedUrl, id]);
+    );
+  }, [currentSrc, id]);
+
 
   if (loading) return <Loading />;
   if (error || !movieDetails) return <p className="text-center text-red-500 py-20">{error}</p>;
@@ -851,10 +862,20 @@ const MovieDetails = () => {
             <div className="p-2.5 bg-gradient-to-b from-red-500/10 to-red-500/20 border border-red-500/20 rounded-xl">
               <TvMinimalPlay className="w-5 h-5 text-red-500 animate-pulse" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Watch Now</h2>
               <span className="text-[10px] text-zinc-500 font-medium tracking-wide uppercase">Adaptive Player Stream</span>
             </div>
+            <PlayerControl source={playerSource} onChange={setPlayerSource} />
+          </div>
+
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-500/5 border border-red-500/10 mb-5 shadow-[inset_0_1px_1px_rgba(239,68,68,0.1)] relative z-10">
+            <div className="flex items-center justify-center w-5 h-5 rounded-full border border-red-500/40 bg-red-500/10 flex-shrink-0 text-[11px] font-extrabold text-red-400 select-none mt-0.5">
+              i
+            </div>
+            <p className="text-zinc-400 text-[12px] leading-relaxed font-medium">
+              Watch movie in <span className="text-red-400 font-semibold">full screen mode</span> to avoid irritating ads and unexpected popups.
+            </p>
           </div>
 
           {VideoPlayer}
@@ -1011,131 +1032,131 @@ const MovieDetails = () => {
         </motion.section>
 
         <motion.section
-  initial={{ opacity: 0, y: 30 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.8, delay: 1.02, ease: [0.22, 1, 0.36, 1] }}
-  className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
->
-  <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1.02, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-10 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
 
-  <div className="flex items-center gap-3.5 mb-6 relative z-10">
-    <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
-      <Award className="w-5 h-5 text-amber-400 stroke-[1.5]" />
-    </div>
-    <div>
-      <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Crew</h2>
-      <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">Production Team</span>
-    </div>
-  </div>
+          <div className="flex items-center gap-3.5 mb-6 relative z-10">
+            <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
+              <Award className="w-5 h-5 text-amber-400 stroke-[1.5]" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Crew</h2>
+              <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">Production Team</span>
+            </div>
+          </div>
 
-  <div
-    ref={crewContainerRef}
-    className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
-    style={{ WebkitOverflowScrolling: 'touch' }}
-  >
-    <div className="flex items-center gap-4 sm:gap-5 px-1">
-      {(() => {
-        // Helper to determine category label
-        const getCategoryLabel = (item: any) => {
-          if (!item) return 'CREW';
-          const dept = (item.category || item.department || item.known_for_department || '').toUpperCase();
+          <div
+            ref={crewContainerRef}
+            className="overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth relative z-10"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex items-center gap-4 sm:gap-5 px-1">
+              {(() => {
+                // Helper to determine category label
+                const getCategoryLabel = (item: any) => {
+                  if (!item) return 'CREW';
+                  const dept = (item.category || item.department || item.known_for_department || '').toUpperCase();
 
-          if (dept.includes('DIRECT')) return 'DIRECTING';
-          if (dept.includes('PRODUC')) return 'PRODUCERS';
+                  if (dept.includes('DIRECT')) return 'DIRECTING';
+                  if (dept.includes('PRODUC')) return 'PRODUCERS';
 
-          return 'CREW';
-        };
+                  return 'CREW';
+                };
 
-        // Priority ordering: DIRECTING (1) -> PRODUCERS (2) -> CREW (3)
-        const getPriority = (item: any) => {
-          const label = getCategoryLabel(item);
-          if (label === 'DIRECTING') return 1;
-          if (label === 'PRODUCERS') return 2;
-          return 3;
-        };
+                // Priority ordering: DIRECTING (1) -> PRODUCERS (2) -> CREW (3)
+                const getPriority = (item: any) => {
+                  const label = getCategoryLabel(item);
+                  if (label === 'DIRECTING') return 1;
+                  if (label === 'PRODUCERS') return 2;
+                  return 3;
+                };
 
-        // Sort members into correct department order
-        const sortedCrew = [...groupedCrew].sort((a, b) => getPriority(a) - getPriority(b));
+                // Sort members into correct department order
+                const sortedCrew = [...groupedCrew].sort((a, b) => getPriority(a) - getPriority(b));
 
-        return sortedCrew.map((member: any, idx: number) => {
-          const category = getCategoryLabel(member);
-          const prevCategory = idx > 0 ? getCategoryLabel(sortedCrew[idx - 1]) : null;
-          const isFirstOfCategory = idx === 0 || category !== prevCategory;
+                return sortedCrew.map((member: any, idx: number) => {
+                  const category = getCategoryLabel(member);
+                  const prevCategory = idx > 0 ? getCategoryLabel(sortedCrew[idx - 1]) : null;
+                  const isFirstOfCategory = idx === 0 || category !== prevCategory;
 
-          return (
-            <React.Fragment key={member.credit_id || idx}>
-              {/* Vertical Divider Label */}
-              {isFirstOfCategory && (
-                <div
-                  key={`divider-${category}`}
-                  className="flex-shrink-0 snap-start flex items-center h-[240px] sm:h-[280px] mr-1 sm:mr-2"
-                >
-                  <div className="h-full w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-                  <div className="flex items-center pl-1 pr-0.5">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-[0.15em] text-amber-500/80 -rotate-90 whitespace-nowrap">
-                      {category}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <Link to={`/actor/${member.id}`} className="flex-shrink-0 snap-start group/card">
-                <SpatialCard containerRef={crewContainerRef} index={idx}>
-                  <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-amber-500/30 group-hover/card:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                    {/* Ambient Amber Glow */}
-                    <div className="absolute -top-10 -left-10 w-28 h-28 bg-amber-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-amber-500 transition-all duration-500 pointer-events-none" />
-
-                    <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-amber-500/20 transition-colors duration-500">
-                      {/* Diagonal Light Sweep Animation */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
-
-                      {member.profile_path ? (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
-                          alt={member.name}
-                          className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
-                          <ImageOff className="w-7 h-7 mb-1.5 opacity-30" />
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                            No Photo
-                          </span>
+                  return (
+                    <React.Fragment key={member.credit_id || idx}>
+                      {/* Vertical Divider Label */}
+                      {isFirstOfCategory && (
+                        <div
+                          key={`divider-${category}`}
+                          className="flex-shrink-0 snap-start flex items-center h-[240px] sm:h-[280px] mr-1 sm:mr-2"
+                        >
+                          <div className="h-full w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+                          <div className="flex items-center pl-1 pr-0.5">
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-[0.15em] text-amber-500/80 -rotate-90 whitespace-nowrap">
+                              {category}
+                            </span>
+                          </div>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
-                    </div>
 
-                    <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-amber-400 transition-colors duration-300">
-                        {member.name}
-                      </h3>
-                      <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
-                        <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
-                          {Array.isArray(member.jobs)
-                            ? `${member.jobs.slice(0, 2).join(', ')}${member.jobs.length > 2 ? ` +${member.jobs.length - 2}` : ''}`
-                            : member.job || 'Crew'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </SpatialCard>
-              </Link>
-            </React.Fragment>
-          );
-        });
-      })()}
-    </div>
-  </div>
+                      <Link to={`/actor/${member.id}`} className="flex-shrink-0 snap-start group/card">
+                        <SpatialCard containerRef={crewContainerRef} index={idx}>
+                          <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-amber-500/30 group-hover/card:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                            {/* Ambient Amber Glow */}
+                            <div className="absolute -top-10 -left-10 w-28 h-28 bg-amber-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-amber-500 transition-all duration-500 pointer-events-none" />
 
-  <div className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest">
-    <span>Swipe to explore</span>
-    <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
-      <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
-    </div>
-  </div>
-</motion.section>
+                            <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-amber-500/20 transition-colors duration-500">
+                              {/* Diagonal Light Sweep Animation */}
+                              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
+
+                              {member.profile_path ? (
+                                <img
+                                  src={`https://image.tmdb.org/t/p/w780${member.profile_path}`}
+                                  alt={member.name}
+                                  className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 bg-zinc-950">
+                                  <ImageOff className="w-7 h-7 mb-1.5 opacity-30" />
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                                    No Photo
+                                  </span>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/40 via-transparent to-transparent pointer-events-none" />
+                            </div>
+
+                            <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
+                              <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-amber-400 transition-colors duration-300">
+                                {member.name}
+                              </h3>
+                              <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
+                                <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
+                                  {Array.isArray(member.jobs)
+                                    ? `${member.jobs.slice(0, 2).join(', ')}${member.jobs.length > 2 ? ` +${member.jobs.length - 2}` : ''}`
+                                    : member.job || 'Crew'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </SpatialCard>
+                      </Link>
+                    </React.Fragment>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-2 text-zinc-500 text-[10px] md:hidden font-bold uppercase tracking-widest">
+            <span>Swipe to explore</span>
+            <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
+              <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
+            </div>
+          </div>
+        </motion.section>
 
         {movieParts.length > 0 && (
           <motion.section

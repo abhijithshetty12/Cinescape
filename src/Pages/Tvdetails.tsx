@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -17,6 +17,8 @@ import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
 import confetti from 'canvas-confetti';
+import { getTvEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
+import PlayerControl from '../components/PlayerControl.tsx';
 
 interface TvShow {
   id: number;
@@ -35,6 +37,7 @@ interface TvShow {
   images: { backdrops: { file_path: string }[] };
   country: string[];
   age_rating: string;
+  imdb_id: string;
 }
 
 const TMDB_KEY = '859afbb4b98e3b467da9c99ac390e950';
@@ -142,7 +145,7 @@ const WatchedButton = ({
 const TvDetails = () => {
   const { id } = useParams<{ id: string }>();
   useAuth();
-  
+
   useAutoLandscapeFullscreen();
 
   const [show, setShow] = useState<TvShow | null>(null);
@@ -163,6 +166,8 @@ const TvDetails = () => {
     isVisible: boolean;
   }>({ message: '', type: 'success', isVisible: false });
 
+  const [playerSource, setPlayerSource] = useState<PlayerSource>('vidsrc');
+
   const playerRef = useRef<HTMLDivElement>(null);
   const castContainerRef = useRef<HTMLDivElement>(null);
   const crewContainerRef = useRef<HTMLDivElement>(null);
@@ -174,11 +179,12 @@ const TvDetails = () => {
   useEffect(() => {
     const fetchShow = async () => {
       try {
-        const [mainResp, creditsResp] = await Promise.all([
+        const [mainResp, creditsResp, extResp] = await Promise.all([
           axios.get(
             `https://api.themoviedb.org/3/tv/${id}?api_key=${TMDB_KEY}&append_to_response=credits,reviews,videos,images,content_ratings`,
           ),
           axios.get(`https://api.themoviedb.org/3/tv/${id}/credits?api_key=${TMDB_KEY}`),
+          axios.get(`https://api.themoviedb.org/3/tv/${id}/external_ids?api_key=${TMDB_KEY}`),
         ]);
 
         const data = mainResp.data;
@@ -225,6 +231,7 @@ const TvDetails = () => {
             data.content_ratings?.results?.find((r: any) => r.iso_3166_1 === 'US')?.rating ||
             data.content_ratings?.results?.[0]?.rating ||
             'NR',
+          imdb_id: extResp.data?.imdb_id ?? '',
         });
 
         if (data.seasons?.length > 0) {
@@ -333,6 +340,17 @@ const TvDetails = () => {
     }
   };
 
+  const latestSeason = show?.seasons?.at(-1);
+  const currentSeason = selectedSeason ?? latestSeason?.season_number;
+  const currentEpisode = selectedEpisode ?? latestSeason?.episode_count;
+
+  const embedUrls = useMemo(() => {
+    const parsedId = id ?? '';
+    const season = currentSeason ?? 0;
+    const episode = currentEpisode ?? 0;
+    return getTvEmbedUrls(parsedId, season, episode, show?.imdb_id ?? '');
+  }, [id, currentSeason, currentEpisode, show?.imdb_id]);
+
   if (loading) return <Loading />;
   if (error || !show) return <p className="text-center text-red-500 py-20">{error}</p>;
 
@@ -368,13 +386,7 @@ const TvDetails = () => {
   const centerLabel = active?.name ?? fallback?.name ?? 'Genre Mix';
   const centerPct = active?.value ?? fallback?.value ?? 0;
 
-  const latestSeason = show.seasons.at(-1);
-  const playerSrc =
-    selectedEpisode !== null && selectedSeason !== null
-      ? `https://www.vidking.net/embed/tv/${id}/${selectedSeason}/${selectedEpisode}?color=3b82f6&autoPlay=true&nextEpisode=true&episodeSelector=true`
-      : latestSeason
-        ? `https://www.vidking.net/embed/tv/${id}/${latestSeason.season_number}/${latestSeason.episode_count}?color=3b82f6&nextEpisode=true&episodeSelector=true`
-        : null;
+  const playerSrc = embedUrls[playerSource];
 
   const groupedCrew: Record<string, any> = {};
   crew.forEach((m) => {
@@ -773,11 +785,24 @@ const TvDetails = () => {
             <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20">
               <TvMinimalPlay className="w-5 h-5 text-blue-500" />
             </div>
-            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-              {selectedEpisode !== null
-                ? `Watch S${selectedSeason} E${selectedEpisode}`
-                : 'Watch Series'}
-            </h2>
+            <div className="flex-1">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                {selectedEpisode !== null
+                  ? `Watch S${selectedSeason} E${selectedEpisode}`
+                  : 'Watch Series'}
+              </h2>
+            </div>
+            <PlayerControl source={playerSource} onChange={setPlayerSource} />
+          </div>
+
+          {/* Premium Info/Warning Banner */}
+          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-blue-500/5 border border-blue-500/10 mb-4 shadow-[inset_0_1px_1px_rgba(59,130,246,0.1)]">
+            <div className="flex items-center justify-center w-5 h-5 rounded-full border border-blue-400/40 bg-blue-500/10 flex-shrink-0 text-[11px] font-extrabold text-blue-400 select-none mt-0.5">
+              i
+            </div>
+            <p className="text-zinc-400 text-[12px] leading-relaxed font-medium">
+              Watch series in <span className="text-blue-400 font-semibold">full screen mode</span> to avoid irritating ads and unexpected popups.
+            </p>
           </div>
 
           <div className="rounded-xl overflow-hidden bg-zinc-950 aspect-video relative w-full border border-white/[0.04] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.7)]">
