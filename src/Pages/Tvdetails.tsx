@@ -795,7 +795,6 @@ const TvDetails = () => {
             <PlayerControl source={playerSource} onChange={setPlayerSource} />
           </div>
 
-          {/* Premium Info/Warning Banner */}
           <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-blue-500/5 border border-blue-500/10 mb-4 shadow-[inset_0_1px_1px_rgba(59,130,246,0.1)]">
             <div className="flex items-center justify-center w-5 h-5 rounded-full border border-blue-400/40 bg-blue-500/10 flex-shrink-0 text-[11px] font-extrabold text-blue-400 select-none mt-0.5">
               i
