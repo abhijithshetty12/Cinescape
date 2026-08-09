@@ -21,7 +21,7 @@ import {
 import { useNavigate, Link } from "react-router-dom";
 import ReviewList from "../components/ReviewList.tsx";
 import { RecommendationSection, WatchlistItem, HistoryItem, FavouriteActor, RatedMovie } from "../components/Recommendation.tsx";
-import { RatedMovieSection } from "../components/RatedMovie.tsx";
+import { UserRatingSection } from "../components/UserRating.tsx";
 import {
   User,
   ChevronRight,
@@ -323,6 +323,7 @@ const ProfilePage = () => {
               title: data.title,
               posterPath: `${BASE_POSTER_URL}${data.posterPath}`,
               rating: data.rating,
+              mediaType: data.mediaType || "movie",
             });
           }
         });
@@ -1279,7 +1280,7 @@ const ProfilePage = () => {
           )}
 
           {activeTab === "ratings" && (
-            <RatedMovieSection
+            <UserRatingSection
               ratedMovies={ratedMovies}
               onMediaClick={handleMediaClick}
             />

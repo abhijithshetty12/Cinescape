@@ -6,6 +6,7 @@ import {
   ThumbsDown, ThumbsUp, CheckCircle, BookmarkCheck, TvMinimalPlay,
   ImageOff, Image, Clapperboard, Check, Plus, Loader2,
   Users, Award, MessageCircle, MoreHorizontal,
+  Edit2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -171,6 +172,8 @@ const MovieDetails = () => {
 
   const [userReview, setUserReview] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
+  const [hasSavedRating, setHasSavedRating] = useState(false);
+  const [editingRating, setEditingRating] = useState(false);
   const [activeGenreId, setActiveGenreId] = useState<number | null>(null);
   const [movieDetails, setMovieDetails] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,6 +190,24 @@ const MovieDetails = () => {
     isVisible: boolean;
   }>({ message: '', type: 'success', isVisible: false });
   const [playerSource, setPlayerSource] = useState<PlayerSource>('vidsrc');
+
+  useEffect(() => {
+    const fetchUserRating = async () => {
+      if (!user || !id) return;
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const ratingDoc = await getDoc(doc(db, `users/${user.uid}/ratings`, id));
+        if (ratingDoc.exists()) {
+          setUserRating(ratingDoc.data().rating);
+          setHasSavedRating(true);
+        }
+      } catch {
+        // Silently fail - rating will remain null
+      }
+    };
+    fetchUserRating();
+  }, [user, id]);
+
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type, isVisible: true });
   };
@@ -437,12 +458,23 @@ const MovieDetails = () => {
         title: movieDetails?.title,
         posterPath: movieDetails?.poster_path,
         rating: userRating,
+        mediaType: "movie",
         timestamp: new Date(),
       });
-      showToast('Rating submitted!', 'success');
+      setHasSavedRating(true);
+      setEditingRating(false);
+      showToast(hasSavedRating ? 'Rating updated!' : 'Rating submitted!', 'success');
     } catch {
       showToast('Failed to submit rating', 'error');
     }
+  };
+
+  const handleEditRating = () => {
+    setEditingRating(true);
+  };
+
+  const handleCancelEditRating = () => {
+    setEditingRating(false);
   };
 
   const handleReviewSubmit = async () => {
@@ -1067,7 +1099,6 @@ const MovieDetails = () => {
                   return 'CREW';
                 };
 
-                // Priority ordering: DIRECTING (1) -> PRODUCERS (2) -> CREW (3)
                 const getPriority = (item: any) => {
                   const label = getCategoryLabel(item);
                   if (label === 'DIRECTING') return 1;
@@ -1075,7 +1106,6 @@ const MovieDetails = () => {
                   return 3;
                 };
 
-                // Sort members into correct department order
                 const sortedCrew = [...groupedCrew].sort((a, b) => getPriority(a) - getPriority(b));
 
                 return sortedCrew.map((member: any, idx: number) => {
@@ -1085,7 +1115,6 @@ const MovieDetails = () => {
 
                   return (
                     <React.Fragment key={member.credit_id || idx}>
-                      {/* Vertical Divider Label */}
                       {isFirstOfCategory && (
                         <div
                           key={`divider-${category}`}
@@ -1103,11 +1132,8 @@ const MovieDetails = () => {
                       <Link to={`/actor/${member.id}`} className="flex-shrink-0 snap-start group/card">
                         <SpatialCard containerRef={crewContainerRef} index={idx}>
                           <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-amber-500/30 group-hover/card:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                            {/* Ambient Amber Glow */}
                             <div className="absolute -top-10 -left-10 w-28 h-28 bg-amber-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-amber-500 transition-all duration-500 pointer-events-none" />
-
                             <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-amber-500/20 transition-colors duration-500">
-                              {/* Diagonal Light Sweep Animation */}
                               <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
 
                               {member.profile_path ? (
@@ -1252,160 +1278,304 @@ const MovieDetails = () => {
         )}
 
         <motion.section
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-full mx-auto overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-zinc-900/90 via-zinc-950/95 to-black p-5 sm:p-7 md:p-9 shadow-2xl backdrop-blur-2xl"
         >
-          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
-          <div className="absolute inset-0 opacity-40 pointer-events-none">
-            <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tl from-yellow-500/5 to-transparent rounded-full blur-2xl" />
-          </div>
+          <div className={`absolute -top-24 -left-24 w-72 h-72 rounded-full bg-gradient-to-br ${userRating! >= 8 ? 'from-emerald-500/15 via-amber-500/10' : userRating! >= 6 ? 'from-sky-500/15 via-blue-500/10' : userRating! >= 4 ? 'from-amber-500/15 via-orange-500/10' : 'from-rose-500/15 via-red-500/10'} to-transparent blur-3xl pointer-events-none transition-all duration-700`} />
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent pointer-events-none" />
 
-          <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-white/[0.04] relative z-10">
-            <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
-              <Star className="w-5 h-5 text-amber-400 fill-amber-400/20 stroke-[1.5]" />
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Your Rating</h2>
-              <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">User Assessment</span>
-            </div>
-          </div>
-
-          {user ? (
-            <div className="relative space-y-6 z-10">
-              <div className="p-4 sm:p-6 bg-white/[0.01] backdrop-blur-xl rounded-2xl border border-white/[0.03]">
-                <div className="flex flex-col gap-3 sm:flex-row sm:gap-2 items-center justify-center">
-                  {[0, 1].map((row) => (
-                    <motion.div
-                      key={row}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: 0.1 + row * 0.1 }}
-                      className="flex items-center justify-center gap-1.5"
-                    >
-                      {[...Array(5)].map((_, col) => {
-                        const starIndex = row * 5 + col;
-                        const starValue = starIndex + 1;
-                        const current = userRating ?? 0;
-                        const isFull = current >= starValue;
-                        const isHalf = current === starValue - 0.5;
-                        const maskId = `star-mask-${starIndex}`;
-
-                        return (
-                          <motion.div
-                            key={starIndex}
-                            whileHover={{ scale: 1.15 }}
-                            whileTap={{ scale: 0.92 }}
-                            className="relative inline-block w-9 h-9 sm:w-11 sm:h-11 cursor-pointer group"
-                          >
-                            <svg className="w-0 h-0 absolute" aria-hidden="true" focusable="false">
-                              <defs>
-                                <linearGradient id={maskId} x1="0%" y1="0%" x2="100%" y2="0%">
-                                  <stop offset="50%" stopColor="#fbbf24" />
-                                  <stop offset="50%" stopColor="#27272a" />
-                                </linearGradient>
-                              </defs>
-                            </svg>
-                            <button
-                              onClick={() => handleRateMovie(starValue - 0.5)}
-                              className="absolute left-0 top-0 w-1/2 h-full z-20 bg-transparent border-none outline-none cursor-pointer"
-                              aria-label={`Rate ${starValue - 0.5} stars`}
-                            />
-                            <button
-                              onClick={() => handleRateMovie(starValue)}
-                              className="absolute right-0 top-0 w-1/2 h-full z-20 bg-transparent border-none outline-none cursor-pointer"
-                              aria-label={`Rate ${starValue} stars`}
-                            />
-                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                              {isFull ? (
-                                <motion.div
-                                  initial={{ scale: 0.8 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                                >
-                                  <Star className="w-8 h-8 sm:w-9 sm:h-9 text-amber-400 fill-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.35)] stroke-[1.2]" />
-                                </motion.div>
-                              ) : isHalf ? (
-                                <Star
-                                  className="w-8 h-8 sm:w-9 sm:h-9 drop-shadow-[0_0_8px_rgba(251,191,36,0.2)] stroke-[1.2]"
-                                  style={{ fill: `url(#${maskId})`, stroke: '#fbbf24' }}
-                                />
-                              ) : (
-                                <Star className="w-8 h-8 sm:w-9 sm:h-9 text-zinc-600 fill-zinc-900/40 group-hover:text-amber-400/40 group-hover:fill-amber-400/5 transition-all duration-300 stroke-[1.2]" />
-                              )}
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </motion.div>
-                  ))}
-                </div>
+          <div className="relative z-10 flex items-center justify-between gap-4 pb-6 mb-6 border-b border-white/[0.06]">
+            <div className="flex items-center gap-3.5">
+              <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-b from-amber-400/20 to-amber-500/5 border border-amber-500/20 shadow-lg shadow-amber-500/5">
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400/30 stroke-[1.75]" />
               </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">Your Rating</h2>
+                <p className="text-[11px] font-semibold text-zinc-400 tracking-wider uppercase">User Assessment</p>
+              </div>
+            </div>
 
-              {userRating !== null && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-3"
-                >
-                  <div className="flex items-center justify-center gap-1.5">
-                    <motion.span
-                      initial={{ scale: 0.8 }}
-                      animate={{ scale: 1 }}
-                      className="text-white font-black text-3xl md:text-4xl tracking-tighter"
-                    >
-                      {userRating}
-                    </motion.span>
-                    <span className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-2">/ 10 Stars</span>
-                  </div>
+            {user && hasSavedRating && !editingRating && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Saved
+              </span>
+            )}
+          </div>
+
+          <div className="relative z-10">
+            {user ? (
+              <div className="space-y-6">
+                {hasSavedRating && !editingRating ? (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.05 }}
-                    className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider backdrop-blur-md ${userRating >= 8
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : userRating >= 6
-                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        : userRating >= 4
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                      }`}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col sm:flex-row items-center justify-between gap-6 py-4 px-2 sm:px-4"
                   >
-                    {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
-                    <span>{getRatingDescription(userRating)}</span>
-                    {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
-                  </motion.div>
-                </motion.div>
-              )}
+                    {/* Left Column: Circular Rating Display */}
+                    <div className="relative flex-shrink-0 flex items-center justify-center w-40 h-40 sm:w-44 sm:h-44">
+                      {/* Dynamic Background Glow */}
+                      <div
+                        className={`absolute inset-0 rounded-full blur-2xl opacity-20 transition-all duration-700 ${userRating! >= 8
+                          ? "bg-emerald-500"
+                          : userRating! >= 6
+                            ? "bg-sky-500"
+                            : userRating! >= 4
+                              ? "bg-amber-500"
+                              : "bg-rose-500"
+                          }`}
+                      />
 
-              <div className="flex justify-center pt-2">
-                <motion.button
-                  onClick={handleRatingSubmit}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="relative group overflow-hidden bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-zinc-950 py-3 px-10 rounded-xl font-extrabold text-xs uppercase tracking-widest shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
-                  <CheckCircle className="w-4 h-4 relative z-10 stroke-[2]" />
-                  <span className="relative z-10">Submit Rating</span>
-                </motion.button>
+                      {/* SVG Progress Ring */}
+                      <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          className="stroke-zinc-800/80"
+                          strokeWidth="6"
+                          fill="transparent"
+                        />
+                        <motion.circle
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          stroke="currentColor"
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          fill="transparent"
+                          strokeDasharray="263.89"
+                          initial={{ strokeDashoffset: 263.89 }}
+                          animate={{
+                            strokeDashoffset: 263.89 - (263.89 * (userRating ?? 0)) / 10,
+                          }}
+                          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                          className={`transition-colors duration-500 ${userRating! >= 8
+                            ? "text-emerald-400"
+                            : userRating! >= 6
+                              ? "text-sky-400"
+                              : userRating! >= 4
+                                ? "text-amber-400"
+                                : "text-rose-400"
+                            }`}
+                        />
+                      </svg>
+
+                      {/* Inner Circle Score */}
+                      <div className="absolute inset-3 rounded-full bg-gradient-to-b from-zinc-900/90 to-zinc-950 border border-white/10 flex flex-col items-center justify-center p-2 shadow-inner backdrop-blur-xl">
+                        <motion.span
+                          initial={{ scale: 0.5, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                          className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-zinc-100 to-zinc-400 tracking-tighter"
+                        >
+                          {userRating}
+                        </motion.span>
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">
+                          / 10 Stars
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Score Info & Action Panel */}
+                    <div className="flex-1 flex flex-col justify-center items-center sm:items-start text-center sm:text-left space-y-4 w-full">
+                      {/* Header Info & Badge */}
+                      <div className="space-y-1.5 w-full">
+                        <p className="text-[11px] font-semibold text-zinc-400 tracking-wider uppercase">
+                          Your Submitted Rating
+                        </p>
+
+                        {userRating !== null && (
+                          <div>
+                            <motion.div
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.1 }}
+                              className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full border text-xs font-black uppercase tracking-wider backdrop-blur-md shadow-md transition-all duration-300 ${userRating! >= 8
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10"
+                                : userRating! >= 6
+                                  ? "bg-sky-500/10 text-sky-400 border-sky-500/30 shadow-sky-500/10"
+                                  : userRating! >= 4
+                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-amber-500/10"
+                                    : "bg-rose-500/10 text-rose-400 border-rose-500/30 shadow-rose-500/10"
+                                }`}
+                            >
+                              {userRating! >= 8.5 && (
+                                <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                              )}
+                              <span>{getRatingDescription(userRating!)}</span>
+                              {userRating! >= 8.5 && (
+                                <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                              )}
+                            </motion.div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 sm:gap-2.5 w-full max-w-md pt-1">
+                        <motion.button
+                          onClick={handleRatingSubmit}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="flex-1 py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-zinc-950 font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] shrink-0" />
+                          <span className="truncate">Re-Submit</span>
+                        </motion.button>
+
+                        <motion.button
+                          onClick={handleEditRating}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="flex-1 py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-white font-bold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-md backdrop-blur-xl"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400/20 shrink-0" />
+                          <span className="truncate">Edit Rating</span>
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="space-y-6"
+                  >
+                    <div className="p-4 sm:p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-xl flex justify-center">
+                      <div className="grid grid-cols-5 sm:flex sm:flex-nowrap items-center justify-center gap-1.5 sm:gap-1.5 max-w-fit">
+                        {[...Array(10)].map((_, index) => {
+                          const starValue = index + 1;
+                          const current = userRating ?? 0;
+                          const isFull = current >= starValue;
+                          const isHalf = current === starValue - 0.5;
+                          const maskId = `star-gradient-${index}`;
+
+                          return (
+                            <div key={index} className="relative flex items-center justify-center">
+                              <svg className="w-0 h-0 absolute" aria-hidden="true" focusable="false">
+                                <defs>
+                                  <linearGradient id={maskId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="50%" stopColor="#f59e0b" />
+                                    <stop offset="50%" stopColor="#27272a" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRateMovie(starValue - 0.5)}
+                                className="absolute left-0 top-0 w-1/2 h-full z-20 cursor-pointer outline-none"
+                                aria-label={`Rate ${starValue - 0.5} stars`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRateMovie(starValue)}
+                                className="absolute right-0 top-0 w-1/2 h-full z-20 cursor-pointer outline-none"
+                                aria-label={`Rate ${starValue} stars`}
+                              />
+
+                              <motion.div
+                                whileHover={{ scale: 1.2 }}
+                                whileTap={{ scale: 0.9 }}
+                                className="relative p-1 cursor-pointer touch-none"
+                              >
+                                <Star
+                                  className={`w-7 h-7 sm:w-7 sm:h-7 transition-all duration-200 ${isFull
+                                    ? "text-amber-400 fill-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.4)] stroke-[1.5]"
+                                    : isHalf
+                                      ? "stroke-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.3)] stroke-[1.5]"
+                                      : "text-zinc-700 fill-zinc-900/50 stroke-[1.5]"
+                                    }`}
+                                  style={isHalf ? { fill: `url(#${maskId})` } : undefined}
+                                />
+                              </motion.div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center space-y-2 min-h-[64px] justify-center">
+                      {userRating !== null ? (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex flex-col items-center space-y-2"
+                        >
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">{userRating}</span>
+                            <span className="text-zinc-500 font-bold text-xs uppercase tracking-wider">/ 10 Stars</span>
+                          </div>
+                          <div className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border text-[11px] font-black uppercase tracking-wider backdrop-blur-md transition-all duration-300 ${userRating >= 8
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                            : userRating >= 6
+                              ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
+                              : userRating >= 4
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                            }`}>
+                            {userRating >= 8.5 && <Sparkles className="w-3 h-3 animate-pulse text-amber-400" />}
+                            <span>{getRatingDescription(userRating)}</span>
+                            {userRating >= 8.5 && <Sparkles className="w-3 h-3 animate-pulse text-amber-400" />}
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <span className="text-xs font-semibold text-zinc-500 tracking-wide uppercase">Select your rating from 1 to 10 stars</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 pt-2 w-full max-w-xs sm:max-w-md mx-auto">
+                      <motion.button
+                        onClick={handleRatingSubmit}
+                        disabled={userRating === null}
+                        whileHover={{ scale: userRating !== null ? 1.02 : 1 }}
+                        whileTap={{ scale: userRating !== null ? 0.98 : 1 }}
+                        className={`flex-1 min-w-0 py-2.5 sm:py-3 px-3 sm:px-6 rounded-xl font-extrabold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg ${userRating !== null
+                          ? "bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-zinc-950 shadow-amber-500/20 hover:shadow-amber-500/30 cursor-pointer"
+                          : "bg-zinc-800/50 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-60"
+                          }`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] shrink-0" />
+                        <span className="truncate">Submit</span>
+                      </motion.button>
+
+                      {hasSavedRating && (
+                        <motion.button
+                          onClick={handleCancelEditRating}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className="py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-extrabold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center shrink-0"
+                        >
+                          <span>Cancel</span>
+                        </motion.button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
               </div>
-            </div>
-          ) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10 relative z-10">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.05] mb-4">
-                <Star className="w-6 h-6 text-zinc-600 stroke-[1.5]" />
-              </div>
-              <p className="text-zinc-300 text-base font-bold tracking-tight mb-1">Log in to rate this movie</p>
-              <p className="text-zinc-500 text-xs font-medium max-w-xs mx-auto">
-                Share your rating and help improve personalized community charts.
-              </p>
-            </motion.div>
-          )}
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center py-8 text-center space-y-4"
+              >
+                <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800/80 shadow-inner">
+                  <Star className="w-6 h-6 text-zinc-500 stroke-[1.75]" />
+                </div>
+                <div className="space-y-1 max-w-sm">
+                  <p className="text-white text-base font-bold tracking-tight">Log in to rate this movie</p>
+                  <p className="text-zinc-400 text-xs leading-relaxed">
+                    Share your rating and help improve personalized community charts.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </div>
         </motion.section>
 
         <motion.section

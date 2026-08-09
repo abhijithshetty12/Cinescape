@@ -4,13 +4,13 @@ import axios from 'axios';
 import {
   Star, Calendar, TvMinimalPlay, Clock, ImageOff, Image,
   Bookmark, BookmarkCheck, Check, Plus, Loader2, Play,
-  Globe, Users, MessageCircle, Award,
+  Globe, Users, MessageCircle, Award, Sparkles, CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
-import { collection, addDoc, getDocs, query, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, deleteDoc, setDoc, doc } from 'firebase/firestore';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
@@ -144,7 +144,7 @@ const WatchedButton = ({
 
 const TvDetails = () => {
   const { id } = useParams<{ id: string }>();
-  useAuth();
+  const { user } = useAuth();
 
   useAutoLandscapeFullscreen();
 
@@ -167,6 +167,23 @@ const TvDetails = () => {
   }>({ message: '', type: 'success', isVisible: false });
 
   const [playerSource, setPlayerSource] = useState<PlayerSource>('vidsrc');
+  const [userRating, setUserRating] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchUserRating = async () => {
+      if (!user || !id) return;
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const ratingDoc = await getDoc(doc(db, `users/${user.uid}/ratings`, id));
+        if (ratingDoc.exists()) {
+          setUserRating(ratingDoc.data().rating);
+        }
+      } catch {
+        // Silently fail - rating will remain null
+      }
+    };
+    fetchUserRating();
+  }, [user, id]);
 
   const playerRef = useRef<HTMLDivElement>(null);
   const castContainerRef = useRef<HTMLDivElement>(null);
@@ -174,6 +191,59 @@ const TvDetails = () => {
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type, isVisible: true });
+  };
+
+  const getRatingDescription = (rating: number) => {
+    if (rating <= 1) return 'Weak sauce :(';
+    if (rating <= 2) return 'Terrible';
+    if (rating <= 3) return 'Bad';
+    if (rating <= 4) return 'Poor';
+    if (rating <= 5) return 'Meh';
+    if (rating <= 6) return 'Fair';
+    if (rating <= 7) return 'Good';
+    if (rating <= 8) return 'Great';
+    if (rating <= 9) return 'Superb';
+    if (rating <= 9.5) return 'Perfect';
+    return 'Masterpiece!';
+  };
+
+  const handleRateShow = (rating: number) => {
+    setUserRating(rating);
+    if (rating >= 4) {
+      const defaults = {
+        origin: { y: 0.7 },
+        colors: ['#facc15', '#eab308', '#ca8a04', '#ffffff'],
+        ticks: 150,
+      };
+      const fire = (ratio: number, opts: object) =>
+        confetti({ ...defaults, ...opts, particleCount: Math.floor(100 * ratio), shapes: ['circle'] });
+      fire(0.25, { spread: 26, startVelocity: 55 });
+      fire(0.2, { spread: 60 });
+      fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+    }
+  };
+
+  const handleRatingSubmit = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) { showToast('Please log in to rate this show', 'error'); return; }
+    if (userRating === null || userRating < 0 || userRating > 10) {
+      showToast('Rating must be between 0 and 10', 'error'); return;
+    }
+    try {
+      if (!id) throw new Error('Missing TV show ID');
+      await setDoc(doc(db, `users/${user.uid}/ratings`, id), {
+        movieId: show?.id,
+        title: show?.name,
+        posterPath: show?.poster_path,
+        rating: userRating,
+        mediaType: "tv",
+        timestamp: new Date(),
+      });
+      showToast('Rating submitted!', 'success');
+    } catch {
+      showToast('Failed to submit rating', 'error');
+    }
   };
 
   useEffect(() => {
@@ -1147,6 +1217,151 @@ const TvDetails = () => {
             <span>Scroll for full credits</span>
             <div className="w-4 h-4 border border-zinc-800 rounded-full flex items-center justify-center bg-zinc-950/40">
               <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-pulse" />
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
+          <div className="absolute inset-0 opacity-40 pointer-events-none">
+            <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tl from-yellow-500/5 to-transparent rounded-full blur-2xl" />
+          </div>
+
+          <div className="flex items-center gap-3.5 mb-6 pb-4 border-b border-white/[0.04] relative z-10">
+            <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
+              <Star className="w-5 h-5 text-amber-400 fill-amber-400/20 stroke-[1.5]" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Your Rating</h2>
+              <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">User Assessment</span>
+            </div>
+          </div>
+
+          <div className="relative space-y-6 z-10">
+            <div className="p-4 sm:p-6 bg-white/[0.01] backdrop-blur-xl rounded-2xl border border-white/[0.03]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:gap-2 items-center justify-center">
+                {[0, 1].map((row) => (
+                  <motion.div
+                    key={row}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.1 + row * 0.1 }}
+                    className="flex items-center justify-center gap-1.5"
+                  >
+                    {[...Array(5)].map((_, col) => {
+                      const starIndex = row * 5 + col;
+                      const starValue = starIndex + 1;
+                      const current = userRating ?? 0;
+                      const isFull = current >= starValue;
+                      const isHalf = current === starValue - 0.5;
+                      const maskId = `star-mask-${starIndex}`;
+
+                      return (
+                        <motion.div
+                          key={starIndex}
+                          whileHover={{ scale: 1.15 }}
+                          whileTap={{ scale: 0.92 }}
+                          className="relative inline-block w-9 h-9 sm:w-11 sm:h-11 cursor-pointer group"
+                        >
+                          <svg className="w-0 h-0 absolute" aria-hidden="true" focusable="false">
+                            <defs>
+                              <linearGradient id={maskId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="50%" stopColor="#fbbf24" />
+                                <stop offset="50%" stopColor="#27272a" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                          <button
+                            onClick={() => handleRateShow(starValue - 0.5)}
+                            className="absolute left-0 top-0 w-1/2 h-full z-20 bg-transparent border-none outline-none cursor-pointer"
+                            aria-label={`Rate ${starValue - 0.5} stars`}
+                          />
+                          <button
+                            onClick={() => handleRateShow(starValue)}
+                            className="absolute right-0 top-0 w-1/2 h-full z-20 bg-transparent border-none outline-none cursor-pointer"
+                            aria-label={`Rate ${starValue} stars`}
+                          />
+                          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                            {isFull ? (
+                              <motion.div
+                                initial={{ scale: 0.8 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                              >
+                                <Star className="w-8 h-8 sm:w-9 sm:h-9 text-amber-400 fill-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.35)] stroke-[1.2]" />
+                              </motion.div>
+                            ) : isHalf ? (
+                              <Star
+                                className="w-8 h-8 sm:w-9 sm:h-9 drop-shadow-[0_0_8px_rgba(251,191,36,0.2)] stroke-[1.2]"
+                                style={{ fill: `url(#${maskId})`, stroke: '#fbbf24' }}
+                              />
+                            ) : (
+                              <Star className="w-8 h-8 sm:w-9 sm:h-9 text-zinc-600 fill-zinc-900/40 group-hover:text-amber-400/40 group-hover:fill-amber-400/5 transition-all duration-300 stroke-[1.2]" />
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {userRating !== null && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="text-center space-y-3"
+              >
+                <div className="flex items-center justify-center gap-1.5">
+                  <motion.span
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    className="text-white font-black text-3xl md:text-4xl tracking-tighter"
+                  >
+                    {userRating}
+                  </motion.span>
+                  <span className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-2">/ 10 Stars</span>
+                </div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.05 }}
+                  className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider backdrop-blur-md ${userRating >= 8
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : userRating >= 6
+                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      : userRating >= 4
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                    }`}
+                >
+                  {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{getRatingDescription(userRating)}</span>
+                  {userRating >= 8.5 && <Sparkles className="w-3.5 h-3.5" />}
+                </motion.div>
+              </motion.div>
+            )}
+
+            <div className="flex justify-center pt-2">
+              <motion.button
+                onClick={handleRatingSubmit}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                className="relative group overflow-hidden bg-gradient-to-b from-amber-400 via-amber-500 to-amber-600 text-zinc-950 py-3 px-10 rounded-xl font-extrabold text-xs uppercase tracking-widest shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+                <CheckCircle className="w-4 h-4 relative z-10 stroke-[2]" />
+                <span className="relative z-10">Submit Rating</span>
+              </motion.button>
             </div>
           </div>
         </motion.section>

@@ -37,6 +37,7 @@ export type RatedMovie = {
   title: string;
   posterPath: string;
   rating: number;
+  mediaType: string;
 };
 
 export const RecommendationSection = ({
