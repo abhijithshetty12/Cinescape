@@ -56,31 +56,33 @@ export const UserRatingSection = ({
     >
       {/* Category Toggle Bar */}
       <div className="flex items-center justify-between gap-4">
-        <div className="inline-flex items-center p-1 rounded-2xl bg-zinc-900/80 border border-white/[0.08] backdrop-blur-xl shadow-lg">
+        <div className="inline-flex items-center p-1.5 rounded-2xl bg-zinc-950/40 border border-white/[0.08] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
           <button
             onClick={() => setActiveFilter("movie")}
-            className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+            className={`relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
               activeFilter === "movie"
-                ? "text-zinc-950 shadow-md"
+                ? "text-white"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
             {activeFilter === "movie" && (
               <motion.div
                 layoutId="activeFilterBg"
-                className="absolute inset-0 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 rounded-xl"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
+                className="absolute inset-0 rounded-xl bg-gradient-to-br from-amber-400/15 via-white/[0.04] to-transparent border border-white/20 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(251,191,36,0.3),_0_0_20px_rgba(245,158,11,0.12)] overflow-hidden"
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              >
+                <div className="absolute -top-3 -left-3 w-10 h-10 bg-amber-400/35 rounded-full blur-md pointer-events-none" />
+              </motion.div>
             )}
-            <span className="relative z-10 flex items-center gap-1.5">
-              <Film className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="relative z-10 flex items-center gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              <Film className={`w-3.5 h-3.5 stroke-[2.5] ${activeFilter === "movie" ? "text-amber-300" : ""}`} />
               <span>Movies</span>
             </span>
             <span
-              className={`relative z-10 px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+              className={`relative z-10 px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors duration-300 ${
                 activeFilter === "movie"
-                  ? "bg-zinc-950/20 text-zinc-950"
-                  : "bg-zinc-800 text-zinc-400"
+                  ? "bg-amber-400/15 border border-amber-400/25 text-amber-300 shadow-sm"
+                  : "bg-white/[0.05] border border-white/[0.08] text-zinc-400"
               }`}
             >
               {movieItems.length}
@@ -89,28 +91,30 @@ export const UserRatingSection = ({
 
           <button
             onClick={() => setActiveFilter("tv")}
-            className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+            className={`relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
               activeFilter === "tv"
-                ? "text-zinc-950 shadow-md"
+                ? "text-white"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
             {activeFilter === "tv" && (
               <motion.div
                 layoutId="activeFilterBg"
-                className="absolute inset-0 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 rounded-xl"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
+                className="absolute inset-0 rounded-xl bg-gradient-to-br from-amber-400/15 via-white/[0.04] to-transparent border border-white/20 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(251,191,36,0.3),_0_0_20px_rgba(245,158,11,0.12)] overflow-hidden"
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+              >
+                <div className="absolute -top-3 -left-3 w-10 h-10 bg-amber-400/35 rounded-full blur-md pointer-events-none" />
+              </motion.div>
             )}
-            <span className="relative z-10 flex items-center gap-1.5">
-              <Tv className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="relative z-10 flex items-center gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              <Tv className={`w-3.5 h-3.5 stroke-[2.5] ${activeFilter === "tv" ? "text-amber-300" : ""}`} />
               <span>Series</span>
             </span>
             <span
-              className={`relative z-10 px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+              className={`relative z-10 px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors duration-300 ${
                 activeFilter === "tv"
-                  ? "bg-zinc-950/20 text-zinc-950"
-                  : "bg-zinc-800 text-zinc-400"
+                  ? "bg-amber-400/15 border border-amber-400/25 text-amber-300 shadow-sm"
+                  : "bg-white/[0.05] border border-white/[0.08] text-zinc-400"
               }`}
             >
               {seriesItems.length}
