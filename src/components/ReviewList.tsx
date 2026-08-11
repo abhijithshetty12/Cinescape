@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../firebase.ts';
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Star, Trash2, Calendar, MessageSquare, Quote, Edit3, X, Check, Clapperboard, Tv } from 'lucide-react';
+import { Star, Trash2, Calendar, MessageSquare, Quote, Edit3, X, Check, Clapperboard, Tv, Loader2, Film, Edit2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -137,24 +137,21 @@ const ReviewList = ({
             <button
               type="button"
               onClick={() => setMediaType('movie')}
-              className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 font-bold text-[11px] sm:text-xs tracking-wide transition-all duration-300 rounded-lg select-none active:scale-95 ${
-                mediaType === 'movie'
-                  ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+              className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 font-bold text-[11px] sm:text-xs tracking-wide transition-all duration-300 rounded-lg select-none active:scale-95 ${mediaType === 'movie'
+                ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
+                : 'text-zinc-400 hover:text-zinc-200'
+                }`}
             >
               <Clapperboard
-                className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${
-                  mediaType === 'movie' ? 'scale-110 text-red-400' : ''
-                }`}
+                className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${mediaType === 'movie' ? 'scale-110 text-red-400' : ''
+                  }`}
               />
               <span>Movies</span>
               <span
-                className={`ml-0.5 text-[9px] px-1 py-0.2 rounded font-extrabold transition-colors duration-300 ${
-                  mediaType === 'movie'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-white/[0.04] text-zinc-500 border border-white/[0.04]'
-                }`}
+                className={`ml-0.5 text-[9px] px-1 py-0.2 rounded font-extrabold transition-colors duration-300 ${mediaType === 'movie'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white/[0.04] text-zinc-500 border border-white/[0.04]'
+                  }`}
               >
                 {movieCount}
               </span>
@@ -171,24 +168,21 @@ const ReviewList = ({
             <button
               type="button"
               onClick={() => setMediaType('tv')}
-              className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 font-bold text-[11px] sm:text-xs tracking-wide transition-all duration-300 rounded-lg select-none active:scale-95 ${
-                mediaType === 'tv'
-                  ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+              className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 font-bold text-[11px] sm:text-xs tracking-wide transition-all duration-300 rounded-lg select-none active:scale-95 ${mediaType === 'tv'
+                ? 'text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]'
+                : 'text-zinc-400 hover:text-zinc-200'
+                }`}
             >
               <Tv
-                className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${
-                  mediaType === 'tv' ? 'scale-110 text-cyan-400' : ''
-                }`}
+                className={`w-3.5 h-3.5 transition-transform duration-300 shrink-0 ${mediaType === 'tv' ? 'scale-110 text-cyan-400' : ''
+                  }`}
               />
               <span>Series</span>
               <span
-                className={`ml-0.5 text-[9px] px-1 py-0.2 rounded font-extrabold transition-colors duration-300 ${
-                  mediaType === 'tv'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-white/[0.04] text-zinc-500 border border-white/[0.04]'
-                }`}
+                className={`ml-0.5 text-[9px] px-1 py-0.2 rounded font-extrabold transition-colors duration-300 ${mediaType === 'tv'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white/[0.04] text-zinc-500 border border-white/[0.04]'
+                  }`}
               >
                 {tvCount}
               </span>
@@ -204,11 +198,10 @@ const ReviewList = ({
 
             <div className="absolute inset-y-0.5 left-0.5 right-0.5 pointer-events-none overflow-hidden rounded-lg">
               <motion.div
-                className={`absolute top-0 bottom-0 w-1/2 blur-md opacity-80 transition-colors duration-500 ${
-                  mediaType === 'movie'
-                    ? 'bg-gradient-to-r from-red-500/10 via-red-500/20 to-orange-500/10'
-                    : 'bg-gradient-to-l from-cyan-500/10 via-sky-500/20 to-blue-500/10'
-                }`}
+                className={`absolute top-0 bottom-0 w-1/2 blur-md opacity-80 transition-colors duration-500 ${mediaType === 'movie'
+                  ? 'bg-gradient-to-r from-red-500/10 via-red-500/20 to-orange-500/10'
+                  : 'bg-gradient-to-l from-cyan-500/10 via-sky-500/20 to-blue-500/10'
+                  }`}
                 animate={{
                   x: mediaType === 'movie' ? '0%' : '100%',
                 }}
@@ -285,7 +278,7 @@ const ReviewList = ({
                       )}
 
                       <div className="relative pt-0.5 sm:pt-1">
-                        <Quote className="absolute -left-1 -top-1.5 w-3 h-3 text-zinc-800 rotate-180 opacity-60 pointer-events-none" />
+                        <Quote className="absolute -left-1 -top-1.5 w-3 h-3 text-white/40 rotate-180 opacity-60 pointer-events-none" />
                         <p className="text-zinc-400 text-[11px] sm:text-xs leading-relaxed font-normal line-clamp-2 pl-2.5 group-hover:text-zinc-300 transition-colors">
                           {review.content}
                         </p>
@@ -309,10 +302,10 @@ const ReviewList = ({
                         <span>
                           {review.timestamp?.seconds
                             ? new Date(review.timestamp.seconds * 1000).toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
                             : 'Now'}
                         </span>
                       </div>
@@ -351,9 +344,8 @@ const ReviewList = ({
               </>
             );
 
-            const baseStyles = `group relative flex flex-col bg-zinc-950/30 border border-white/[0.03] rounded-[20px] sm:rounded-[24px] p-3 sm:p-4 backdrop-blur-3xl transition-all duration-500 hover:shadow-[0_0_40px_rgba(16,185,129,0.04)] ${
-              compact ? 'w-[260px] sm:w-[340px] flex-shrink-0 snap-start' : 'w-full'
-            }`;
+            const baseStyles = `group relative flex flex-col bg-zinc-950/30 border border-white/[0.03] rounded-[20px] sm:rounded-[24px] p-3 sm:p-4 backdrop-blur-3xl transition-all duration-500 hover:shadow-[0_0_40px_rgba(16,185,129,0.04)] ${compact ? 'w-[260px] sm:w-[340px] flex-shrink-0 snap-start' : 'w-full'
+              }`;
 
             return review.movieId ? (
               <Link
@@ -374,69 +366,109 @@ const ReviewList = ({
 
       {editingReview &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
-            <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                <div className="flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-lg font-black text-white tracking-tight">Edit Review</h3>
-                </div>
-                <button
-                  onClick={handleCloseEdit}
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden select-none font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Segoe_UI',Roboto,sans-serif] antialiased">
+            <div
+              onClick={handleCloseEdit}
+              className="absolute inset-0 bg-black/50 backdrop-blur-3xl transition-opacity duration-300"
+            />
 
-              {editingReview.title && (
-                <div className="flex items-center gap-3 bg-zinc-950/50 p-3 rounded-2xl border border-white/5">
-                  {editingReview.posterPath && (
+            <div className="relative w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/[0.18] bg-zinc-900/60 p-6 sm:p-7 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-3xl backdrop-saturate-200 transition-all">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative flex flex-col sm:flex-row gap-6">
+                {editingReview.posterPath ? (
+                  <div className="relative shrink-0 w-32 sm:w-44 h-48 sm:h-auto rounded-2xl overflow-hidden border border-white/15 bg-black/40 shadow-2xl self-center sm:self-stretch group">
                     <img
-                      src={`https://image.tmdb.org/t/p/w92${editingReview.posterPath}`}
-                      alt={editingReview.title}
-                      className="w-10 h-14 object-cover rounded-lg border border-white/10"
+                      src={`https://image.tmdb.org/t/p/w342${editingReview.posterPath}`}
+                      alt={editingReview.title || 'Movie Poster'}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                  )}
-                  <div>
-                    <h4 className="text-sm font-bold text-white">{editingReview.title}</h4>
-                    <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
-                      {editingReview.mediaType || 'Movie'}
-                    </span>
+                    <div className="absolute inset-0 ring-1 ring-inset ring-white/15 rounded-2xl pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                  </div>
+                ) : (
+                  <div className="relative shrink-0 w-32 sm:w-44 h-48 sm:h-auto rounded-2xl border border-white/10 bg-white/[0.03] flex flex-col items-center justify-center gap-2 text-zinc-500 self-center sm:self-stretch">
+                    <Film className="h-8 w-8 stroke-[1.25]" />
+                    <span className="text-[10px] font-medium tracking-widest uppercase text-zinc-500">No Poster</span>
+                  </div>
+                )}
+
+                <div className="flex-1 flex flex-col justify-between space-y-5 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Edit2 className="h-3.5 w-3.5 stroke-[2]" />
+                        <h3 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                          Edit Review
+                        </h3>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h4 className="text-lg sm:text-xl font-semibold tracking-tight text-white/95 truncate">
+                          {editingReview.title || 'Untitled'}
+                        </h4>
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300 tracking-wider uppercase backdrop-blur-md">
+                          {editingReview.mediaType || 'Movie'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCloseEdit}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/20 active:scale-90 transition-all backdrop-blur-md shadow-sm"
+                    >
+                      <X className="h-3.5 w-3.5 stroke-[2.5]" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-0.5">
+                      <label className="text-xs font-medium text-zinc-400">
+                        Review Content
+                      </label>
+                      {typeof editContent !== 'undefined' && (
+                        <span className="text-[10px] font-medium text-zinc-500 tabular-nums">
+                          {editContent.length} / 1000
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative rounded-2xl border border-white/10 bg-black/40 p-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] focus-within:border-emerald-500/50 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={5}
+                        maxLength={1000}
+                        className="w-full rounded-xl bg-transparent p-3 text-xs sm:text-sm text-white/90 placeholder-zinc-500 focus:outline-none resize-none leading-relaxed font-normal antialiased"
+                        placeholder="Share your thoughts on performance, pacing, or direction..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleCloseEdit}
+                      className="h-9 px-4 rounded-xl border border-white/10 bg-white/5 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white active:scale-95 transition-all backdrop-blur-md"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleUpdateReview}
+                      disabled={isUpdating || (typeof editContent !== 'undefined' && editContent.trim().length === 0)}
+                      className="flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 px-5 text-xs font-semibold text-zinc-950 shadow-[0_4px_20px_rgba(16,185,129,0.3)] hover:shadow-[0_6px_24px_rgba(16,185,129,0.45)] active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      {isUpdating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-950" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                      )}
+                      <span>{isUpdating ? 'Saving...' : 'Save Changes'}</span>
+                    </button>
                   </div>
                 </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
-                  Review Content
-                </label>
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  rows={5}
-                  className="w-full rounded-2xl bg-zinc-950/50 border border-white/5 p-4 text-xs sm:text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-all resize-none"
-                  placeholder="Write your review..."
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleCloseEdit}
-                  className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-white/10 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUpdateReview}
-                  disabled={isUpdating}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-xs font-black uppercase tracking-wider text-zinc-950 hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                  <span>{isUpdating ? 'Saving...' : 'Save Changes'}</span>
-                </button>
               </div>
             </div>
           </div>,

@@ -4,13 +4,13 @@ import axios from 'axios';
 import {
   Star, Calendar, TvMinimalPlay, Clock, ImageOff, Image,
   Bookmark, BookmarkCheck, Check, Plus, Loader2, Play,
-  Globe, Users, MessageCircle, Award, Sparkles, CheckCircle, Edit2,
+  Globe, Users, MessageCircle, Award, Sparkles, CheckCircle, Edit2, Trash2, Quote, SquarePen, Lock, Send,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
-import { collection, addDoc, getDocs, query, deleteDoc, setDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, deleteDoc, setDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
@@ -172,6 +172,23 @@ const TvDetails = () => {
   const [editingRating, setEditingRating] = useState(false);
   const [userReview, setUserReview] = useState('');
 
+  const [userExistingReview, setUserExistingReview] = useState<{
+    id: string;
+    content: string;
+    author: string;
+    timestamp: any;
+    title?: string;
+    rating?: number;
+    posterPath?: string;
+    mediaType?: string;
+  } | null>(null);
+  const [isEditingUserReview, setIsEditingUserReview] = useState(false);
+  const [editReviewContent, setEditReviewContent] = useState('');
+  const [isDeletingReview, setIsDeletingReview] = useState(false);
+  const [isLoadingUserReview, setIsLoadingUserReview] = useState<boolean>(false);
+  const [isUpdatingUserReview, setIsUpdatingUserReview] = useState(false);
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchUserRating = async () => {
       if (!user || !id) return;
@@ -226,8 +243,6 @@ const TvDetails = () => {
       fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
     }
   };
-
-  const handleRateMovie = (rating: number) => handleRateShow(rating);
 
   const handleEditRating = () => {
     setEditingRating(true);
@@ -284,6 +299,93 @@ const TvDetails = () => {
       showToast('Failed to submit review', 'error');
     }
   };
+
+  const handleEditUserReview = () => {
+    if (userExistingReview) {
+      setEditReviewContent(userExistingReview.content);
+      setIsEditingUserReview(true);
+    }
+  };
+
+  const handleCancelEditUserReview = () => {
+    setIsEditingUserReview(false);
+    setEditReviewContent('');
+  };
+
+  const handleUpdateUserReview = async () => {
+    if (!user || !userExistingReview) return;
+    setIsUpdatingUserReview(true);
+    try {
+      await updateDoc(doc(db, 'users', user.uid, 'reviews', userExistingReview.id), {
+        content: editReviewContent,
+      });
+      setUserExistingReview({ ...userExistingReview, content: editReviewContent });
+      setIsEditingUserReview(false);
+      setEditReviewContent('');
+      showToast('Review updated!', 'success');
+    } catch {
+      showToast('Failed to update review', 'error');
+    } finally {
+      setIsUpdatingUserReview(false);
+    }
+  };
+
+  const handleDeleteUserReview = async () => {
+    if (!user || !userExistingReview) return;
+    setIsDeletingReview(true);
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'reviews', userExistingReview.id));
+      setUserExistingReview(null);
+      showToast('Review deleted', 'success');
+    } catch {
+      showToast('Failed to delete review', 'error');
+    } finally {
+      setIsDeletingReview(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserReview = async () => {
+      if (!user || !show?.id) return;
+      try {
+        setIsLoadingUserReview(true);
+        const reviewsRef = collection(db, 'users', user.uid, 'reviews');
+        const q = query(reviewsRef, where('movieId', '==', show.id));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const reviewDoc = snapshot.docs[0];
+          const data = reviewDoc.data();
+          setUserExistingReview({
+            id: reviewDoc.id,
+            content: data.content ?? '',
+            author: data.author ?? 'Anonymous',
+            timestamp: data.timestamp ?? null,
+            title: data.title ?? '',
+            rating: data.rating ?? undefined,
+            posterPath: data.posterPath ?? undefined,
+            mediaType: data.mediaType ?? 'tv',
+          });
+        } else {
+          setUserExistingReview(null);
+        }
+      } catch (error) {
+        console.error('Error fetching user review:', error);
+      } finally {
+        setIsLoadingUserReview(false);
+      }
+    };
+    fetchUserReview();
+  }, [user, show?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) {
+        setUserPhoto(snap.data().photoDataUrl ?? null);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   useEffect(() => {
     const fetchShow = async () => {
@@ -1477,13 +1579,13 @@ const TvDetails = () => {
 
                               <button
                                 type="button"
-                                onClick={() => handleRateShow?.(starValue - 0.5) ?? handleRateMovie?.(starValue - 0.5)}
+                                onClick={() => handleRateShow(starValue - 0.5)}
                                 className="absolute left-0 top-0 w-1/2 h-full z-20 cursor-pointer outline-none"
                                 aria-label={`Rate ${starValue - 0.5} stars`}
                               />
                               <button
                                 type="button"
-                                onClick={() => handleRateShow?.(starValue) ?? handleRateMovie?.(starValue)}
+                                onClick={() => handleRateShow(starValue)}
                                 className="absolute right-0 top-0 w-1/2 h-full z-20 cursor-pointer outline-none"
                                 aria-label={`Rate ${starValue} stars`}
                               />
@@ -1588,99 +1690,218 @@ const TvDetails = () => {
         </motion.section>
 
         <motion.section
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-5 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_32px_64px_rgba(0,0,0,0.7)] overflow-hidden"
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative rounded-3xl bg-zinc-950 p-6 sm:p-8 text-zinc-100 border border-zinc-800/60 shadow-2xl font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','SF_Pro_Display','Segoe_UI',Roboto,sans-serif] antialiased"
         >
-          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-zinc-800/40">
+            <div className="flex items-center gap-3.5">
+              <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-emerald-600 border border-emerald-400/30 text-white shrink-0 shadow-md">
+                <SquarePen className="w-5 h-5 stroke-[1.75]" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-white">
+                  Your Review
+                </h2>
+                <p className="text-xs text-zinc-400 font-normal mt-0.5">
+                  Write your thoughts or update your entry for this TV show
+                </p>
+              </div>
+            </div>
 
-          <div className="relative z-10 flex items-center gap-3.5 mb-6 pb-4 border-b border-white/[0.04]">
-            <div className="p-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl">
-              <svg className="w-5 h-5 text-blue-400 stroke-[1.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">Your Review</h2>
-              <span className="text-[10px] text-zinc-500 font-bold tracking-wider uppercase">Share Assessment</span>
-            </div>
+            {userExistingReview && !isEditingUserReview && !isLoadingUserReview && (
+              <div className="self-start sm:self-auto inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium tracking-wide">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                </span>
+                <span>Saved</span>
+              </div>
+            )}
           </div>
 
-          {user ? (
-            <div className="relative space-y-5 z-10">
-              <div className="relative group">
-                <div className="absolute -inset-px bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-blue-500/10 rounded-2xl opacity-0 group-focus-within:opacity-100 blur-sm transition duration-500 pointer-events-none" />
-                <div className="relative bg-white/[0.01] rounded-2xl border border-white/[0.04] group-focus-within:border-white/[0.1] group-focus-within:bg-white/[0.02] transition-all duration-500">
-                  <textarea
-                    className="w-full bg-transparent text-zinc-100 placeholder-zinc-600 p-5 rounded-2xl resize-none focus:outline-none min-h-[160px] md:min-h-[200px] text-sm leading-relaxed"
-                    rows={6}
-                    placeholder={`Share your thoughts about this TV show...\n\n• What stood out to you?\n• How did it make you feel?\n• Who should watch it?`}
-                    value={userReview}
-                    onChange={(e) => setUserReview(e.target.value)}
-                    maxLength={1000}
+          {!user ? (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-2xl border border-zinc-800/40 bg-zinc-900/30">
+              <div className="p-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 mb-3">
+                <Lock className="w-5 h-5 stroke-[1.75]" />
+              </div>
+              <h3 className="text-sm font-semibold text-zinc-200">
+                Sign In to Share Your Thoughts
+              </h3>
+              <p className="text-xs text-zinc-400 mt-1 max-w-xs leading-relaxed">
+                Log in to write critiques, save entries, and join the conversation.
+              </p>
+            </div>
+          ) : isLoadingUserReview ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-zinc-400">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+              <span className="text-xs font-medium text-zinc-500 tracking-wide">
+                Fetching review data...
+              </span>
+            </div>
+          ) : userExistingReview && !isEditingUserReview ? (
+            <div className="relative rounded-2xl bg-zinc-900/40 border border-zinc-800/50 p-5 overflow-hidden backdrop-blur-md">
+              {userExistingReview.posterPath && (
+                <div className="absolute top-0 right-0 bottom-0 w-1/3 opacity-10 pointer-events-none">
+                  <img
+                    src={`https://image.tmdb.org/t/p/w500${userExistingReview.posterPath}`}
+                    alt=""
+                    className="w-full h-full object-cover grayscale"
                   />
-                  <div className="absolute bottom-4 right-4 bg-zinc-950/60 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/[0.03]">
-                    <span className={`text-[10px] font-mono font-bold ${userReview.length > 900 ? 'text-rose-400' : 'text-zinc-500'}`}>
-                      {userReview.length}<span className="text-zinc-700">/</span>1000
-                    </span>
-                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-l from-transparent to-zinc-950" />
                 </div>
-              </div>
+              )}
 
-              <div className="flex flex-wrap items-center justify-between gap-4 px-1">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold uppercase tracking-wider ${userReview.length > 0 ? 'text-blue-400' : 'text-zinc-500'}`}>
-                    {userReview.length > 0 ? `${userReview.length} characters` : 'Draft empty'}
-                  </span>
-                  {userReview.length >= 50 && (
-                    <motion.span
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider"
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={userPhoto || '/user-icon.jpg'}
+                      alt={userExistingReview.author}
+                      className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
+                    />
+                    <div>
+                      <h4 className="text-xs font-medium text-zinc-200">
+                        {userExistingReview.author}
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 mt-0.5">
+                        <Calendar className="w-3 h-3 text-emerald-500 stroke-[1.75]" />
+                        <span>
+                          {userExistingReview.timestamp?.seconds
+                            ? new Date(userExistingReview.timestamp.seconds * 1000).toLocaleDateString(
+                              undefined,
+                              { month: 'short', day: 'numeric', year: 'numeric' }
+                            )
+                            : 'Recently'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-xl border border-zinc-800/80 backdrop-blur-sm">
+                    <button
+                      type="button"
+                      onClick={handleEditUserReview}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-95 transition-all"
+                      title="Edit review"
                     >
-                      Ready
-                    </motion.span>
+                      <Edit2 className="w-3.5 h-3.5 stroke-[1.75]" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingReview}
+                      onClick={handleDeleteUserReview}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 active:scale-95 transition-all disabled:opacity-50"
+                      title="Delete review"
+                    >
+                      {isDeletingReview ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5 stroke-[1.75]" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5 my-2">
+                  <Quote className="w-3.5 h-3.5 text-zinc-500 shrink-0 mt-0.5 scale-x-[-1] scale-y-[-1] stroke-[1.75]" />
+                  <blockquote className="text-xs sm:text-sm text-zinc-200 leading-relaxed font-normal italic">
+                    {userExistingReview.content}
+                  </blockquote>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 border-t border-zinc-800/40">
+                  <span className="text-[10px] font-medium tracking-wider text-zinc-400 uppercase bg-zinc-800/40 px-2.5 py-1 rounded-full border border-zinc-700/30">
+                    {userExistingReview.mediaType === 'tv' ? 'TV Series' : 'Feature Film'}
+                  </span>
+
+                  {userExistingReview.rating && (
+                    <div className="flex items-center gap-1 text-amber-400 font-semibold text-xs">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 stroke-none" />
+                      <span>{userExistingReview.rating.toFixed(1)}</span>
+                      <span className="text-zinc-600 font-normal">/ 10</span>
+                    </div>
                   )}
                 </div>
               </div>
+            </div>
+          ) : isEditingUserReview ? (
+            <div className="space-y-3">
+              <div className="relative rounded-2xl bg-zinc-900/60 border border-emerald-500/30 p-3.5 focus-within:border-emerald-500/60 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all">
+                <textarea
+                  className="w-full bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 resize-none focus:outline-none min-h-[110px] font-normal leading-relaxed"
+                  rows={4}
+                  value={editReviewContent}
+                  onChange={(e) => setEditReviewContent(e.target.value)}
+                  maxLength={1000}
+                  placeholder="Edit your review content..."
+                />
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500">
+                  <span>{editReviewContent.length} / 1000</span>
+                  <span className="text-emerald-400 font-medium">Editing</span>
+                </div>
+              </div>
 
-              <div className="flex justify-center pt-2">
-                <motion.button
-                  onClick={handleReviewSubmit}
-                  disabled={userReview.length === 0}
-                  whileHover={userReview.length > 0 ? { scale: 1.03 } : {}}
-                  whileTap={{ scale: 0.98 }}
-                  className={"relative group overflow-hidden py-3 px-10 rounded-xl font-extrabold text-xs uppercase tracking-widest shadow-xl transition-all duration-300 flex items-center gap-2 " + (userReview.length === 0
-                    ? 'bg-zinc-900/40 text-zinc-600 border border-white/[0.02] cursor-not-allowed shadow-none'
-                    : 'bg-gradient-to-b from-blue-500 via-blue-600 to-blue-700 text-white border border-white/10 hover:shadow-blue-500/10')}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEditUserReview}
+                  disabled={isUpdatingUserReview}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 active:scale-95 transition-all"
                 >
-                  {userReview.length > 0 && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateUserReview}
+                  disabled={editReviewContent.trim().length === 0 || isUpdatingUserReview}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 transition-all disabled:opacity-50"
+                >
+                  {isUpdatingUserReview ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   )}
-                  <div className="relative z-10 flex items-center gap-2">
-                    <span>{userReview.length === 0 ? 'Compose Review' : 'Publish Review'}</span>
-                    <svg className="w-4 h-4 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.768 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                    </svg>
-                  </div>
-                </motion.button>
+                  <span>Save Update</span>
+                </button>
               </div>
             </div>
           ) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-10 relative z-10">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.05] mb-4">
-                <svg className="w-6 h-6 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
+            <div className="space-y-3">
+              <div className="relative rounded-2xl bg-zinc-900/60 border border-zinc-800/80 p-3.5 focus-within:border-zinc-700 focus-within:bg-zinc-900/90 transition-all">
+                <textarea
+                  className="w-full bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 resize-none focus:outline-none min-h-[110px] font-normal leading-relaxed"
+                  rows={4}
+                  placeholder="What were your thoughts on the cinematography, pacing, or story structure?"
+                  value={userReview}
+                  onChange={(e) => setUserReview(e.target.value)}
+                  maxLength={1000}
+                />
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-[10px] text-zinc-500">
+                  <span>{userReview.length} / 1000</span>
+                  {userReview.length > 0 && (
+                    <span className="text-emerald-400 font-medium">Ready</span>
+                  )}
+                </div>
               </div>
-              <p className="text-zinc-300 text-base font-bold tracking-tight mb-1">Log in to review this TV show</p>
-              <p className="text-zinc-500 text-xs font-medium max-w-xs mx-auto">
-                Write reviews, save logs, and help optimize community metrics.
-              </p>
-            </motion.div>
+
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs text-zinc-500 hidden sm:block font-normal">
+                  Your review will be visible publicly to other users.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleReviewSubmit}
+                  disabled={userReview.trim().length === 0}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white text-zinc-950 hover:bg-zinc-200 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <span>Post Review</span>
+                  <Send className="w-3.5 h-3.5 stroke-[2]" />
+                </button>
+              </div>
+            </div>
           )}
         </motion.section>
 
