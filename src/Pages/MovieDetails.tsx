@@ -31,6 +31,7 @@ import { enqueueWatchlistOp, registerWatchlistSync } from '../utils/watchlistQue
 import { getMovieEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
 import PlayerControl from '../components/PlayerControl.tsx';
 import MovieCollection from '../components/MovieCollection.tsx';
+import SimilarTitles from '../components/SimilarTitles.tsx';
 
 interface Movie {
   id: number;
@@ -1256,7 +1257,6 @@ const MovieDetails = () => {
           >
             <div className="flex items-center gap-4 sm:gap-5 px-1">
               {(() => {
-                // Helper to determine category label
                 const getCategoryLabel = (item: any) => {
                   if (!item) return 'CREW';
                   const dept = (item.category || item.department || item.known_for_department || '').toUpperCase();
@@ -1357,6 +1357,12 @@ const MovieDetails = () => {
           collectionName={collectionName}
           watchedMovieIds={[123, 456]}
           SpatialCard={SpatialCard} 
+        />
+
+        <SimilarTitles
+          mediaType="movie"
+          currentId={movieDetails.id}
+          genreIds={genres.map((g) => g.id)}
         />
 
         <motion.section

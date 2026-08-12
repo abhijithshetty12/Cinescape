@@ -20,6 +20,7 @@ import { useWatchedStatus, WatchedItemData } from './History.tsx';
 import confetti from 'canvas-confetti';
 import { getTvEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
 import PlayerControl from '../components/PlayerControl.tsx';
+import SimilarTitles from '../components/SimilarTitles.tsx';
 
 interface TvShow {
   id: number;
@@ -1413,6 +1414,11 @@ const TvDetails = () => {
           </div>
         </motion.section>
 
+        <SimilarTitles
+          mediaType="tv"
+          currentId={show.id}
+          genreIds={(show.genres ?? []).map((g) => g.id)}
+        />
         <motion.section
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1452,9 +1458,7 @@ const TvDetails = () => {
                     transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                     className="flex flex-col sm:flex-row items-center justify-between gap-6 py-4 px-2 sm:px-4"
                   >
-                    {/* Left Column: Circular Rating Display */}
                     <div className="relative flex-shrink-0 flex items-center justify-center w-40 h-40 sm:w-44 sm:h-44">
-                      {/* Dynamic Background Glow */}
                       <div
                         className={`absolute inset-0 rounded-full blur-2xl opacity-20 transition-all duration-700 ${userRating! >= 8
                           ? "bg-emerald-500"
@@ -1466,7 +1470,6 @@ const TvDetails = () => {
                           }`}
                       />
 
-                      {/* SVG Progress Ring */}
                       <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
                         <circle
                           cx="50"
@@ -1501,7 +1504,6 @@ const TvDetails = () => {
                         />
                       </svg>
 
-                      {/* Inner Circle Score */}
                       <div className="absolute inset-3 rounded-full bg-gradient-to-b from-zinc-900/90 to-zinc-950 border border-white/10 flex flex-col items-center justify-center p-2 shadow-inner backdrop-blur-xl">
                         <motion.span
                           initial={{ scale: 0.5, opacity: 0 }}
@@ -1516,15 +1518,11 @@ const TvDetails = () => {
                         </span>
                       </div>
                     </div>
-
-                    {/* Right Column: Score Info & Action Panel */}
                     <div className="flex-1 flex flex-col justify-center items-center sm:items-start text-center sm:text-left space-y-4 w-full">
-                      {/* Header Info & Badge */}
                       <div className="space-y-1.5 w-full">
                         <p className="text-[11px] font-semibold text-zinc-400 tracking-wider uppercase">
                           Your Submitted Rating
                         </p>
-
                         {userRating !== null && (
                           <div>
                             <motion.div
