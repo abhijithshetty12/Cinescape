@@ -13,6 +13,7 @@ import {
   Send,
   SquarePen,
   Layers,
+  Share2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -22,12 +23,14 @@ import { collection, addDoc, query, setDoc, doc, getDocs, deleteDoc, updateDoc, 
 import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
+import ShareSheet from '../components/ShareSheet.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { enqueueWatchlistOp, registerWatchlistSync } from '../utils/watchlistQueue.ts';
 import { getMovieEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
 import PlayerControl from '../components/PlayerControl.tsx';
+import MovieCollection from '../components/MovieCollection.tsx';
 
 interface Movie {
   id: number;
@@ -212,6 +215,7 @@ const MovieDetails = () => {
     isVisible: boolean;
   }>({ message: '', type: 'success', isVisible: false });
   const [playerSource, setPlayerSource] = useState<PlayerSource>('vidsrc');
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserRating = async () => {
@@ -730,6 +734,21 @@ const MovieDetails = () => {
         onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
       />
 
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        title={movieDetails.title}
+        backdropUrl={heroBackdrop}
+        posterUrl={posterUrl}
+        rating={movieDetails.vote_average}
+        genres={genres.map((g) => g.name)}
+        releaseDate={movieDetails.release_date}
+        overview={movieDetails.overview}
+        shareUrl={`${window.location.origin}/movie/${movieDetails.id}`}
+        medium="Movie"
+        onToast={(m, t) => showToast(m, t)}
+      />
+
       <div className="relative min-h-[70vh] md:min-h-[85vh] flex items-end">
         <div className="absolute inset-0">
           <div
@@ -854,6 +873,14 @@ const MovieDetails = () => {
                   <span className="relative z-10">
                     {isInWatchlist ? 'Saved to Watchlist' : 'Add to Watchlist'}
                   </span>
+                </button>
+                <button
+                  onClick={() => setShareOpen(true)}
+                  className="relative group flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl overflow-hidden bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-white shadow-zinc-500/25"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                  <Share2 className="w-5 h-5 relative z-10 text-amber-300" />
+                  <span className="relative z-10">Share</span>
                 </button>
               </motion.div>
             </div>
@@ -1325,111 +1352,12 @@ const MovieDetails = () => {
           </div>
         </motion.section>
 
-        {movieParts.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="relative rounded-[32px] border border-white/[0.18] bg-zinc-900/40 p-5 sm:p-6 md:p-8 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-3xl backdrop-saturate-200 overflow-hidden font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Segoe_UI',Roboto,sans-serif] antialiased select-none"
-          >
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-
-            <div className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
-
-            <div className="relative z-20 flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 border border-white/20 text-blue-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-md">
-                  <Clapperboard className="w-5 h-5 stroke-[1.75]" />
-                </div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-semibold text-white/95 tracking-tight">
-                    {collectionName ? `Part of ${collectionName}` : 'Movie Collection'}
-                  </h2>
-                  <span className="text-[10px] text-zinc-400 font-semibold tracking-widest uppercase">
-                    {movieParts.length} {movieParts.length === 1 ? 'Chapter' : 'Chapters Available'}
-                  </span>
-                </div>
-              </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[11px] font-medium text-zinc-300 backdrop-blur-md shadow-sm">
-                <Layers className="w-3.5 h-3.5 text-blue-400" />
-                Collection
-              </span>
-            </div>
-
-            <div
-              ref={moviePartsContainerRef}
-              className="relative z-20 flex gap-4 pb-2 snap-x snap-mandatory overflow-x-auto scroll-smooth -mx-5 px-5 sm:mx-0 sm:px-1 no-scrollbar"
-              style={{ WebkitOverflowScrolling: 'touch' }}
-            >
-              {[...movieParts]
-                .sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())
-                .map((part, index) => (
-                  <Link
-                    key={part.id}
-                    to={`/movie/${part.id}`}
-                    className="flex-shrink-0 snap-start group/card focus:outline-none"
-                    aria-label={`View ${part.title}`}
-                  >
-                    <SpatialCard containerRef={moviePartsContainerRef} index={index}>
-                      <div className="w-[125px] sm:w-[155px] md:w-[175px]">
-                        <div className="relative rounded-2xl border border-white/15 bg-black/40 overflow-hidden shadow-2xl backdrop-blur-md transition-all duration-500 ease-out group-hover/card:border-blue-400/50 group-hover/card:shadow-[0_0_30px_rgba(59,130,246,0.25)]">
-                          <div className="relative aspect-[2/3] overflow-hidden bg-zinc-950">
-                            {part.poster_path ? (
-                              <img
-                                src={`https://image.tmdb.org/t/p/w780${part.poster_path}`}
-                                alt={part.title}
-                                loading="lazy"
-                                className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-white/[0.02] text-zinc-500">
-                                <ImageOff className="w-6 h-6 stroke-[1.5]" />
-                                <span className="text-[10px] font-medium tracking-wider uppercase">No Poster</span>
-                              </div>
-                            )}
-
-                            <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
-                              <div className="w-10 h-10 rounded-full bg-white/20 border border-white/30 shadow-[0_8px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.4)] backdrop-blur-xl flex items-center justify-center scale-85 group-hover/card:scale-100 transition-transform duration-300 ease-out">
-                                <Play className="w-4 h-4 text-white fill-white translate-x-[1px]" />
-                              </div>
-                            </div>
-
-                            <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none z-30">
-                              <span className="bg-black/40 backdrop-blur-md border border-white/15 text-zinc-200 text-[10px] font-medium px-2 py-0.5 rounded-full shadow-sm">
-                                {part.release_date?.slice(0, 4) || 'TBA'}
-                              </span>
-                              {part.vote_average > 0 && (
-                                <span className="bg-amber-400/90 text-zinc-950 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md backdrop-blur-md">
-                                  <Star className="w-2.5 h-2.5 fill-current stroke-none" />
-                                  {part.vote_average.toFixed(1)}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="absolute inset-0 ring-1 ring-inset ring-white/15 group-hover/card:ring-blue-400/40 rounded-2xl pointer-events-none transition-all duration-500" />
-                          </div>
-                        </div>
-
-                        <div className="mt-2.5 px-1 text-center">
-                          <h3 className="text-zinc-200 font-semibold text-xs sm:text-sm leading-tight line-clamp-1 group-hover/card:text-blue-400 transition-colors duration-300">
-                            {part.title}
-                          </h3>
-                        </div>
-                      </div>
-                    </SpatialCard>
-                  </Link>
-                ))}
-            </div>
-
-            <div className="flex items-center justify-center gap-2 mt-4 text-zinc-400 text-[10px] md:hidden font-medium uppercase tracking-widest relative z-20">
-              <span>Swipe Collection</span>
-              <div className="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center bg-white/5 backdrop-blur-md">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse" />
-              </div>
-            </div>
-          </motion.section>
-        )}
+        <MovieCollection
+          movieParts={movieParts}
+          collectionName={collectionName}
+          watchedMovieIds={[123, 456]}
+          SpatialCard={SpatialCard} 
+        />
 
         <motion.section
           initial={{ opacity: 0, y: 24 }}

@@ -85,7 +85,6 @@ const MovieCard = ({
   index: number;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-
   const [imageErrors, setImageErrors] = useState<{ poster?: boolean; backdrop?: boolean }>({});
 
   return (
@@ -107,8 +106,9 @@ const MovieCard = ({
               alt={movie.title}
               loading="lazy"
               onError={() => setImageErrors((prev) => ({ ...prev, poster: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
-                }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
+                isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
+              }`}
             />
           ) : (
             <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-zinc-900 to-zinc-950 text-zinc-500 px-4 text-center">
@@ -122,8 +122,9 @@ const MovieCard = ({
               src={movie.backdrop}
               alt=""
               onError={() => setImageErrors((prev) => ({ ...prev, backdrop: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
-                }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
+                isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
+              }`}
             />
           )}
 
@@ -344,10 +345,11 @@ const HeroBanner = ({
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
-              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${currentIndex === index
-                ? "w-6 md:w-8 bg-red-600"
-                : "w-2 bg-white/40 hover:bg-white/60"
-                }`}
+              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${
+                currentIndex === index
+                  ? "w-6 md:w-8 bg-red-600"
+                  : "w-2 bg-white/40 hover:bg-white/60"
+              }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
@@ -544,75 +546,130 @@ const MovieList = () => {
         )}
 
         <div className="sticky top-[72px] z-30 mb-8 -mx-4 px-4 py-3 bg-zinc-950/80 backdrop-blur-xl border-y border-white/5">
-          <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-            <div className="relative flex items-center p-1 bg-neutral-900/40 backdrop-blur-xl rounded-xl border border-white/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.5)] w-fit">
-              <div className="relative flex items-center">
-                <button
-                  type="button"
-                  onClick={() => handleMediaTypeChange("movie")}
-                  className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "movie" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6">
+            <div className="flex items-center justify-between gap-3 shrink-0">
+              <div className="relative flex items-center p-1 bg-neutral-900/40 backdrop-blur-xl rounded-xl border border-white/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.5)] w-fit">
+                <div className="relative flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange("movie")}
+                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${
+                      mediaType === "movie" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
                     }`}
-                >
-                  <Clapperboard className="w-3.5 h-3.5 stroke-[2]" />
-                  <span>Movies</span>
-                </button>
+                  >
+                    <Clapperboard className="w-3.5 h-3.5 stroke-[2]" />
+                    <span>Movies</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleMediaTypeChange("tv")}
-                  className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "tv" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
+                  <button
+                    type="button"
+                    onClick={() => handleMediaTypeChange("tv")}
+                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${
+                      mediaType === "tv" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
                     }`}
-                >
-                  <Tv className="w-3.5 h-3.5 stroke-[2]" />
-                  <span>Series</span>
-                </button>
+                  >
+                    <Tv className="w-3.5 h-3.5 stroke-[2]" />
+                    <span>Series</span>
+                  </button>
 
-                <motion.div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-[0_4px_15px_rgba(239,68,68,0.3)] pointer-events-none"
-                  animate={{
-                    x: mediaType === "movie" ? "0%" : "100%",
-                  }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                  style={{
-                    width: "50%",
-                    zIndex: 0,
-                  }}
-                />
+                  <motion.div
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-[0_4px_15px_rgba(239,68,68,0.3)] pointer-events-none"
+                    animate={{
+                      x: mediaType === "movie" ? "0%" : "100%",
+                    }}
+                    transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                      width: "50%",
+                      zIndex: 0,
+                    }}
+                  />
+                </div>
               </div>
+
+              {!searchQuery && (
+                <div className="relative lg:hidden" ref={sortRef}>
+                  <button
+                    onClick={() => setSortOpen(!sortOpen)}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900/60 border border-white/5 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:border-white/10 transition-all duration-300"
+                  >
+                    <Filter className="w-3.5 h-3.5" />
+                    <span>{activeSortLabel}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                        sortOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <AnimatePresence>
+                    {sortOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute right-0 mt-2 w-48 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50"
+                      >
+                        {sortOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setSortBy(option.value);
+                              setSortOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
+                              sortBy === option.value
+                                ? "bg-red-600/10 text-red-400"
+                                : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            <option.icon className="w-4 h-4" />
+                            {option.label}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
 
             {!searchQuery && genres.length > 0 && (
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                <button
-                  onClick={() => setSelectedGenre(null)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === null
-                    ? "bg-red-600/20 border-red-500/40 text-red-400"
-                    : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
-                    }`}
-                >
-                  All
-                </button>
-                {genres.map((g) => (
+              <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar py-1">
+                <div className="inline-flex items-center gap-2 pr-4">
                   <button
-                    key={g.id}
-                    onClick={() =>
-                      setSelectedGenre(
-                        selectedGenre === g.id ? null : g.id
-                      )
-                    }
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === g.id
-                      ? "bg-red-600/20 border-red-500/40 text-red-400"
-                      : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
-                      }`}
+                    onClick={() => setSelectedGenre(null)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
+                      selectedGenre === null
+                        ? "bg-red-600/20 border-red-500/40 text-red-400"
+                        : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
+                    }`}
                   >
-                    {g.name}
+                    All
                   </button>
-                ))}
+                  {genres.map((g) => (
+                    <button
+                      key={g.id}
+                      onClick={() =>
+                        setSelectedGenre(
+                          selectedGenre === g.id ? null : g.id
+                        )
+                      }
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
+                        selectedGenre === g.id
+                          ? "bg-red-600/20 border-red-500/40 text-red-400"
+                          : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
+                      }`}
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
             {!searchQuery && (
-              <div className="relative ml-auto" ref={sortRef}>
+              <div className="relative hidden lg:block shrink-0" ref={sortRef}>
                 <button
                   onClick={() => setSortOpen(!sortOpen)}
                   className="flex items-center gap-2 px-4 py-2 bg-zinc-900/60 border border-white/5 rounded-xl text-sm font-medium text-zinc-300 hover:text-white hover:border-white/10 transition-all duration-300"
@@ -620,8 +677,9 @@ const MovieList = () => {
                   <Filter className="w-3.5 h-3.5" />
                   {activeSortLabel}
                   <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform duration-300 ${sortOpen ? "rotate-180" : ""
-                      }`}
+                    className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                      sortOpen ? "rotate-180" : ""
+                    }`}
                   />
                 </button>
 
@@ -641,10 +699,11 @@ const MovieList = () => {
                             setSortBy(option.value);
                             setSortOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${sortBy === option.value
-                            ? "bg-red-600/10 text-red-400"
-                            : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                            }`}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
+                            sortBy === option.value
+                              ? "bg-red-600/10 text-red-400"
+                              : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                          }`}
                         >
                           <option.icon className="w-4 h-4" />
                           {option.label}
@@ -673,8 +732,8 @@ const MovieList = () => {
               {selectedGenre
                 ? genres.find((g) => g.id === selectedGenre)?.name
                 : mediaType === "movie"
-                  ? "Popular Movies"
-                  : "Popular Series"}
+                ? "Popular Movies"
+                : "Popular Series"}
             </h2>
             {selectedGenre && (
               <button

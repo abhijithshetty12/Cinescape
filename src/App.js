@@ -1,27 +1,36 @@
 import "./App.css";
 import Navbar from "./components/Navbar.tsx";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
-import Home from "./Pages/Home.tsx";
-import Explore from "./Pages/Explore.tsx";
-import MovieDetails from "./Pages/MovieDetails.tsx";
-import Toprated from "./Pages/Toprated.jsx";
-import Actordetails from "./Pages/Actordetails.tsx";
-import LoginPage from "./Pages/LoginPage.tsx";
-import ProfilePage from "./Pages/ProfilePage.tsx";
-import ActorProfilePage from "./Pages/ActorProfilePage.tsx";
 import ConditionalRoute from './components/ConditionalRoute.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
-import Tvdetails from './Pages/Tvdetails.tsx'
-import FavTalents from './Pages/FavTalents.tsx';
-import Trending from './Pages/Trending.tsx';
-import Watchlist from "./Pages/Watchlist.tsx";
-import Upcoming from "./Pages/Upcoming.tsx";
-import SearchResults from "./Pages/SearchResults.tsx";
-import HistoryPage from "./Pages/History.tsx";
 import License from "./components/License.tsx";
 import CommandMenu from "./components/CommandMenu.tsx";
-import DirectorsCut from "./Pages/DirectorsCut.tsx";
+
+import Home from "./Pages/Home.tsx";
+
+import React, { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+
+const Explore = lazy(() => import("./Pages/Explore.tsx"));
+const MovieDetails = lazy(() => import("./Pages/MovieDetails.tsx"));
+const Toprated = lazy(() => import("./Pages/Toprated.jsx"));
+const Actordetails = lazy(() => import("./Pages/Actordetails.tsx"));
+const LoginPage = lazy(() => import("./Pages/LoginPage.tsx"));
+const ProfilePage = lazy(() => import("./Pages/ProfilePage.tsx"));
+const ActorProfilePage = lazy(() => import("./Pages/ActorProfilePage.tsx"));
+const Tvdetails = lazy(() => import("./Pages/Tvdetails.tsx"));
+const FavTalents = lazy(() => import("./Pages/FavTalents.tsx"));
+const Trending = lazy(() => import("./Pages/Trending.tsx"));
+const Watchlist = lazy(() => import("./Pages/Watchlist.tsx"));
+const Upcoming = lazy(() => import("./Pages/Upcoming.tsx"));
+const SearchResults = lazy(() => import("./Pages/SearchResults.tsx"));
+const HistoryPage = lazy(() => import("./Pages/History.tsx"));
+const DirectorsCut = lazy(() => import("./Pages/DirectorsCut.tsx"));
+
+const PageLoader = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+  </div>
+);
 
 const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
   const location = useLocation();
@@ -29,32 +38,33 @@ const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
   return (
     <>
       {location.pathname !== "/login" && <Navbar />}
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<ConditionalRoute />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<ConditionalRoute />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route path="/home" element={<Home />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/actors" element={<ActorProfilePage />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/movie/:id" element={<MovieDetails />} />
-          <Route path="/actor/:id" element={<Actordetails />} />
-          <Route path="tv/:id" element={<Tvdetails />} />
-          <Route path="/top-rated" element={<Toprated />} />
-          <Route path="/fav-talents" element={<FavTalents />} />
-          <Route path="/trending" element={<Trending />} />
-          <Route path="/watchlist" element={<Watchlist />} />
-          <Route path="/upcoming" element={<Upcoming />} />
-          <Route path="/search" element={<SearchResults />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/directors-cut" element={<DirectorsCut />} />
-        </Route>
-      </Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/home" element={<Home />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/actors" element={<ActorProfilePage />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/movie/:id" element={<MovieDetails />} />
+            <Route path="/actor/:id" element={<Actordetails />} />
+            <Route path="tv/:id" element={<Tvdetails />} />
+            <Route path="/top-rated" element={<Toprated />} />
+            <Route path="/fav-talents" element={<FavTalents />} />
+            <Route path="/trending" element={<Trending />} />
+            <Route path="/watchlist" element={<Watchlist />} />
+            <Route path="/upcoming" element={<Upcoming />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/directors-cut" element={<DirectorsCut />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </>
   );
 };
-
 
 function App() {
   const [isCmdMenuOpen, setIsCmdMenuOpen] = useState(false);

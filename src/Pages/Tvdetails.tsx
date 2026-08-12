@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
   Star, Calendar, TvMinimalPlay, Clock, ImageOff, Image,
   Bookmark, BookmarkCheck, Check, Plus, Loader2, Play,
-  Globe, Users, MessageCircle, Award, Sparkles, CheckCircle, Edit2, Trash2, Quote, SquarePen, Lock, Send,
+  Globe, Users, MessageCircle, Award, Sparkles, CheckCircle, Edit2, Trash2, Quote, SquarePen, Lock, Send, Share2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -15,6 +15,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
+import ShareSheet from '../components/ShareSheet.tsx';
 import { useWatchedStatus, WatchedItemData } from './History.tsx';
 import confetti from 'canvas-confetti';
 import { getTvEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
@@ -160,6 +161,7 @@ const TvDetails = () => {
   const [crew, setCrew] = useState<any[]>([]);
   const [activeGenreId, setActiveGenreId] = useState<number | null>(null);
   const [heroBackdropPath, setHeroBackdropPath] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'info';
@@ -630,6 +632,21 @@ const TvDetails = () => {
         onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
       />
 
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        title={show.name}
+        backdropUrl={heroBackdrop}
+        posterUrl={posterUrl}
+        rating={show.vote_average}
+        genres={genres.map((g) => g.name)}
+        releaseDate={show.first_air_date}
+        overview={show.overview}
+        shareUrl={`${window.location.origin}/tv/${show.id}`}
+        medium="TV Show"
+        onToast={(m, t) => showToast(m, t)}
+      />
+
       <div className="relative min-h-[70vh] md:min-h-[85vh] flex items-end">
         <div className="absolute inset-0">
           <div
@@ -750,6 +767,14 @@ const TvDetails = () => {
                   <span className="relative z-10">
                     {isInWatchlist ? 'Saved to Watchlist' : 'Add to Watchlist'}
                   </span>
+                </button>
+                <button
+                  onClick={() => setShareOpen(true)}
+                  className="relative group flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl overflow-hidden bg-gradient-to-r from-zinc-700 to-zinc-600 hover:from-zinc-600 hover:to-zinc-500 text-white shadow-zinc-500/25"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                  <Share2 className="w-5 h-5 relative z-10 text-amber-300" />
+                  <span className="relative z-10">Share</span>
                 </button>
               </motion.div>
             </div>

@@ -21,6 +21,7 @@ const Navbar: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>('');
   const { user } = useAuth();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
@@ -42,6 +43,29 @@ const Navbar: React.FC = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = document.querySelectorAll<HTMLElement>('section[id], div[id]');
+      const scrollPosition = window.scrollY + 100;
+
+      let currentSection = '';
+      sections.forEach((section) => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.offsetHeight;
+        if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+          currentSection = section.getAttribute('id') || '';
+        }
+      });
+
+      setActiveSection(currentSection);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [location.pathname]);
 
   const fetchSearchResults = async (query: string) => {
     if (!query) return;
@@ -108,10 +132,10 @@ const Navbar: React.FC = () => {
   };
 
   const navItems = [
-    { label: 'Explore', path: '/explore', icon: Compass },
-    { label: 'Top Rated', path: '/top-rated', icon: Award },
-    { label: 'Actors', path: '/actors', icon: Users },
-    { label: 'Fav Talents', path: '/fav-talents', icon: Heart },
+    { label: 'Explore', path: '/explore', sectionId: 'explore', icon: Compass },
+    { label: 'Top Rated', path: '/top-rated', sectionId: 'top-rated', icon: Award },
+    { label: 'Actors', path: '/actors', sectionId: 'actors', icon: Users },
+    { label: 'Fav Talents', path: '/fav-talents', sectionId: 'fav-talents', icon: Heart },
   ];
 
   const movies = searchResults.filter((result) => result.media_type === 'movie');
@@ -144,7 +168,6 @@ const Navbar: React.FC = () => {
       {searchResults.length > 0 && !loading && (
         <div className="absolute top-full left-0 w-full mt-3 bg-zinc-950/85 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] max-h-[70vh] overflow-y-auto custom-scrollbar z-50 p-1.5 space-y-2">
 
-          {/* MOVIES SECTION */}
           {movies.length > 0 && (
             <div className="py-1">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-rose-500/20 via-orange-500/15 to-transparent backdrop-blur-xl border border-rose-500/30 rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_20px_rgba(244,63,94,0.15)] mb-1">
@@ -194,7 +217,6 @@ const Navbar: React.FC = () => {
             </div>
           )}
 
-          {/* TV SHOWS SECTION */}
           {tvShows.length > 0 && (
             <div className="py-1">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-transparent backdrop-blur-xl border border-cyan-500/30 rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_20px_rgba(6,182,212,0.15)] mb-1">
@@ -239,7 +261,6 @@ const Navbar: React.FC = () => {
             </div>
           )}
 
-          {/* TALENTS / ACTORS SECTION */}
           {actors.length > 0 && (
             <div className="py-1">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-transparent backdrop-blur-xl border border-emerald-500/30 rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_20px_rgba(16,185,129,0.15)] mb-1">
@@ -344,7 +365,7 @@ const Navbar: React.FC = () => {
         <div className="hidden md:flex items-center gap-5">
           <div className="flex items-center gap-1 bg-white/5 dark:bg-zinc-900/30 backdrop-blur-xl p-1 rounded-2xl border border-white/10 dark:border-white/5 shadow-inner">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path || activeSection === item.sectionId;
               return (
                 <Link
                   key={item.label}
@@ -442,7 +463,7 @@ const Navbar: React.FC = () => {
 
           <nav className="space-y-1.5">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path || activeSection === item.sectionId;
               return (
                 <Link
                   key={item.label}
