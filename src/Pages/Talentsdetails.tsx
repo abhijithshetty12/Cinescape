@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Sparkles, CalendarDays, Calendar, ChevronDown, Check } from "lucide-react";
+import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Sparkles, CalendarDays, Calendar, ChevronDown, Check, Network } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
@@ -11,12 +11,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import GlassSweep from "../components/GlassSweep.tsx";
 
-const Actordetails = () => {
+const Talentsdetails = () => {
   const { id } = useParams();
   const auth = useContext(AuthContext);
   const user = auth?.user;
 
-  const [actor, setActor] = useState<any>(null);
+  const [talent, setTalent] = useState<any>(null);
   const [works, setWorks] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'popularity'>('latest');
@@ -36,12 +36,12 @@ const Actordetails = () => {
   ] as const;
 
   useEffect(() => {
-    const fetchActorData = async () => {
+    const fetchTalentData = async () => {
       try {
-        const actorRes = await axios.get(
+        const talentRes = await axios.get(
           `https://api.themoviedb.org/3/person/${id}?api_key=${tmdbAPIKey}&language=en-US`
         );
-        setActor(actorRes.data);
+        setTalent(talentRes.data);
 
         const creditsRes = await axios.get(
           `https://api.themoviedb.org/3/person/${id}/combined_credits?api_key=${tmdbAPIKey}&language=en-US`
@@ -49,7 +49,7 @@ const Actordetails = () => {
 
         const castContributions = (creditsRes.data.cast || []).map((item: any) => ({
           ...item,
-          displayRole: item.character ? `as ${item.character}` : "Actor",
+          displayRole: item.character ? `as ${item.character}` : "Cast",
           uniqueKey: `cast-${item.id}-${item.character || ''}`
         }));
 
@@ -77,14 +77,14 @@ const Actordetails = () => {
         const socialRes = await axios.get(
           `https://api.themoviedb.org/3/person/${id}/external_ids?api_key=${tmdbAPIKey}`
         );
-        setActor((prevActor: any) => ({
-          ...prevActor,
+        setTalent((prevTalent: any) => ({
+          ...prevTalent,
           ...socialRes.data,
         }));
 
-        if (user?.uid && actorRes.data.id) {
-          const favRef = collection(db, `users/${user.uid}/favouriteActors`);
-          const favQuery = query(favRef, where("actorId", "==", actorRes.data.id));
+        if (user?.uid && talentRes.data.id) {
+          const favRef = collection(db, `users/${user.uid}/favouriteTalents`);
+          const favQuery = query(favRef, where("talentId", "==", talentRes.data.id));
           const favSnap = await getDocs(favQuery);
           if (!favSnap.empty) {
             setIsFavorite(true);
@@ -95,34 +95,34 @@ const Actordetails = () => {
           }
         }
       } catch (err: any) {
-        console.error("Error fetching actor data:", err);
+        console.error("Error fetching talent data:", err);
       } finally {
         if (loading) setLoading(false);
       }
     };
 
-    fetchActorData();
+    fetchTalentData();
   }, [id, user?.uid]);
 
   const handleFavoriteToggle = async () => {
-    if (!actor || !user) return;
+    if (!talent || !user) return;
 
     try {
-      const favoritesRef = collection(db, `users/${user.uid}/favouriteActors`);
+      const favoritesRef = collection(db, `users/${user.uid}/favouriteTalents`);
       if (isFavorite && favoriteDocId) {
         const { doc } = await import('firebase/firestore');
-        const docRef = doc(db, `users/${user.uid}/favouriteActors/${favoriteDocId}`);
+        const docRef = doc(db, `users/${user.uid}/favouriteTalents/${favoriteDocId}`);
         await deleteDoc(docRef);
         setIsFavorite(false);
         setFavoriteDocId(null);
-        setToast({ message: `${actor.name} removed from favorites.`, type: 'info', isVisible: true });
+        setToast({ message: `${talent.name} removed from favorites.`, type: 'info', isVisible: true });
       } else {
-        const actorData = {
-          actorId: actor.id,
-          name: actor.name,
-          profile_path: actor.profile_path,
+        const talentData = {
+          talentId: talent.id,
+          name: talent.name,
+          profile_path: talent.profile_path,
         };
-        const docRef = await addDoc(favoritesRef, actorData);
+        const docRef = await addDoc(favoritesRef, talentData);
         setIsFavorite(true);
         setFavoriteDocId(docRef.id);
 
@@ -146,10 +146,10 @@ const Actordetails = () => {
         fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
         fire(0.1, { spread: 120, startVelocity: 45 });
 
-        setToast({ message: `${actor.name} added to favorites.`, type: 'success', isVisible: true });
+        setToast({ message: `${talent.name} added to favorites.`, type: 'success', isVisible: true });
       }
     } catch (error) {
-      console.error("Error toggling favorite actor:", error);
+      console.error("Error toggling favorite talent:", error);
       setToast({ message: "Failed to update favorites.", type: 'error', isVisible: true });
     }
   };
@@ -165,10 +165,10 @@ const Actordetails = () => {
   const backgroundImageUrl = trendingWork
     ? `url(https://image.tmdb.org/t/p/original${trendingWork.backdrop_path || trendingWork.poster_path})`
     : '';
-  const actorImageUrl = `https://image.tmdb.org/t/p/w500${actor?.profile_path ?? ''}`;
-  const actorName = actor?.name ?? 'Unknown Filmography';
-  const actorPopularity = actor?.popularity ?? 0;
-  const formattedPopularity = actorPopularity.toFixed(1);
+  const talentImageUrl = `https://image.tmdb.org/t/p/w500${talent?.profile_path ?? ''}`;
+  const talentName = talent?.name ?? 'Unknown Filmography';
+  const talentPopularity = talent?.popularity ?? 0;
+  const formattedPopularity = talentPopularity.toFixed(1);
 
   const filteredWorks = works
     .filter((work) => {
@@ -237,10 +237,10 @@ const Actordetails = () => {
         <div className="relative h-full flex flex-col sm:flex-row items-center sm:items-end justify-end sm:justify-start p-6 sm:p-8 md:p-10 gap-6 z-10">
           <div className="flex-shrink-0 w-full sm:w-auto flex justify-center sm:block">
             <div className="w-36 h-48 sm:w-40 sm:h-56 md:w-48 md:h-68 rounded-2xl overflow-hidden shadow-2xl border border-white/10 backdrop-blur-md bg-zinc-900/40 transform -translate-y-2 sm:translate-y-0">
-              {actor?.profile_path ? (
+              {talent?.profile_path ? (
                 <img
-                  src={actorImageUrl}
-                  alt={`${actorName} profile`}
+                  src={talentImageUrl}
+                  alt={`${talentName} profile`}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -255,7 +255,7 @@ const Actordetails = () => {
 
           <div className="flex-1 text-center sm:text-left text-white w-full">
             <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black tracking-tight mb-3 leading-tight drop-shadow-sm">
-              {actorName}
+              {talentName}
             </h1>
 
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-6">
@@ -275,7 +275,7 @@ const Actordetails = () => {
                   ? "bg-gradient-to-r from-rose-600 to-pink-600 border-rose-500 shadow-rose-950/30"
                   : "bg-white text-zinc-950 border-white shadow-black/10 hover:bg-zinc-100"
                   }`}
-                aria-label={isFavorite ? `Remove ${actorName} from favorites` : `Add ${actorName} to favorites`}
+                aria-label={isFavorite ? `Remove ${talentName} from favorites` : `Add ${talentName} to favorites`}
               >
                 <AnimatePresence mode="wait">
                   {isFavorite ? (
@@ -315,9 +315,9 @@ const Actordetails = () => {
             <h2 className="text-lg font-bold mb-5 text-white tracking-tight">Personal Info</h2>
             <dl className="space-y-4">
               {[
-                { label: 'Born', value: actor?.birthday ?? 'N/A' },
-                { label: 'Place of Birth', value: actor?.place_of_birth ?? 'N/A' },
-                { label: 'Known For', value: actor?.known_for_department ?? 'N/A' },
+                { label: 'Born', value: talent?.birthday ?? 'N/A' },
+                { label: 'Place of Birth', value: talent?.place_of_birth ?? 'N/A' },
+                { label: 'Known For', value: talent?.known_for_department ?? 'N/A' },
                 { label: 'Total Credits', value: `${works.length} titles` }
               ].map(({ label, value }) => (
                 <div key={label} className="border-b border-zinc-800/40 pb-3 last:border-b-0 last:pb-0">
@@ -326,35 +326,35 @@ const Actordetails = () => {
                 </div>
               ))}
 
-              {((actor?.instagram_id || actor?.twitter_id || actor?.youtube_id) && (
+              {((talent?.instagram_id || talent?.twitter_id || talent?.youtube_id) && (
                 <div className="pt-4 border-t border-zinc-800/40">
                   <dt className="text-zinc-500 text-xs font-semibold tracking-wider uppercase mb-4">Social Connect</dt>
                   <div className="flex flex-wrap gap-3">
-                    {actor?.instagram_id && (
+                    {talent?.instagram_id && (
                       <a
-                        href={`https://instagram.com/${actor.instagram_id}`}
+                        href={`https://instagram.com/${talent.instagram_id}`}
                         rel="noopener noreferrer"
-                        aria-label={`${actorName} on Instagram`}
+                        aria-label={`${talentName} on Instagram`}
                         className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center transition-all duration-200 hover:scale-105 group active:scale-95"
                       >
                         <img src="/insta-icon.png" alt="Instagram" className="w-9 h-9 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
                       </a>
                     )}
-                    {actor?.twitter_id && (
+                    {talent?.twitter_id && (
                       <a
-                        href={`https://twitter.com/${actor.twitter_id}`}
+                        href={`https://twitter.com/${talent.twitter_id}`}
                         rel="noopener noreferrer"
-                        aria-label={`${actorName} on Twitter`}
+                        aria-label={`${talentName} on Twitter`}
                         className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center transition-all duration-200 hover:scale-105 group active:scale-95"
                       >
                         <img src="/twitter-icon.png" alt="Twitter" className="w-9 h-9 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
                       </a>
                     )}
-                    {actor?.youtube_id && (
+                    {talent?.youtube_id && (
                       <a
-                        href={`https://youtube.com/${actor.youtube_id}`}
+                        href={`https://youtube.com/${talent.youtube_id}`}
                         rel="noopener noreferrer"
-                        aria-label={`${actorName} on YouTube`}
+                        aria-label={`${talentName} on YouTube`}
                         className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center transition-all duration-200 hover:scale-105 group active:scale-95"
                       >
                         <img src="/yt-icon.png" alt="YouTube" className="w-9 h-9 object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -371,7 +371,7 @@ const Actordetails = () => {
           <div className="bg-zinc-900/10 backdrop-blur-sm rounded-3xl p-6 sm:p-8 border border-zinc-800/40 shadow-xl h-full flex flex-col justify-start">
             <h2 className="text-xl sm:text-2xl font-bold mb-4 text-white tracking-tight">Biography</h2>
             <p className="text-zinc-400 text-sm sm:text-base leading-relaxed whitespace-pre-line font-normal">
-              {actor?.biography ?? "Biography not available for this individual."}
+              {talent?.biography ?? "Biography not available for this individual."}
             </p>
           </div>
         </div>
@@ -436,6 +436,15 @@ const Actordetails = () => {
                 <Tv className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${activeTab === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
                 <span className="relative z-10">Series</span>
               </button>
+
+              <Link
+                to={`/talent/${talent?.id}/connections`}
+                className="relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 md:px-5 py-2 md:py-2 font-bold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group text-white border border-transparent hover:border-blue-400/40 hover:bg-blue-500/10"
+              >
+                <Network className="w-3.5 h-3.5 relative z-10 transition-transform duration-300 group-hover:scale-110 text-blue-400" />
+                <span className="relative z-10">Connections</span>
+              </Link>
+
             </div>
 
             <div className="relative">
@@ -581,4 +590,4 @@ const Actordetails = () => {
   );
 };
 
-export default Actordetails;
+export default Talentsdetails;

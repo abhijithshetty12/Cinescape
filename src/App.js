@@ -13,10 +13,10 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 const Explore = lazy(() => import("./Pages/Explore.tsx"));
 const MovieDetails = lazy(() => import("./Pages/MovieDetails.tsx"));
 const Toprated = lazy(() => import("./Pages/Toprated.jsx"));
-const Actordetails = lazy(() => import("./Pages/Actordetails.tsx"));
+const Talentsdetails = lazy(() => import("./Pages/Talentsdetails.tsx"));
 const LoginPage = lazy(() => import("./Pages/LoginPage.tsx"));
 const ProfilePage = lazy(() => import("./Pages/ProfilePage.tsx"));
-const ActorProfilePage = lazy(() => import("./Pages/ActorProfilePage.tsx"));
+const TalentsProfilePage = lazy(() => import("./Pages/TalentsProfilePage.tsx"));
 const Tvdetails = lazy(() => import("./Pages/Tvdetails.tsx"));
 const FavTalents = lazy(() => import("./Pages/FavTalents.tsx"));
 const Trending = lazy(() => import("./Pages/Trending.tsx"));
@@ -25,6 +25,7 @@ const Upcoming = lazy(() => import("./Pages/Upcoming.tsx"));
 const SearchResults = lazy(() => import("./Pages/SearchResults.tsx"));
 const HistoryPage = lazy(() => import("./Pages/History.tsx"));
 const DirectorsCut = lazy(() => import("./Pages/DirectorsCut.tsx"));
+const TalentsConnections = lazy(() => import("./Pages/TalentsConnections.tsx"));
 
 const PageLoader = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
@@ -46,10 +47,11 @@ const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
           <Route element={<ProtectedRoute />}>
             <Route path="/home" element={<Home />} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/actors" element={<ActorProfilePage />} />
+            <Route path="/talents" element={<TalentsProfilePage />} />
             <Route path="/explore" element={<Explore />} />
             <Route path="/movie/:id" element={<MovieDetails />} />
-            <Route path="/actor/:id" element={<Actordetails />} />
+            <Route path="/talent/:id" element={<Talentsdetails />} />
+            <Route path="/talent/:id/connections" element={<TalentsConnections />} />
             <Route path="tv/:id" element={<Tvdetails />} />
             <Route path="/top-rated" element={<Toprated />} />
             <Route path="/fav-talents" element={<FavTalents />} />

@@ -120,7 +120,7 @@ const Navbar: React.FC = () => {
 
   const handleResultClick = (id: number, mediaType: string) => {
     if (mediaType === 'person') {
-      navigate(`/actor/${id}`);
+      navigate(`/talent/${id}`);
     } else if (mediaType === 'tv') {
       navigate(`/tv/${id}`);
     } else {
@@ -134,13 +134,13 @@ const Navbar: React.FC = () => {
   const navItems = [
     { label: 'Explore', path: '/explore', sectionId: 'explore', icon: Compass },
     { label: 'Top Rated', path: '/top-rated', sectionId: 'top-rated', icon: Award },
-    { label: 'Actors', path: '/actors', sectionId: 'actors', icon: Users },
+    { label: 'Talents', path: '/talents', sectionId: 'talents', icon: Users },
     { label: 'Fav Talents', path: '/fav-talents', sectionId: 'fav-talents', icon: Heart },
   ];
 
   const movies = searchResults.filter((result) => result.media_type === 'movie');
   const tvShows = searchResults.filter((result) => result.media_type === 'tv');
-  const actors = searchResults.filter((result) => result.media_type === 'person');
+  const talents = searchResults.filter((result) => result.media_type === 'person');
 
   const SearchDropdownContent = () => (
     <>
@@ -261,7 +261,7 @@ const Navbar: React.FC = () => {
             </div>
           )}
 
-          {actors.length > 0 && (
+          {talents.length > 0 && (
             <div className="py-1">
               <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-transparent backdrop-blur-xl border border-emerald-500/30 rounded-xl px-4 py-2 flex items-center gap-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_20px_rgba(16,185,129,0.15)] mb-1">
                 <div className="p-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.4)]">
@@ -269,11 +269,11 @@ const Navbar: React.FC = () => {
                 </div>
                 <h3 className="text-white font-bold text-xs uppercase tracking-wider drop-shadow-sm">Talents</h3>
                 <span className="ml-auto text-emerald-200 text-[11px] font-medium bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shadow-[inset_0_0_6px_rgba(16,185,129,0.3)]">
-                  {actors.length}
+                  {talents.length}
                 </span>
               </div>
               <ul>
-                {actors.map((result) => (
+                {talents.map((result) => (
                   <li
                     key={result.id}
                     onClick={() => handleResultClick(result.id, result.media_type)}
@@ -341,7 +341,7 @@ const Navbar: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search movies, TV shows, actors..."
+                  placeholder="Search movies, TV shows, talents..."
                   className="bg-white/5 dark:bg-zinc-900/40 backdrop-blur-xl border border-white/10 dark:border-white/10 text-white pl-11 pr-10 py-2 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/30 w-full transition-all duration-300 placeholder:text-zinc-500 text-sm shadow-inner"
                 />
                 {searchQuery && (
@@ -442,7 +442,7 @@ const Navbar: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search movies, TV shows, actors..."
+                placeholder="Search movies, TV shows, people..."
                 className="w-full bg-zinc-900/90 border border-white/15 text-white pl-10 pr-10 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500/50 text-sm placeholder:text-zinc-500 shadow-inner transition-all duration-300"
               />
               {searchQuery && (

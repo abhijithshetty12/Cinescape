@@ -20,7 +20,7 @@ import {
 } from "firebase/firestore";
 import { useNavigate, Link } from "react-router-dom";
 import ReviewList from "../components/ReviewList.tsx";
-import { RecommendationSection, WatchlistItem, HistoryItem, FavouriteActor, RatedMovie } from "../components/Recommendation.tsx";
+import { RecommendationSection, WatchlistItem, HistoryItem, FavouriteTalent, RatedMovie } from "../components/Recommendation.tsx";
 import { UserRatingSection } from "../components/UserRating.tsx";
 import {
   User,
@@ -89,7 +89,7 @@ type TabId =
   | "overview"
   | "watchlist"
   | "history"
-  | "actors"
+  | "talents"
   | "reviews"
   | "ratings";
 
@@ -105,7 +105,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     label: "History",
     icon: <History className="w-3.5 h-3.5" />,
   },
-  { id: "actors", label: "Actors", icon: <Heart className="w-3.5 h-3.5" /> },
+  { id: "talents", label: "Talents", icon: <Heart className="w-3.5 h-3.5" /> },
   {
     id: "reviews",
     label: "Reviews",
@@ -230,7 +230,7 @@ const ProfilePage = () => {
   const [ratedMovies, setRatedMovies] = useState<RatedMovie[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [favouriteActors, setFavouriteActors] = useState<FavouriteActor[]>([]);
+  const [favouriteTalents, setFavouriteTalents] = useState<FavouriteTalent[]>([]);
   const [historyFilter, setHistoryFilter] = useState<"movie" | "tv">("movie");
   const [watchlistFilter, setWatchlistFilter] = useState<"movie" | "tv">(
     "movie",
@@ -353,12 +353,12 @@ const ProfilePage = () => {
       ),
 
       onSnapshot(
-        collection(db, `users/${user.uid}/favouriteActors`),
+        collection(db, `users/${user.uid}/favouriteTalents`),
         (snap) => {
-          const seen = new Map<string, FavouriteActor>();
+          const seen = new Map<string, FavouriteTalent>();
           snap.docs.forEach((d) => {
             const data = d.data();
-            const id = data.actorId ?? data.id;
+            const id = data.talentId ?? data.id;
             if (id && data.name && !seen.has(id)) {
               seen.set(id, {
                 id,
@@ -371,7 +371,7 @@ const ProfilePage = () => {
               });
             }
           });
-          setFavouriteActors(Array.from(seen.values()));
+          setFavouriteTalents(Array.from(seen.values()));
         },
       ),
     ];
@@ -878,7 +878,7 @@ const ProfilePage = () => {
                     return "[&>svg]:text-blue-500 [&>svg]:fill-blue-500 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]";
                   case "history":
                     return "[&>svg]:text-emerald-500 [&>svg]:fill-emerald-500/20 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]";
-                  case "actors":
+                  case "talents":
                     return "[&>svg]:text-rose-500 [&>svg]:fill-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]";
                   case "reviews":
                     return "[&>svg]:text-purple-400 [&>svg]:fill-purple-400/20 drop-shadow-[0_0_8px_rgba(192,132,252,0.6)]";
@@ -937,7 +937,7 @@ const ProfilePage = () => {
               <RecommendationSection
                 watchlist={watchlist}
                 history={history}
-                favouriteActors={favouriteActors}
+                favouriteTalents={favouriteTalents}
                 ratedMovies={ratedMovies}
                 onMediaClick={handleMediaClick}
               />
@@ -1147,9 +1147,9 @@ const ProfilePage = () => {
             </motion.div>
           )}
 
-          {activeTab === "actors" && (
+          {activeTab === "talents" && (
             <motion.div
-              key="actors"
+              key="talents"
               variants={tabVariants}
               initial="initial"
               animate="animate"
@@ -1171,8 +1171,8 @@ const ProfilePage = () => {
                         Favourite Talents
                       </h2>
                       <p className="text-xs text-zinc-500">
-                        {favouriteActors.length} talent
-                        {favouriteActors.length !== 1 ? "s" : ""} saved
+                        {favouriteTalents.length} talent
+                        {favouriteTalents.length !== 1 ? "s" : ""} saved
                       </p>
                     </div>
                   </div>
@@ -1184,7 +1184,7 @@ const ProfilePage = () => {
                   </Link>
                 </div>
 
-                {favouriteActors.length === 0 ? (
+                {favouriteTalents.length === 0 ? (
                   <div className="relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-950/30 p-8 text-center shadow-inner">
                     <div className="relative z-10 flex flex-col items-center max-w-xs mx-auto">
                       <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-600 mb-4 shadow-xl">
@@ -1198,10 +1198,10 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 w-full">
-                    {favouriteActors.map((actor, idx) => (
+                    {favouriteTalents.map((talent, idx) => (
                       <Link
-                        key={actor.id}
-                        to={`/actor/${actor.id}`}
+                        key={talent.id}
+                        to={`/talent/${talent.id}`}
                         className="group relative flex flex-col justify-between bg-zinc-950/30 border border-zinc-900 rounded-2xl p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-red-500/20 hover:shadow-[0_12px_30px_rgba(239,68,68,0.04)] active:scale-[0.98]"
                       >
                         <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-red-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
@@ -1217,10 +1217,10 @@ const ProfilePage = () => {
                             <Heart className="w-2 h-2 text-white fill-current" />
                           </div>
 
-                          {actor.profilePath ? (
+                          {talent.profilePath ? (
                             <img
-                              src={actor.profilePath}
-                              alt={actor.name}
+                              src={talent.profilePath}
+                              alt={talent.name}
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                               loading="lazy"
                               onError={(e) => {
@@ -1238,7 +1238,7 @@ const ProfilePage = () => {
 
                         <div className="pt-2 px-0.5">
                           <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-red-400 tracking-tight transition-colors truncate">
-                            {actor.name}
+                            {talent.name}
                           </p>
                           <span className="text-[8px] font-semibold uppercase tracking-widest text-zinc-600 block mt-0.5">
                             Talent

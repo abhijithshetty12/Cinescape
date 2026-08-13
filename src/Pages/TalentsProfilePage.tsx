@@ -12,7 +12,7 @@ interface KnownFor {
   media_type: 'movie' | 'tv';
 }
 
-interface Actor {
+interface Talent {
   id: number;
   name: string;
   profile_path: string | null;
@@ -39,8 +39,8 @@ const cardVariants = {
   },
 };
 
-const ActorProfiles = () => {
-  const [actors, setActors] = useState<Actor[]>([]);
+const TalentsProfiles = () => {
+  const [talents, setTalents] = useState<Talent[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -51,24 +51,24 @@ const ActorProfiles = () => {
 
   const API_KEY = '734a09c1281680980a71703eb69d9571';
 
-  const fetchActors = useCallback(async (targetPage: number, append: boolean) => {
+  const fetchTalents = useCallback(async (targetPage: number, append: boolean) => {
     try {
       const response = await axios.get(
         `https://api.themoviedb.org/3/person/popular?api_key=${API_KEY}&page=${targetPage}`
       );
-      const results: Actor[] = response.data.results || [];
+      const results: Talent[] = response.data.results || [];
 
       if (append) {
-        setActors((prev) => [...prev, ...results]);
+        setTalents((prev) => [...prev, ...results]);
       } else {
-        setActors(results);
+        setTalents(results);
       }
 
       if (results.length === 0 || targetPage >= (response.data.total_pages ?? 1)) {
         setHasMore(false);
       }
     } catch (error) {
-      console.error('Error fetching popular actors:', error);
+      console.error('Error fetching popular talents:', error);
     } finally {
       setLoading(false);
       setFetchingMore(false);
@@ -77,8 +77,8 @@ const ActorProfiles = () => {
 
   useEffect(() => {
     setLoading(true);
-    fetchActors(1, false);
-  }, [fetchActors]);
+    fetchTalents(1, false);
+  }, [fetchTalents]);
 
   useEffect(() => {
     if (loading || !hasMore) return;
@@ -93,7 +93,7 @@ const ActorProfiles = () => {
           setFetchingMore(true);
           setPage((prev) => {
             const nextPage = prev + 1;
-            fetchActors(nextPage, true);
+            fetchTalents(nextPage, true);
             return nextPage;
           });
         }
@@ -112,7 +112,7 @@ const ActorProfiles = () => {
         observerRef.current.unobserve(sentinel);
       }
     };
-  }, [loading, hasMore, fetchingMore, fetchActors]);
+  }, [loading, hasMore, fetchingMore, fetchTalents]);
 
   if (loading) {
     return <Loading />;
@@ -132,7 +132,7 @@ const ActorProfiles = () => {
           </div>
           <div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow">
-              Popular Actors
+              Popular Talents
             </h1>
             <p className="text-sm text-zinc-400 mt-1">
               Discover trending performers from around the world
@@ -146,18 +146,18 @@ const ActorProfiles = () => {
           animate="visible"
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-5 sm:gap-7"
         >
-          {actors.map((actor, index) => {
+          {talents.map((talent, index) => {
             const rank = index + 1;
-            const knownForItems = actor.known_for
-              ? actor.known_for
+            const knownForItems = talent.known_for
+              ? talent.known_for
                 .filter((item) => item.title || item.name)
                 .slice(0, 3)
               : [];
 
             return (
-              <motion.div key={`${actor.id}-${rank}`} variants={cardVariants}>
+              <motion.div key={`${talent.id}-${rank}`} variants={cardVariants}>
                 <Link
-                  to={`/actor/${actor.id}`}
+                  to={`/talent/${talent.id}`}
                   className="group relative block bg-gradient-to-br from-zinc-900/90 to-zinc-800/70 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-zinc-700/60 hover:border-orange-500/70"
                 >
                   <div className="absolute inset-0 z-30 pointer-events-none overflow-hidden rounded-2xl">
@@ -172,11 +172,11 @@ const ActorProfiles = () => {
                   <div className="relative overflow-hidden">
                     <img
                       src={
-                        actor.profile_path
-                          ? `https://image.tmdb.org/t/p/w780${actor.profile_path}`
+                        talent.profile_path
+                          ? `https://image.tmdb.org/t/p/w780${talent.profile_path}`
                           : '/user-icon.jpg'
                       }
-                      alt={actor.name}
+                      alt={talent.name}
                       loading="lazy"
                       className="w-full aspect-[2/3] object-cover object-center transition-transform duration-500 group-hover:scale-110"
                     />
@@ -185,7 +185,7 @@ const ActorProfiles = () => {
 
                   <div className="absolute inset-x-0 bottom-0 p-3 sm:p-4 z-10">
                     <h2 className="font-bold text-base sm:text-lg text-white truncate drop-shadow-md">
-                      {actor.name}
+                      {talent.name}
                     </h2>
 
                     {knownForItems.length > 0 && (
@@ -220,10 +220,10 @@ const ActorProfiles = () => {
           {fetchingMore && hasMore && (
             <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-zinc-800/60 border border-zinc-700/50 backdrop-blur-md">
               <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
-              <span className="text-sm text-zinc-300 font-medium">Loading more actors...</span>
+              <span className="text-sm text-zinc-300 font-medium">Loading more talents...</span>
             </div>
           )}
-          {!hasMore && actors.length > 0 && (
+          {!hasMore && talents.length > 0 && (
             <p className="text-sm text-zinc-500">You've reached the end</p>
           )}
         </div>
@@ -232,4 +232,4 @@ const ActorProfiles = () => {
   );
 };
 
-export default ActorProfiles;
+export default TalentsProfiles;

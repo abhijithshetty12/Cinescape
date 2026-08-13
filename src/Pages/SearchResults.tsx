@@ -148,7 +148,7 @@ const SearchResults = () => {
   }, [filteredResults]);
 
   const getRoute = (item: SearchResult) => {
-    if (item.media_type === 'person') return `/actor/${item.id}`;
+    if (item.media_type === 'person') return `/talent/${item.id}`;
     if (item.media_type === 'tv') return `/tv/${item.id}`;
     return `/movie/${item.id}`;
   };

@@ -30,7 +30,7 @@ export type HistoryItem = {
   watchedDate: string;
 };
 
-export type FavouriteActor = { id: string; name: string; profilePath: string };
+export type FavouriteTalent = { id: string; name: string; profilePath: string };
 
 export type RatedMovie = {
   id: string;
@@ -43,13 +43,13 @@ export type RatedMovie = {
 export const RecommendationSection = ({
   watchlist,
   history,
-  favouriteActors,
+  favouriteTalents,
   ratedMovies,
   onMediaClick,
 }: {
   watchlist: WatchlistItem[];
   history: HistoryItem[];
-  favouriteActors: FavouriteActor[];
+  favouriteTalents: FavouriteTalent[];
   ratedMovies: RatedMovie[];
   onMediaClick: (id: string, mediaType: string) => void;
 }) => {
@@ -130,12 +130,12 @@ export const RecommendationSection = ({
             8,
           );
         }
-        if (favouriteActors.length > 0 && recommended.length < 20) {
+        if (favouriteTalents.length > 0 && recommended.length < 20) {
           const results = await Promise.all(
-            favouriteActors.slice(0, 10).map(async (actor) => {
+            favouriteTalents.slice(0, 10).map(async (talent) => {
               try {
                 const res = await axios.get(
-                  `https://api.themoviedb.org/3/person/${actor.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`,
+                  `https://api.themoviedb.org/3/person/${talent.id}/${type}_credits?api_key=${TMDB_API_KEY}&language=en-US`,
                 );
                 return res.data.cast ?? [];
               } catch {
@@ -200,7 +200,7 @@ export const RecommendationSection = ({
       setItems(sorted.slice(0, 50));
       setLoading(false);
     },
-    [watchlist, history, favouriteActors, ratedMovies],
+    [watchlist, history, favouriteTalents, ratedMovies],
   );
 
   useEffect(() => {

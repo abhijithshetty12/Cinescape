@@ -127,13 +127,13 @@ const CommandMenu: React.FC<{
       label: r.media_type === 'person' ? r.name ?? 'Untitled' : r.title ?? 'Untitled',
       description:
         r.media_type === 'person'
-          ? 'Actor'
+          ? 'Person'
           : r.media_type === 'tv'
             ? `TV • ${r.first_air_date ? new Date(r.first_air_date).getFullYear() : ''}`
             : `Movie • ${r.release_date ? new Date(r.release_date).getFullYear() : ''}`,
       icon: r.media_type === 'person' ? User : r.media_type === 'tv' ? Tv : Film,
       onSelect: () => {
-        if (r.media_type === 'person') navigate(`/actor/${r.id}`);
+        if (r.media_type === 'person') navigate(`/talent/${r.id}`);
         else if (r.media_type === 'tv') navigate(`/tv/${r.id}`);
         else navigate(`/movie/${r.id}`);
         onClose();
@@ -257,7 +257,7 @@ const CommandMenu: React.FC<{
                       setQuery(e.target.value);
                       setActiveIndex(0);
                     }}
-                    placeholder="Search movies, TV, actors… or type 'watchlist'"
+                    placeholder="Search movies, TV, talents… or type 'watchlist'"
                     className="w-full bg-transparent text-white placeholder:text-zinc-500 outline-none text-sm sm:text-base"
                   />
                 </div>

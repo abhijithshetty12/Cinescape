@@ -1217,8 +1217,8 @@ const TvDetails = () => {
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             <div className="flex items-center gap-4 sm:gap-5 px-1">
-              {show.cast?.map((actor: any, idx: number) => {
-                const category = actor.category || (idx < 3 ? 'Lead' : 'Supporting');
+              {show.cast?.map((talent: any, idx: number) => {
+                const category = talent.category || (idx < 3 ? 'Lead' : 'Supporting');
                 const prevCategory =
                   idx > 0
                     ? (show.cast as any)[idx - 1].category || (idx - 1 < 3 ? 'Lead' : 'Supporting')
@@ -1226,7 +1226,7 @@ const TvDetails = () => {
                 const isFirstOfCategory = idx === 0 || category !== prevCategory;
 
                 return (
-                  <React.Fragment key={actor.id}>
+                  <React.Fragment key={talent.id}>
                     {isFirstOfCategory && (
                       <div
                         key={`divider-${category}`}
@@ -1241,7 +1241,7 @@ const TvDetails = () => {
                       </div>
                     )}
 
-                    <Link to={`/actor/${actor.id}`} className="flex-shrink-0 snap-start group/card">
+                    <Link to={`/talent/${talent.id}`} className="flex-shrink-0 snap-start group/card">
                       <SpatialCard containerRef={castContainerRef} index={idx}>
                         <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-blue-500/30 group-hover/card:shadow-[0_0_20px_rgba(59,130,246,0.15)]">
                           <div className="absolute -top-10 -left-10 w-28 h-28 bg-blue-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-blue-500 transition-all duration-500 pointer-events-none" />
@@ -1249,10 +1249,10 @@ const TvDetails = () => {
                           <div className="relative aspect-[10/11] overflow-hidden m-2 rounded-xl border border-white/[0.03] bg-zinc-950 group-hover/card:border-blue-500/20 transition-colors duration-500">
                             <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/15 to-transparent -translate-x-full -translate-y-full group-hover/card:translate-x-full group-hover/card:translate-y-full transition-transform duration-1000 ease-in-out z-10 pointer-events-none" />
 
-                            {actor.profile_path ? (
+                            {talent.profile_path ? (
                               <img
-                                src={`https://image.tmdb.org/t/p/w780${actor.profile_path}`}
-                                alt={actor.name}
+                                src={`https://image.tmdb.org/t/p/w780${talent.profile_path}`}
+                                alt={talent.name}
                                 className="w-full h-full object-cover scale-[1.01] group-hover/card:scale-105 group-hover/card:brightness-[1.05] transition-all duration-700"
                                 loading="lazy"
                               />
@@ -1269,11 +1269,11 @@ const TvDetails = () => {
 
                           <div className="px-3.5 pb-4 pt-2 flex flex-col items-center text-center">
                             <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-tight line-clamp-1 group-hover/card:text-blue-400 transition-colors duration-300 w-full">
-                              {actor.name}
+                              {talent.name}
                             </h3>
                             <div className="mt-1.5 px-2 py-0.5 rounded-md bg-white/[0.02] border border-white/[0.03] inline-block max-w-full">
                               <p className="text-[10px] text-zinc-400 font-semibold tracking-wide line-clamp-1">
-                                {actor.role || 'Character'}
+                                {talent.role || 'Character'}
                               </p>
                             </div>
                           </div>
@@ -1359,7 +1359,7 @@ const TvDetails = () => {
                         </div>
                       )}
 
-                      <Link to={`/actor/${member.id}`} className="flex-shrink-0 snap-start group/card">
+                      <Link to={`/talent/${member.id}`} className="flex-shrink-0 snap-start group/card">
                         <SpatialCard containerRef={crewContainerRef} index={idx}>
                           <div className="relative bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden w-[135px] sm:w-[175px] md:w-[185px] transition-all duration-500 group-hover/card:bg-white/[0.05] group-hover/card:border-amber-500/30 group-hover/card:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
                             <div className="absolute -top-10 -left-10 w-28 h-28 bg-amber-500/0 rounded-full blur-xl opacity-0 group-hover/card:opacity-30 group-hover/card:bg-amber-500 transition-all duration-500 pointer-events-none" />

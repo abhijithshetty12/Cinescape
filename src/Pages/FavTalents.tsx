@@ -54,12 +54,12 @@ const FavoriteTalentPage: React.FC = () => {
 
   useEffect(() => {
     if (user?.uid) {
-      const favouriteActorsRef = collection(db, `users/${user.uid}/favouriteActors`);
-      const unsubscribe = onSnapshot(favouriteActorsRef, (snapshot) => {
+      const favouriteTalentsRef = collection(db, `users/${user.uid}/favouriteTalents`);
+      const unsubscribe = onSnapshot(favouriteTalentsRef, (snapshot) => {
         const talentMap = new Map<string, Talent>();
         snapshot.docs.forEach((doc) => {
           const data = doc.data();
-          const id = data.actorId || data.id;
+          const id = data.talentId || data.id;
           if (id && data.name && !talentMap.has(id)) {
             talentMap.set(id, {
               id,
@@ -274,7 +274,7 @@ const FavoriteTalentPage: React.FC = () => {
                     }}
                   >
                     <Link
-                      to={`/actor/${talent.id}`}
+                      to={`/talent/${talent.id}`}
                       className="group block relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/10"
                     >
                       <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1">
@@ -385,7 +385,7 @@ const FavoriteTalentPage: React.FC = () => {
                     }}
                   >
                     <Link
-                      to={`/actor/${talent.id}`}
+                      to={`/talent/${talent.id}`}
                       className="group flex items-center gap-4 bg-gradient-to-r from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/5 p-3"
                     >
                       <span className="text-zinc-600 font-bold text-sm w-6 text-center">
