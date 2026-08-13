@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
   Star, Calendar, Clock, Play, Sparkles, DollarSign, Bookmark,
   ThumbsDown, ThumbsUp, CheckCircle, BookmarkCheck, TvMinimalPlay,
-  ImageOff, Image, Clapperboard, Check, Plus, Loader2,
+  ImageOff, Clapperboard, Check, Plus, Loader2,
   Users, Award, MessageCircle, MoreHorizontal,
   Edit2, Trash2, Quote,
   PenTool,
@@ -32,6 +32,7 @@ import { getMovieEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
 import PlayerControl from '../components/PlayerControl.tsx';
 import MovieCollection from '../components/MovieCollection.tsx';
 import SimilarTitles from '../components/SimilarTitles.tsx';
+import ProductionMediaTrailers from '../components/ProductionMediaTrailers.tsx';
 
 interface Movie {
   id: number;
@@ -48,7 +49,7 @@ interface Movie {
   cast: { id: number; name: string; role: string; profile_path: string; category?: string }[] | null;
   reviews: { id: string; author: string; content: string; likes?: number; dislikes?: number }[];
   trailers: { key: string; name: string }[];
-  images: { backdrops: { file_path: string }[] };
+  images: { backdrops: { file_path: string }[]; posters: { file_path: string }[] };
   streamingLinks: any;
   imdb_id: string;
 }
@@ -374,7 +375,7 @@ const MovieDetails = () => {
             })) ?? null,
           reviews,
           trailers: data.videos?.results ?? [],
-          images: { backdrops },
+          images: { backdrops, posters: data.images?.posters ?? [] },
           streamingLinks,
           imdb_id: data.imdb_id ?? '',
         });
@@ -1051,6 +1052,14 @@ const MovieDetails = () => {
         </motion.section>
       </div>
 
+      <ProductionMediaTrailers
+        trailers={movieDetails.trailers}
+        backdrops={movieDetails.images.backdrops}
+        posters={movieDetails.images.posters}
+        title={movieDetails.title}
+        mediaType="movie"
+      />
+
       <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
         <motion.section
           initial={{ opacity: 0, y: 30 }}
@@ -1081,55 +1090,6 @@ const MovieDetails = () => {
 
           {VideoPlayer}
         </motion.section>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="relative bg-zinc-950/20 backdrop-blur-3xl rounded-3xl p-6 border border-white/[0.03] shadow-[0_16px_48px_rgba(0,0,0,0.4)] overflow-hidden">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4 px-1">
-              Production Media & Trailers
-            </h3>
-
-            {movieDetails.trailers.length === 0 && movieDetails.images.backdrops.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
-                <Image className="w-10 h-10 mb-2 stroke-[1.25]" />
-                <span className="text-xs font-medium">No production media available</span>
-              </div>
-            ) : (
-              <div className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x snap-mandatory scroll-smooth">
-                {movieDetails.trailers.slice(0, 3).map((trailer) => (
-                  <div key={trailer.key} className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
-                    <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-black shadow-lg shadow-black/40">
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${trailer.key}`}
-                        title={trailer.name ?? 'Trailer'}
-                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-500 font-medium mt-2 truncate px-1">{trailer.name}</p>
-                  </div>
-                ))}
-
-                {movieDetails.images.backdrops.map((img) => (
-                  <div key={img.file_path} className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
-                    <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-zinc-900 shadow-lg shadow-black/40 group/slide cursor-zoom-in">
-                      <img
-                        src={`https://image.tmdb.org/t/p/w780/${img.file_path}`}
-                        alt="Movie still"
-                        className="w-full h-full object-cover opacity-85 group-hover/slide:opacity-100 transition-opacity duration-300"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </motion.div>
 
         <motion.section
           initial={{ opacity: 0, y: 30 }}
@@ -1356,7 +1316,7 @@ const MovieDetails = () => {
           movieParts={movieParts}
           collectionName={collectionName}
           watchedMovieIds={[123, 456]}
-          SpatialCard={SpatialCard} 
+          SpatialCard={SpatialCard}
         />
 
         <SimilarTitles

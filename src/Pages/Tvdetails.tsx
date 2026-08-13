@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  Star, Calendar, TvMinimalPlay, Clock, ImageOff, Image,
+    Star, Calendar, TvMinimalPlay, Clock, ImageOff,
   Bookmark, BookmarkCheck, Check, Plus, Loader2, Play,
   Globe, Users, MessageCircle, Award, Sparkles, CheckCircle, Edit2, Trash2, Quote, SquarePen, Lock, Send, Share2,
 } from 'lucide-react';
@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 import { getTvEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
 import PlayerControl from '../components/PlayerControl.tsx';
 import SimilarTitles from '../components/SimilarTitles.tsx';
+import ProductionMediaTrailers from '../components/ProductionMediaTrailers.tsx';
 
 interface TvShow {
   id: number;
@@ -36,7 +37,7 @@ interface TvShow {
   cast: { id: number; name: string; role: string; profile_path: string }[] | null;
   reviews: { id: string; author: string; content: string }[];
   trailers: any[];
-  images: { backdrops: { file_path: string }[] };
+  images: { backdrops: { file_path: string }[]; posters: { file_path: string }[] };
   country: string[];
   age_rating: string;
   imdb_id: string;
@@ -439,7 +440,7 @@ const TvDetails = () => {
             .filter((r: any) => r.content.length < 300)
             .map((r: any) => ({ id: r.id, author: r.author, content: r.content })),
           trailers: data.videos?.results ?? [],
-          images: { backdrops },
+          images: { backdrops, posters: data.images?.posters ?? [] },
           country: Array.isArray(data.origin_country) ? data.origin_country : [],
           age_rating:
             data.content_ratings?.results?.find((r: any) => r.iso_3166_1 === 'US')?.rating ||
@@ -962,54 +963,13 @@ const TvDetails = () => {
           </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <div className="relative bg-zinc-950/20 backdrop-blur-3xl rounded-3xl p-6 border border-white/[0.03] shadow-[0_16px_48px_rgba(0,0,0,0.4)] overflow-hidden">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400 mb-4 px-1">
-              Production Media & Trailers
-            </h3>
-
-            {show.trailers.length === 0 && show.images.backdrops.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
-                <Image className="w-10 h-10 mb-2 stroke-[1.25]" />
-                <span className="text-xs font-medium">No production media available</span>
-              </div>
-            ) : (
-              <div className="flex gap-4 overflow-x-auto pb-3 pt-1 px-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x snap-mandatory scroll-smooth">
-                {show.trailers.slice(0, 3).map((trailer) => (
-                  <div key={trailer.key} className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
-                    <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-black shadow-lg shadow-black/40">
-                      <iframe
-                        className="w-full h-full"
-                        src={`https://www.youtube.com/embed/${trailer.key}`}
-                        title={trailer.name ?? 'Trailer'}
-                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-500 font-medium mt-2 truncate px-1">{trailer.name}</p>
-                  </div>
-                ))}
-
-                {show.images.backdrops.map((image) => (
-                  <div key={image.file_path} className="flex-shrink-0 w-[85%] sm:w-[45%] lg:w-[32%] snap-start">
-                    <div className="aspect-video rounded-xl overflow-hidden border border-white/[0.06] bg-zinc-900 shadow-lg shadow-black/40 group/slide cursor-zoom-in">
-                      <img
-                        src={`https://image.tmdb.org/t/p/w780/${image.file_path}`}
-                        alt="Series still"
-                        className="w-full h-full object-cover opacity-85 group-hover/slide:opacity-100 transition-opacity duration-300"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </motion.div>
+        <ProductionMediaTrailers
+          trailers={show.trailers}
+          backdrops={show.images.backdrops}
+          posters={show.images.posters}
+          title={show.name}
+          mediaType="tv"
+        />
 
         <motion.section
           ref={playerRef}
