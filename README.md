@@ -63,7 +63,7 @@
 
 ## 👨‍💻 Author
 
-**Abhijith Shetty** *Front-End Web Developer*
+**Abhijith Shetty** *FullStack Developer*
 
 > "Passionate about building modern, user-friendly web applications that blend creativity with technology."
 
