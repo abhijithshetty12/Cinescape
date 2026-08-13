@@ -11,8 +11,12 @@ import {
   Sliders,
   X,
   AlertCircle,
-  Activity,
-  Maximize2
+  Sparkles,
+  Maximize2,
+  Film,
+  Tv,
+  Image as ImageIcon,
+  ExternalLink
 } from 'lucide-react';
 
 type MediaType = 'movie' | 'tv';
@@ -21,15 +25,21 @@ type PersonKind = 'director' | 'actor';
 type TMDBPerson = {
   id: number;
   name: string;
+  profile_path?: string | null;
 };
 
 type GraphNode = {
   id: string;
   label: string;
   group: string;
+  mediaType?: MediaType;
+  posterPath?: string | null;
+  profilePath?: string | null;
   color: { background: string; border: string; highlight: { background: string; border: string } };
   shape: 'dot' | 'box';
   title?: string;
+  genres?: string[];
+  year?: string;
 };
 
 type GraphEdge = {
@@ -43,43 +53,25 @@ type GraphEdge = {
 };
 
 const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w185';
 
-const palette = [
-  '#f43f5e',
-  '#f97316', 
-  '#eab308', 
-  '#10b981',
-  '#06b6d4',
-  '#3b82f6', 
-  '#6366f1',
-  '#8b5cf6',
-  '#d946ef',
-];
-
-function hashStringToInt(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function genreColor(genre: string) {
-  const idx = hashStringToInt(genre.trim().toLowerCase()) % palette.length;
-  const base = palette[idx];
-  return {
-    background: `${base}25`,
-    border: `${base}90`,
-    highlight: { background: `${base}50`, border: base },
-  };
-}
-
-function personNodeColor(kind: PersonKind) {
-  const base = kind === 'director' ? '#f43f5e' : '#3b82f6';
-  return {
-    background: base,
-    border: base,
-    highlight: { background: base, border: base },
-  };
-}
+const nodeColors = {
+  director: {
+    background: '#f43f5e',
+    border: '#ffffff',
+    highlight: { background: '#fb7185', border: '#ffffff' },
+  },
+  actor: {
+    background: '#06b6d4',
+    border: '#ffffff',
+    highlight: { background: '#22d3ee', border: '#ffffff' },
+  },
+  title: {
+    background: 'rgba(255, 255, 255, 0.08)',
+    border: 'rgba(255, 255, 255, 0.3)',
+    highlight: { background: 'rgba(255, 255, 255, 0.2)', border: '#ffffff' },
+  },
+};
 
 function safeYear(dateStr?: string) {
   if (!dateStr) return '';
@@ -109,14 +101,17 @@ export default function DirectorsCut() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inspector, setInspector] = useState<GraphNode | null>(null);
-
-  const getColorLegend = useMemo(() => palette.slice(0, 8), []);
+  const [sidebarGallery, setSidebarGallery] = useState<GraphNode[]>([]);
 
   async function searchPerson(q: string): Promise<TMDBPerson[]> {
     const url = `https://api.themoviedb.org/3/search/person?api_key=${API_KEY}&query=${encodeURIComponent(q)}&include_adult=false`;
-    type Resp = { results: { id: number; name: string }[] };
+    type Resp = { results: { id: number; name: string; profile_path?: string | null }[] };
     const data = await fetchTMDBJSON<Resp>(url);
-    return (data?.results ?? []).slice(0, 8).map((r) => ({ id: r.id, name: r.name }));
+    return (data?.results ?? []).slice(0, 8).map((r) => ({
+      id: r.id,
+      name: r.name,
+      profile_path: r.profile_path,
+    }));
   }
 
   async function fetchDirectorGraph(personId: number) {
@@ -129,6 +124,7 @@ export default function DirectorsCut() {
       first_air_date?: string;
       job?: string;
       known_for_department?: string;
+      poster_path?: string | null;
     };
 
     const credits = await fetchTMDBJSON<{ crew: any[]; id: number }>(
@@ -137,7 +133,7 @@ export default function DirectorsCut() {
 
     const directed = (credits.crew ?? []).filter((c: CreditItem) => c.job === 'Director' || c.known_for_department === 'Directing');
     const picked = directed.slice(0, Math.max(8, depth * 6));
-    const nodePeople = new Map<number, { kind: PersonKind; name: string }>();
+    const nodePeople = new Map<number, { kind: PersonKind; name: string; profilePath?: string | null }>();
     const edgeWeight = new Map<string, number>();
     const edgeByPair = new Map<string, { from: string; to: string }>();
 
@@ -146,12 +142,13 @@ export default function DirectorsCut() {
 
     const rootId = `person:${personId}`;
     const directorLabel = selectedPerson?.name ?? 'Director';
-    
+
     nodes.push({
       id: rootId,
       label: directorLabel,
-      group: 'person',
-      color: personNodeColor('director'),
+      group: 'director',
+      profilePath: selectedPerson?.profile_path,
+      color: nodeColors.director,
       shape: 'dot',
       title: `${directorLabel}\nDirector`,
     });
@@ -175,14 +172,16 @@ export default function DirectorsCut() {
       const genres = Array.isArray(titleData?.genres) ? titleData.genres.map((g: any) => String(g?.name ?? '')).filter(Boolean) : [];
       const year = safeYear(c.release_date ?? c.first_air_date);
       const titleLabel = year ? `${title} (${year})` : title;
-      const dominant = genres[0] ?? 'Collaboration';
-      const col = genreColor(dominant);
 
       nodes.push({
         id: titleNodeId,
         label: titleLabel,
-        group: 'title',
-        color: col,
+        group: mediaType === 'movie' ? 'movie' : 'series',
+        mediaType,
+        posterPath: titleData?.poster_path ?? c.poster_path,
+        genres,
+        year,
+        color: nodeColors.title,
         shape: 'box',
         title: `${titleLabel}\nGenres: ${genres.length ? genres.join(', ') : 'Unknown'}`,
       });
@@ -193,7 +192,7 @@ export default function DirectorsCut() {
         to: titleNodeId,
         value: 1,
         width: 1.5,
-        color: { color: '#f43f5e', opacity: 0.4 },
+        color: { color: '#f43f5e', opacity: 0.5 },
         title: 'Directed',
       });
 
@@ -204,7 +203,7 @@ export default function DirectorsCut() {
         const actorId = m.id as number;
         actorIds.push(actorId);
         if (!nodePeople.has(actorId)) {
-          nodePeople.set(actorId, { kind: 'actor', name: m.name });
+          nodePeople.set(actorId, { kind: 'actor', name: m.name, profilePath: m.profile_path });
         }
       }
 
@@ -217,7 +216,8 @@ export default function DirectorsCut() {
           id: `person:${actorId}`,
           label: p.name,
           group: 'actor',
-          color: personNodeColor('actor'),
+          profilePath: p.profilePath,
+          color: nodeColors.actor,
           shape: 'dot',
           title: `${p.name}\nActor`,
         });
@@ -245,7 +245,7 @@ export default function DirectorsCut() {
         to: pair.to,
         value: w,
         width: Math.min(8, 1.2 + w * 1.0),
-        color: { color: '#8b5cf6', opacity: 0.3 },
+        color: { color: '#8b5cf6', opacity: 0.4 },
         title: `Co-appeared ${w} times`,
       });
     }
@@ -264,12 +264,13 @@ export default function DirectorsCut() {
 
     const rootId = `person:${personId}`;
     const rootLabel = selectedPerson?.name ?? 'Actor';
-    
+
     nodes.push({
       id: rootId,
       label: rootLabel,
-      group: 'person',
-      color: personNodeColor('actor'),
+      group: 'actor',
+      profilePath: selectedPerson?.profile_path,
+      color: nodeColors.actor,
       shape: 'dot',
       title: `${rootLabel}\nActor`,
     });
@@ -292,17 +293,19 @@ export default function DirectorsCut() {
         continue;
       }
 
-      const genres = Array.isArray(titleData?.genres) ? titleData.genres.map((g: any) => String(g?.name ?? '')).filter(Boolean) : [];
+      const genres = Array.isArray(titleData?.genres) ? titleData.genres.map((g: any) => String(g?.name ?? '')) : [];
       const year = safeYear(c0.release_date ?? c0.first_air_date);
       const titleLabel = year ? `${title} (${year})` : title;
-      const dominant = genres[0] ?? 'Collaboration';
-      const col = genreColor(dominant);
 
       nodes.push({
         id: titleNodeId,
         label: titleLabel,
-        group: 'title',
-        color: col,
+        group: mediaType === 'movie' ? 'movie' : 'series',
+        mediaType,
+        posterPath: titleData?.poster_path ?? c0.poster_path,
+        genres,
+        year,
+        color: nodeColors.title,
         shape: 'box',
         title: `${titleLabel}\nGenres: ${genres.length ? genres.join(', ') : 'Unknown'}`,
       });
@@ -313,7 +316,7 @@ export default function DirectorsCut() {
         to: titleNodeId,
         value: 1,
         width: 1.5,
-        color: { color: '#3b82f6', opacity: 0.4 },
+        color: { color: '#06b6d4', opacity: 0.5 },
         title: 'Appeared in',
       });
 
@@ -326,14 +329,16 @@ export default function DirectorsCut() {
         if (nodes.length >= maxNodes) break;
         if (nodes.some((n) => n.id === `person:${actorId}`)) continue;
 
-        const actorName = actorId === personId ? rootLabel : cast.find((m: any) => m.id === actorId)?.name;
+        const actorObj = cast.find((m: any) => m.id === actorId);
+        const actorName = actorId === personId ? rootLabel : actorObj?.name;
         if (!actorName) continue;
 
         nodes.push({
           id: `person:${actorId}`,
           label: actorName,
           group: 'actor',
-          color: personNodeColor('actor'),
+          profilePath: actorId === personId ? selectedPerson?.profile_path : actorObj?.profile_path,
+          color: nodeColors.actor,
           shape: 'dot',
           title: `${actorName}\nActor`,
         });
@@ -360,7 +365,7 @@ export default function DirectorsCut() {
         to: pair.to,
         value: w,
         width: Math.min(8, 1.2 + w * 1.0),
-        color: { color: '#8b5cf6', opacity: 0.3 },
+        color: { color: '#8b5cf6', opacity: 0.4 },
         title: `Co-appeared ${w} times`,
       });
     }
@@ -389,9 +394,8 @@ export default function DirectorsCut() {
       },
       interaction: { hover: true, multiselect: false, zoomView: true },
       nodes: {
-        font: { color: '#f4f4f5', size: 12, face: 'system-ui, -apple-system, sans-serif' },
+        font: { color: '#ffffff', size: 12, face: '-apple-system, sans-serif' },
         borderWidth: 1.5,
-        shadow: { enabled: true, color: 'rgba(0,0,0,0.6)', size: 8, x: 0, y: 4 }
       },
       edges: {
         arrows: { to: { enabled: false } },
@@ -422,7 +426,12 @@ export default function DirectorsCut() {
     setLoading(true);
     try {
       const graph = kind === 'director' ? await fetchDirectorGraph(p.id) : await fetchActorGraph(p.id);
-      renderGraph(graph.nodes.slice(0, maxNodes), graph.edges);
+      const activeNodes = graph.nodes.slice(0, maxNodes);
+
+      const itemsWithImages = activeNodes.filter((n) => n.posterPath || n.profilePath);
+      setSidebarGallery(itemsWithImages.slice(0, 6));
+
+      renderGraph(activeNodes, graph.edges);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to map graph infrastructure');
     } finally {
@@ -445,7 +454,7 @@ export default function DirectorsCut() {
         setSelectedPerson(pick);
         buildGraphForPerson(pick);
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Initialization pipeline failure');
+        if (!cancelled) setError(e?.message ?? 'Initialization failure');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -474,233 +483,299 @@ export default function DirectorsCut() {
     }
   }
 
+  // Redirect Route Resolver
   const inspectorLink = useMemo(() => {
     if (!inspector) return null;
     if (inspector.id.startsWith('title:')) {
       const [, mediaType, idStr] = inspector.id.split(':');
-      return `/${mediaType}/${idStr}`;
+      return `/${mediaType}/${idStr}`; // Redirects to /movie/:id or /tv/:id
     }
     if (inspector.id.startsWith('person:')) {
-      return `/actor/${inspector.id.split(':')[1]}`;
+      const actorId = inspector.id.split(':')[1];
+      return `/actor/${actorId}`; // Redirects to /actor/:id
     }
     return null;
   }, [inspector]);
 
-  return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 antialiased font-sans selection:bg-rose-500/30 selection:text-white relative overflow-x-hidden">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] bg-rose-500/10 rounded-full blur-[100px] sm:blur-[140px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[250px] sm:w-[500px] h-[250px] sm:h-[500px] bg-indigo-500/10 rounded-full blur-[100px] sm:blur-[120px]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:2rem_2rem] sm:bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-      </div>
+  // Handler for Redirecting
+  const handleNavigateToDetails = () => {
+    if (inspectorLink) {
+      navigate(inspectorLink);
+    }
+  };
 
-      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 max-w-7xl">
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/10 pb-5 mb-6 sm:mb-8 backdrop-blur-md">
-          <div className="flex items-center gap-3.5">
-            <div className="relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/[0.03] border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] backdrop-blur-xl group overflow-hidden shrink-0">
-              <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <Clapperboard className="w-5 h-5 text-rose-500 relative z-10" />
+  return (
+    <div className="min-h-screen bg-[#08080a] text-zinc-100 font-[-apple-system,sans-serif] antialiased p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* Header */}
+        <header className="flex items-center justify-between pb-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+              <Clapperboard className="w-5 h-5 text-rose-400" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Director’s Cut</h1>
-              <p className="text-[10px] sm:text-xs text-zinc-400 mt-0.5 font-medium tracking-wider">CINEMATIC INTERACTION ARCHITECTURE & LINEAGE</p>
+              <h1 className="text-xl font-semibold tracking-tight text-white">Director’s Cut</h1>
+              <p className="text-xs text-zinc-400">Cinematic Lineage Architecture</p>
             </div>
           </div>
-          
+
           {loading && (
-            <div className="self-start sm:self-auto flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-xs font-medium text-zinc-300 backdrop-blur-xl shadow-lg">
-              <Activity className="w-3.5 h-3.5 text-rose-500 animate-spin" />
-              <span>Compiling Lineage...</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+              <Sparkles className="w-3.5 h-3.5 animate-spin text-rose-400" />
+              <span>Updating Graph...</span>
             </div>
           )}
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
-          
-          <aside className="lg:col-span-4 flex flex-col gap-5 sm:gap-6">
-            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] relative overflow-hidden">
-              <div className="flex items-center gap-2 mb-4 sm:mb-5">
-                <Sliders className="w-4 h-4 text-rose-500" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Control Deck</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          {/* Controls & Side Gallery */}
+          <aside className="lg:col-span-4 space-y-6">
+
+            {/* Control Deck */}
+            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
+                <Sliders className="w-4 h-4 text-rose-400" />
+                <span>Control Deck</span>
               </div>
 
-              <div className="space-y-4 sm:space-y-5">
-                <div>
-                  <label className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Search Identity</label>
-                  <div className="relative mt-1.5 group">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 w-4 h-4 group-focus-within:text-rose-500 transition-colors" />
-                    <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && onSubmitSearch()}
-                      className="w-full pl-10 pr-10 py-2.5 bg-zinc-950/40 border border-white/10 rounded-xl text-xs sm:text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/50 backdrop-blur-md transition-all"
-                      placeholder="Enter identity name..."
-                    />
-                    {query && (
-                      <button
-                        onClick={() => setQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-200 transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setKind('director')}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
-                      kind === 'director'
-                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.15)] backdrop-blur-md'
-                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
-                    }`}
-                  >
-                    <User className="w-3.5 h-3.5" /> Director
-                  </button>
-                  <button
-                    onClick={() => setKind('actor')}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold border tracking-wide transition-all ${
-                      kind === 'actor'
-                        ? 'bg-blue-500/15 border-blue-500/40 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.15)] backdrop-blur-md'
-                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
-                    }`}
-                  >
-                    <User className="w-3.5 h-3.5" /> Actor
-                  </button>
-                </div>
-
-                <div className="space-y-3.5 bg-white/[0.02] border border-white/5 rounded-xl p-3.5 backdrop-blur-md">
-                  <div>
-                    <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-                      <span>Exploration Depth</span>
-                      <span className="text-zinc-200 font-mono text-xs">{depth} gen</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={4}
-                      value={depth}
-                      onChange={(e) => setDepth(Number(e.target.value))}
-                      className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-                      <span>Saturation Boundary</span>
-                      <span className="text-zinc-200 font-mono text-xs">{maxNodes} units</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={25}
-                      max={80}
-                      value={maxNodes}
-                      onChange={(e) => setMaxNodes(Number(e.target.value))}
-                      className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={onSubmitSearch}
-                  disabled={loading || !query.trim()}
-                  className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs tracking-wider uppercase rounded-xl border border-rose-500/30 shadow-[0_4px_20px_rgba(225,29,72,0.25)] active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
-                >
-                  Generate Network
-                </button>
-
-                {error && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-200 text-xs leading-relaxed backdrop-blur-md">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
-              <div className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                Metric Genre Distinctions
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {getColorLegend.map((c) => (
-                  <div
-                    key={c}
-                    className="w-6 h-6 rounded-lg border border-white/10 shadow-inner transition-transform hover:scale-110 duration-200 cursor-pointer"
-                    style={{ background: `${c}30`, borderColor: `${c}80` }}
+              <div>
+                <label className="text-[10px] text-zinc-400 uppercase tracking-wider font-medium">Search Target</label>
+                <div className="relative mt-1.5">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && onSubmitSearch()}
+                    className="w-full pl-10 pr-8 py-2.5 bg-black/50 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500/50"
+                    placeholder="Search talent..."
                   />
-                ))}
+                  {query && (
+                    <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-2 p-1 bg-black/40 border border-white/10 rounded-xl">
+                <button
+                  onClick={() => setKind('director')}
+                  className={`py-2 rounded-lg text-xs font-medium transition ${kind === 'director' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                  Director
+                </button>
+                <button
+                  onClick={() => setKind('actor')}
+                  className={`py-2 rounded-lg text-xs font-medium transition ${kind === 'actor' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                  Actor
+                </button>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div>
+                  <div className="flex justify-between text-[10px] text-zinc-400 uppercase mb-1">
+                    <span>Depth</span>
+                    <span className="text-rose-400 font-mono">{depth} Gen</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={4}
+                    value={depth}
+                    onChange={(e) => setDepth(Number(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-[10px] text-zinc-400 uppercase mb-1">
+                    <span>Max Nodes</span>
+                    <span className="text-rose-400 font-mono">{maxNodes}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={25}
+                    max={80}
+                    value={maxNodes}
+                    onChange={(e) => setMaxNodes(Number(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={onSubmitSearch}
+                disabled={loading || !query.trim()}
+                className="w-full py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-semibold text-xs rounded-xl hover:opacity-90 transition disabled:opacity-40"
+              >
+                Generate Graph
+              </button>
+
+              {error && (
+                <div className="flex items-center gap-2 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-200 text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
             </div>
+
+            {/* Side Gallery */}
+            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
+                  <ImageIcon className="w-4 h-4 text-rose-400" />
+                  <span>Graph Gallery</span>
+                </div>
+                <span className="text-[10px] text-zinc-500 font-mono">{sidebarGallery.length} Items</span>
+              </div>
+
+              {sidebarGallery.length === 0 ? (
+                <p className="text-xs text-zinc-500 py-4 text-center">No media or talent photos available.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {sidebarGallery.map((item) => {
+                    const imgSrc = item.posterPath
+                      ? `${TMDB_IMAGE_BASE}${item.posterPath}`
+                      : item.profilePath
+                        ? `${TMDB_IMAGE_BASE}${item.profilePath}`
+                        : null;
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => setInspector(item)}
+                        className="group relative cursor-pointer aspect-[2/3] rounded-xl overflow-hidden border border-white/10 bg-black/40 hover:border-rose-500/50 transition-all"
+                      >
+                        {imgSrc ? (
+                          <img
+                            src={imgSrc}
+                            alt={item.label}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                            <User className="w-5 h-5 text-zinc-600" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-1.5 flex flex-col justify-end">
+                          <p className="text-[9px] font-medium text-white truncate">{item.label}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
           </aside>
 
-          <main className="lg:col-span-8 flex flex-col gap-5 sm:gap-6">
-            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-3.5 sm:p-4 flex flex-col shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] relative">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3 mb-3">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
-                  <Info className="w-3.5 h-3.5 text-rose-500" /> Lineage Space Map
+          {/* Canvas & Node Inspector */}
+          <main className="lg:col-span-8 space-y-6">
+
+            {/* Graph Canvas */}
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 relative">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+                <div className="flex items-center gap-2 text-xs text-zinc-300">
+                  <Info className="w-4 h-4 text-rose-400" />
+                  <span>Lineage Map</span>
                 </div>
                 {selectedPerson && (
-                  <div className="text-[10px] sm:text-[11px] text-zinc-400 tracking-wide font-medium">
-                    Anchor: <span className="text-white font-semibold font-mono">{selectedPerson.name}</span>
+                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+                    {selectedPerson.profile_path && (
+                      <img
+                        src={`${TMDB_IMAGE_BASE}${selectedPerson.profile_path}`}
+                        alt={selectedPerson.name}
+                        className="w-4 h-4 rounded-full object-cover border border-white/20"
+                      />
+                    )}
+                    <span>Target: <span className="text-white font-medium">{selectedPerson.name}</span></span>
                   </div>
                 )}
               </div>
 
               <div
                 ref={containerRef}
-                className="w-full h-[380px] sm:h-[480px] lg:h-[520px] bg-zinc-950/60 border border-white/5 rounded-xl overflow-hidden relative backdrop-blur-inner"
+                className="w-full h-[420px] sm:h-[480px] bg-black/60 rounded-xl overflow-hidden border border-white/5"
               />
-              
-              <div className="mt-3 flex items-center justify-between text-[10px] sm:text-[11px] text-zinc-500">
-                <span>* Click node to inspect & focus position.</span>
-                <span className="hidden sm:inline">Pinch / Scroll to zoom</span>
-              </div>
             </div>
 
-            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-2xl p-4 sm:p-5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2.5 border-b border-white/10 pb-3 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0">
-                    <Maximize2 className="w-3.5 h-3.5 text-zinc-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase text-zinc-300">Inspector</h3>
-                    <p className="text-[9px] text-zinc-500 font-medium uppercase tracking-wider">Node Metadata Details</p>
-                  </div>
+            {/* Click-Redirect Node Inspector */}
+            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase text-zinc-300">
+                  <Maximize2 className="w-4 h-4 text-rose-400" />
+                  <span>Node Inspector</span>
                 </div>
-
-                {!inspector ? (
-                  <div className="py-8 sm:py-10 flex flex-col items-center justify-center text-center border border-dashed border-white/10 rounded-xl p-4 bg-white/[0.01]">
-                    <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping mb-2.5" />
-                    <span className="text-xs text-zinc-500 font-medium">Select any graph node on canvas</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="bg-zinc-950/50 border border-white/10 rounded-xl p-3.5 shadow-inner">
-                      <div className="text-white font-bold text-sm tracking-tight break-words">{inspector.label}</div>
-                      <div className="text-zinc-300 text-xs font-medium mt-2 leading-relaxed bg-white/[0.03] border border-white/10 p-2.5 rounded-lg border-l-2 border-l-rose-500 font-mono max-h-32 overflow-y-auto whitespace-pre-wrap">
-                        {inspector.title ? inspector.title : `Node ID: ${inspector.id}`}
-                      </div>
-                    </div>
-
-                    {inspectorLink && (
-                      <button
-                        onClick={() => navigate(inspectorLink)}
-                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-white/[0.05] hover:bg-white/[0.1] border border-white/15 rounded-xl transition-all shadow-md active:scale-[0.99]"
-                      >
-                        Deep Link Matrix <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
+                {inspector && (
+                  <span className="text-[10px] text-rose-400 font-mono animate-pulse">
+                    Click card to view details
+                  </span>
                 )}
               </div>
 
-              <div className="text-[10px] text-zinc-500 leading-relaxed pt-3 border-t border-white/10 mt-5 font-medium">
-                Cinematic lineage network tracking co-appearance vectors and shared entity graph structures.
-              </div>
+              {!inspector ? (
+                <div className="py-8 text-center text-xs text-zinc-500 border border-dashed border-white/10 rounded-xl">
+                  Click any node on the graph or gallery item to inspect and view movie/actor details
+                </div>
+              ) : (
+                <div
+                  onClick={handleNavigateToDetails}
+                  className="group cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-black/40 border border-white/10 hover:border-rose-500/50 hover:bg-white/[0.02] transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    {inspector.posterPath ? (
+                      <img
+                        src={`${TMDB_IMAGE_BASE}${inspector.posterPath}`}
+                        alt={inspector.label}
+                        className="w-16 h-24 rounded-lg object-cover border border-white/20 shadow-md shrink-0 group-hover:scale-105 transition-transform"
+                      />
+                    ) : inspector.profilePath ? (
+                      <img
+                        src={`${TMDB_IMAGE_BASE}${inspector.profilePath}`}
+                        alt={inspector.label}
+                        className="w-16 h-16 rounded-xl object-cover border border-white/20 shadow-md shrink-0 group-hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                        {inspector.group === 'movie' ? (
+                          <Film className="w-6 h-6 text-zinc-400" />
+                        ) : inspector.group === 'series' ? (
+                          <Tv className="w-6 h-6 text-zinc-400" />
+                        ) : (
+                          <User className="w-6 h-6 text-zinc-400" />
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                          {inspector.group}
+                        </span>
+                        {inspector.year && <span className="text-[10px] text-zinc-400">{inspector.year}</span>}
+                      </div>
+                      <h3 className="text-sm font-medium text-white group-hover:text-rose-400 transition-colors">
+                        {inspector.label}
+                      </h3>
+                      {inspector.genres && inspector.genres.length > 0 && (
+                        <p className="text-xs text-zinc-400">{inspector.genres.join(', ')}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/20 group-hover:bg-rose-500 border border-rose-500/30 text-rose-300 group-hover:text-white text-xs font-medium rounded-xl transition-all shrink-0">
+                    <span>Inspect Details</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              )}
             </div>
+
           </main>
         </div>
       </div>

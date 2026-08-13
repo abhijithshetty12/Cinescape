@@ -298,11 +298,10 @@ const CommandMenu: React.FC<{
                             type="button"
                             onMouseEnter={() => setActiveIndex(idx)}
                             onClick={() => item.onSelect()}
-                            className={`w-full text-left px-3 py-3 rounded-2xl transition-all duration-150 flex items-center gap-3 border border-transparent ${
-                              selected
-                                ? 'bg-white/10 border-white/15'
-                                : 'hover:bg-white/5'
-                            }`}
+                            className={`w-full text-left px-3 py-3 rounded-2xl transition-all duration-150 flex items-center gap-3 border border-transparent ${selected
+                              ? 'bg-white/10 border-white/15'
+                              : 'hover:bg-white/5'
+                              }`}
                           >
                             <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
                               <Icon className="w-5 h-5 text-zinc-200" />
