@@ -4,7 +4,7 @@ import axios from 'axios';
 import {
     Star, Calendar, TvMinimalPlay, Clock, ImageOff,
   Bookmark, BookmarkCheck, Check, Plus, Loader2, Play,
-  Globe, Users, MessageCircle, Award, Sparkles, CheckCircle, Edit2, Trash2, Quote, SquarePen, Lock, Send, Share2,
+  Globe, Users, MessageCircle, Award, Edit2, Trash2, Quote, SquarePen, Lock, Send, Share2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';

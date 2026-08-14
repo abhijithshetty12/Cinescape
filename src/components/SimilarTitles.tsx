@@ -37,7 +37,7 @@ const GENRE_MAP: Record<number, string> = {
   10767: "Talk", 10768: "War & Politics",
 };
 
-const IOSCircularRating = ({ rating = 0 }: { rating?: number }) => {
+const Rating = ({ rating = 0 }: { rating?: number }) => {
   const percentage = Math.round((rating / 10) * 100);
   const radius = 14;
   const circumference = 2 * Math.PI * radius;
@@ -78,7 +78,7 @@ const IOSCircularRating = ({ rating = 0 }: { rating?: number }) => {
   );
 };
 
-const IOSCard = ({
+const Card = ({
   item,
   mediaType,
   index,
@@ -144,7 +144,7 @@ const IOSCard = ({
           </div>
           {item.vote_average !== undefined && item.vote_average > 0 && (
             <div className="absolute top-2.5 right-2.5 z-10">
-              <IOSCircularRating rating={item.vote_average} />
+              <Rating rating={item.vote_average} />
             </div>
           )}
           {year > 0 && (
@@ -349,7 +349,7 @@ const SimilarTitles: React.FC<SimilarTitlesProps> = ({
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {items.map((item, index) => (
-            <IOSCard
+            <Card
               key={item.id}
               item={item}
               mediaType={mediaType}

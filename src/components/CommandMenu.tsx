@@ -10,7 +10,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-
 type MediaType = 'movie' | 'tv' | 'person';
 
 type SearchResult = {
@@ -45,9 +44,10 @@ const CommandMenu: React.FC<{
   isOpen: boolean;
   onClose: () => void;
 }> = ({ isOpen, onClose }) => {
-
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,7 +83,6 @@ const CommandMenu: React.FC<{
     ],
     [navigate, onClose]
   );
-
 
   const actionList = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -147,17 +146,21 @@ const CommandMenu: React.FC<{
   }, [actionList, groupedSuggestions, query, navigate, onClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    setQuery('');
-    setResults([]);
-    setActiveIndex(0);
-    setError(null);
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+      setQuery('');
+      setResults([]);
+      setActiveIndex(0);
+      setError(null);
 
-    const t = window.setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
+      const t = window.setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
 
-    return () => window.clearTimeout(t);
+      return () => window.clearTimeout(t);
+    } else {
+      previousFocusRef.current?.focus();
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -190,17 +193,45 @@ const CommandMenu: React.FC<{
     }, 250);
 
     return () => window.clearTimeout(handle);
-  }, [API_KEY, isOpen, query]);
+  }, [isOpen, query]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        if (!containerRef.current) return;
+        const focusables = Array.from(
+          containerRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => !el.hasAttribute('disabled') && el.getAttribute('tabindex') !== '-1');
+
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first || !containerRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last || !containerRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
         return;
       }
 
@@ -233,7 +264,7 @@ const CommandMenu: React.FC<{
   const ActiveIcon = listItems[activeIndex]?.icon;
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" ref={containerRef} role="dialog" aria-modal="true">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onMouseDown={(e) => {
@@ -296,6 +327,7 @@ const CommandMenu: React.FC<{
                         <li key={item.id}>
                           <button
                             type="button"
+                            tabIndex={-1}
                             onMouseEnter={() => setActiveIndex(idx)}
                             onClick={() => item.onSelect()}
                             className={`w-full text-left px-3 py-3 rounded-2xl transition-all duration-150 flex items-center gap-3 border border-transparent ${selected
@@ -360,4 +392,3 @@ const CommandMenu: React.FC<{
 };
 
 export default CommandMenu;
-

@@ -70,12 +70,16 @@ const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
 
 function App() {
   const [isCmdMenuOpen, setIsCmdMenuOpen] = useState(false);
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved !== null ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.theme = isDark ? 'dark' : 'light';
     root.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
   const toggleDark = useCallback(() => {

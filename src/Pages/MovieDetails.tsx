@@ -2,17 +2,14 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
-  Star, Calendar, Clock, Play, Sparkles, DollarSign, Bookmark,
-  ThumbsDown, ThumbsUp, CheckCircle, BookmarkCheck, TvMinimalPlay,
-  ImageOff, Clapperboard, Check, Plus, Loader2,
+  Star, Calendar, Clock, DollarSign, Bookmark,
+  ThumbsDown, ThumbsUp, BookmarkCheck, TvMinimalPlay,
+  ImageOff, Check, Plus, Loader2,
   Users, Award, MessageCircle, MoreHorizontal,
   Edit2, Trash2, Quote,
-  PenTool,
   Lock,
-  MessageSquareText,
   Send,
   SquarePen,
-  Layers,
   Share2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
@@ -162,7 +159,6 @@ const WatchedButton = ({
 const MovieDetails = () => {
   const castContainerRef = useRef<HTMLDivElement>(null);
   const crewContainerRef = useRef<HTMLDivElement>(null);
-  const moviePartsContainerRef = useRef<HTMLDivElement>(null);
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
 

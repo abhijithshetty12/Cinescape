@@ -14,6 +14,12 @@ export interface ToastItem {
 interface ToastContextType {
   addToast: (message: string, type?: ToastType, duration?: number) => void;
   removeToast: (id: string) => void;
+  toast: {
+    success: (message: string, duration?: number) => void;
+    error: (message: string, duration?: number) => void;
+    info: (message: string, duration?: number) => void;
+    delete: (message: string, duration?: number) => void;
+  };
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -84,17 +90,16 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -24, scale: 0.88, filter: 'blur(8px)' }}
+      initial={{ opacity: 0, y: -20, scale: 0.9, filter: 'blur(10px)' }}
       animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, y: -12, scale: 0.92, filter: 'blur(4px)', transition: { duration: 0.2 } }}
+      exit={{ opacity: 0, y: -16, scale: 0.95, filter: 'blur(6px)' }}
       transition={{
         type: 'spring',
-        stiffness: 420,
-        damping: 32,
+        stiffness: 400,
+        damping: 30,
         mass: 0.8,
       }}
-      className={`group relative w-full sm:w-[340px] rounded-[22px] p-[1px] overflow-hidden select-none
-        bg-gradient-to-b from-white/20 via-white/5 to-white/0 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.5)]`}
+      className="group relative w-full sm:w-[340px] rounded-[22px] p-[1px] overflow-hidden select-none bg-gradient-to-b from-white/20 via-white/5 to-white/0"
       style={{
         boxShadow: `0 20px 48px -12px rgba(0,0,0,0.6), 0 0 24px -4px ${theme.glow}`,
       }}
@@ -129,16 +134,14 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
         </div>
 
         <div className="relative flex-1 min-w-0 pr-1">
-          <p className="text-zinc-100 text-[13.5px] font-medium leading-snug tracking-tight break-words antialiased">
+          <p className="text-zinc-100 text-[13.5px] font-medium leading-snug tracking-tight truncate antialiased" title={message}>
             {message}
           </p>
         </div>
 
         <button
           onClick={() => onClose(id)}
-          className="relative flex-shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 
-            active:scale-90 border border-white/10 text-zinc-400 hover:text-zinc-100 
-            transition-all duration-200 flex items-center justify-center backdrop-blur-md"
+          className="relative flex-shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 active:scale-90 border border-white/10 text-zinc-400 hover:text-zinc-100 transition-all duration-200 flex items-center justify-center backdrop-blur-md"
           aria-label="Dismiss notification"
         >
           <X className="w-3.5 h-3.5" />
@@ -169,14 +172,21 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  const toast = {
+    success: useCallback((msg: string, dur?: number) => addToast(msg, 'success', dur), [addToast]),
+    error: useCallback((msg: string, dur?: number) => addToast(msg, 'error', dur), [addToast]),
+    info: useCallback((msg: string, dur?: number) => addToast(msg, 'info', dur), [addToast]),
+    delete: useCallback((msg: string, dur?: number) => addToast(msg, 'delete', dur), [addToast]),
+  };
+
   return (
-    <ToastContext.Provider value={{ addToast, removeToast }}>
+    <ToastContext.Provider value={{ addToast, removeToast, toast }}>
       {children}
-      <div className="fixed top-5 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[9999] flex flex-col items-center sm:items-end gap-2.5 pointer-events-none">
+      <div className="fixed top-20 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[9999] flex flex-col items-center sm:items-end gap-2.5 pointer-events-none max-w-[90vw] sm:max-w-none">
         <AnimatePresence mode="popLayout">
-          {toasts.map((toast) => (
-            <div key={toast.id} className="pointer-events-auto">
-              <SingleToast toast={toast} onClose={removeToast} />
+          {toasts.map((toastItem) => (
+            <div key={toastItem.id} className="pointer-events-auto w-full sm:w-auto">
+              <SingleToast toast={toastItem} onClose={removeToast} />
             </div>
           ))}
         </AnimatePresence>
@@ -203,9 +213,9 @@ const Toast: React.FC<LegacyToastProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-5 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[9999] pointer-events-none">
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[9999] pointer-events-none max-w-[90vw] sm:max-w-none">
       <AnimatePresence>
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto w-full sm:w-auto">
           <SingleToast
             toast={{ id: 'legacy-toast', message, type, duration }}
             onClose={onClose}
