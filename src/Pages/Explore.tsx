@@ -371,7 +371,7 @@ const HeroBanner = ({
   );
 };
 
-const MovieList = () => {
+const Explore = () => {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get("search");
 
@@ -813,4 +813,4 @@ const MovieList = () => {
   );
 };
 
-export default MovieList;
+export default Explore;
