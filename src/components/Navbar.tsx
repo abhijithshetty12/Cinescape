@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Menu, X, Compass, Users, Heart, Award, Clapperboard, Tv, User, Loader2, AlertCircle, SearchX } from 'lucide-react';
+import { Search, Menu, X, Compass, Users, Heart, Award, Clapperboard, Tv, User, Loader2, AlertCircle, SearchX, ListPlus } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -134,6 +134,7 @@ const Navbar: React.FC = () => {
   const navItems = [
     { label: 'Explore', path: '/explore', sectionId: 'explore', icon: Compass },
     { label: 'Top Rated', path: '/top-rated', sectionId: 'top-rated', icon: Award },
+    { label: 'My List', path: '/mylist', sectionId: 'mylist', icon: ListPlus },
     { label: 'Talents', path: '/talents', sectionId: 'talents', icon: Users },
     { label: 'Fav Talents', path: '/fav-talents', sectionId: 'fav-talents', icon: Heart },
   ];
@@ -312,12 +313,12 @@ const Navbar: React.FC = () => {
 
   return (
     <nav className="sticky top-0 z-50 bg-zinc-950/40 dark:bg-black/40 backdrop-blur-2xl border-b border-white/10 dark:border-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2">
 
-        <div className="flex items-center gap-4 flex-1 md:flex-initial">
+        <div className="flex items-center gap-3 lg:gap-4 flex-1 md:flex-initial min-w-0">
           <Link
             to="/home"
-            className="group flex items-center gap-2 px-2 py-1.5 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+            className="group flex items-center gap-2 px-1.5 py-1.5 rounded-2xl transition-all duration-300 hover:scale-[1.02] shrink-0"
           >
             <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md shadow-inner shadow-white/10 group-hover:border-red-500/50 group-hover:shadow-red-500/20 transition-all duration-300">
               <img
@@ -329,12 +330,12 @@ const Navbar: React.FC = () => {
             <img
               src="/Cinescape.png"
               alt="Cinescape"
-              className="h-5 w-auto opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+              className="h-5 w-auto opacity-90 group-hover:opacity-100 transition-opacity duration-300 hidden sm:block"
             />
           </Link>
 
           <div className="hidden md:block">
-            <form onSubmit={handleSearch} className="relative w-80 lg:w-96">
+            <form onSubmit={handleSearch} className="relative w-64 lg:w-80 xl:w-96">
               <div className="relative group">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 w-4 h-4 transition-colors group-focus-within:text-red-500" />
                 <input
@@ -362,15 +363,15 @@ const Navbar: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-5">
-          <div className="flex items-center gap-1 bg-white/5 dark:bg-zinc-900/30 backdrop-blur-xl p-1 rounded-2xl border border-white/10 dark:border-white/5 shadow-inner">
+        <div className="hidden md:flex items-center gap-3 lg:gap-5">
+          <div className="flex items-center gap-0.5 lg:gap-1 bg-white/5 dark:bg-zinc-900/30 backdrop-blur-xl p-1 rounded-2xl border border-white/10 dark:border-white/5 shadow-inner">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path || activeSection === item.sectionId;
               return (
                 <Link
                   key={item.label}
                   to={item.path}
-                  className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 ${isActive
+                  className={`relative flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 ${isActive
                     ? 'bg-white/10 text-white shadow-md backdrop-blur-md border border-white/10'
                     : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5'
                     }`}
@@ -392,7 +393,7 @@ const Navbar: React.FC = () => {
 
           <Link
             to="/profile"
-            className="relative flex items-center justify-center p-1 rounded-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/15 hover:border-white/30 backdrop-blur-xl transition-all duration-300 group shadow-sm hover:shadow-[0_0_12px_rgba(255,255,255,0.15)] outline-none focus-visible:ring-1 focus-visible:ring-white/50"
+            className="relative flex items-center justify-center p-1 rounded-full bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/15 hover:border-white/30 backdrop-blur-xl transition-all duration-300 group shadow-sm hover:shadow-[0_0_12px_rgba(255,255,255,0.15)] outline-none focus-visible:ring-1 focus-visible:ring-white/50 shrink-0"
           >
             <img
               src={photoUrl || '/user-icon.jpg'}
@@ -403,10 +404,10 @@ const Navbar: React.FC = () => {
           </Link>
         </div>
 
-        <div className="md:hidden flex items-center gap-3">
+        <div className="md:hidden flex items-center gap-2.5">
           <Link
             to="/profile"
-            className="relative p-0.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl shadow-sm"
+            className="relative p-0.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl shadow-sm shrink-0"
           >
             <img
               src={photoUrl || '/user-icon.jpg'}
@@ -434,7 +435,7 @@ const Navbar: React.FC = () => {
       </div>
 
       {isMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 z-50 bg-zinc-950/95 backdrop-blur-xl border-b border-white/10 p-4 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.9)] animate-in fade-in slide-in-from-top-3 duration-300">
+        <div className="md:hidden fixed inset-x-0 top-16 z-50 bg-zinc-950/95 backdrop-blur-xl border-b border-white/10 p-4 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.9)] animate-in fade-in slide-in-from-top-3 duration-300 max-h-[calc(100vh-4rem)] overflow-y-auto">
           <form onSubmit={handleSearch} className="relative mb-4">
             <div className="relative group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4 transition-colors duration-300 group-focus-within:text-red-500" />

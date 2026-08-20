@@ -4,9 +4,8 @@ import ConditionalRoute from './components/ConditionalRoute.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 import License from "./components/License.tsx";
 import CommandMenu from "./components/CommandMenu.tsx";
-
 import Home from "./Pages/Home.tsx";
-
+import MyList from "./Pages/MyList.tsx";
 import React, { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 
@@ -61,6 +60,7 @@ const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
             <Route path="/search" element={<SearchResults />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/directors-cut" element={<DirectorsCut />} />
+            <Route path="/mylist" element={<MyList />} />
           </Route>
         </Routes>
       </Suspense>
