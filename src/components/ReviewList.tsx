@@ -1,10 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../firebase.ts';
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Star, Trash2, Calendar, MessageSquare, Quote, Edit3, X, Check, Clapperboard, Tv, Loader2, Film, Edit2 } from 'lucide-react';
+import {
+  Star,
+  Trash2,
+  Calendar,
+  MessageSquare,
+  Quote,
+  Edit3,
+  X,
+  Check,
+  Clapperboard,
+  Tv,
+  Loader2,
+  Film,
+  Share2,
+  Download,
+  Edit2
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import * as htmlToImage from 'html-to-image';
 
 interface ReviewItem {
   id: string;
@@ -31,6 +48,11 @@ const ReviewList = ({
   const [editingReview, setEditingReview] = useState<ReviewItem | null>(null);
   const [editContent, setEditContent] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+
+  // Share / Story State
+  const [shareReview, setShareReview] = useState<ReviewItem | null>(null);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
 
@@ -103,15 +125,28 @@ const ReviewList = ({
     }
   };
 
+  const handleDownloadImage = async () => {
+    if (!cardRef.current) return;
+    setIsDownloading(true);
+    try {
+      const dataUrl = await htmlToImage.toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement('a');
+      link.download = `${shareReview?.title || 'review'}-${shareReview?.author || 'user'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to generate image:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
   const filteredReviews = reviews.filter((review) => {
     if (mediaType === 'movie') return review.mediaType === 'movie' || !review.mediaType;
     if (mediaType === 'tv') return review.mediaType === 'tv';
     return true;
   });
-
   const movieCount = reviews.filter((r) => r.mediaType === 'movie' || !r.mediaType).length;
   const tvCount = reviews.filter((r) => r.mediaType === 'tv').length;
-
   if (reviews.length === 0) {
     return (
       <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/20 p-8 sm:p-12 text-center backdrop-blur-3xl shadow-2xl max-w-md mx-auto">
@@ -128,7 +163,6 @@ const ReviewList = ({
       </div>
     );
   }
-
   return (
     <div className="space-y-4 w-full">
       {!compact && (
@@ -155,7 +189,6 @@ const ReviewList = ({
               >
                 {movieCount}
               </span>
-
               {mediaType === 'movie' && (
                 <motion.div
                   layoutId="liquid-pill"
@@ -164,7 +197,6 @@ const ReviewList = ({
                 />
               )}
             </button>
-
             <button
               type="button"
               onClick={() => setMediaType('tv')}
@@ -186,7 +218,6 @@ const ReviewList = ({
               >
                 {tvCount}
               </span>
-
               {mediaType === 'tv' && (
                 <motion.div
                   layoutId="liquid-pill"
@@ -195,7 +226,6 @@ const ReviewList = ({
                 />
               )}
             </button>
-
             <div className="absolute inset-y-0.5 left-0.5 right-0.5 pointer-events-none overflow-hidden rounded-lg">
               <motion.div
                 className={`absolute top-0 bottom-0 w-1/2 blur-md opacity-80 transition-colors duration-500 ${mediaType === 'movie'
@@ -211,7 +241,6 @@ const ReviewList = ({
           </div>
         </div>
       )}
-
       {filteredReviews.length === 0 ? (
         <div className="relative overflow-hidden rounded-[20px] border border-white/[0.04] bg-zinc-950/20 p-6 text-center backdrop-blur-2xl my-3">
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
@@ -243,7 +272,6 @@ const ReviewList = ({
                   )}
                   <div className="absolute -inset-px rounded-[20px] sm:rounded-[24px] border border-transparent group-hover:border-emerald-500/20 bg-gradient-to-b from-white/[0.06] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] transition-all duration-500" />
                 </div>
-
                 <div className="relative z-10 flex flex-row gap-3.5 items-start w-full h-full">
                   {review.posterPath && (
                     <div className="relative w-14 h-20 sm:w-20 sm:h-28 rounded-lg sm:rounded-xl overflow-hidden border border-white/[0.06] shrink-0 bg-zinc-950 shadow-xl group-hover:border-emerald-500/30 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all duration-500 self-start">
@@ -254,7 +282,6 @@ const ReviewList = ({
                       />
                     </div>
                   )}
-
                   <div className="flex-1 min-w-0 flex flex-col justify-between h-full min-h-[80px] sm:min-h-[112px] w-full">
                     <div className="space-y-1 sm:space-y-1.5 w-full">
                       <div className="flex items-center justify-between gap-2 w-full">
@@ -276,7 +303,6 @@ const ReviewList = ({
                           {review.title}
                         </h4>
                       )}
-
                       <div className="relative pt-0.5 sm:pt-1">
                         <Quote className="absolute -left-1 -top-1.5 w-3 h-3 text-white/40 rotate-180 opacity-60 pointer-events-none" />
                         <p className="text-zinc-400 text-[11px] sm:text-xs leading-relaxed font-normal line-clamp-2 pl-2.5 group-hover:text-zinc-300 transition-colors">
@@ -284,7 +310,6 @@ const ReviewList = ({
                         </p>
                       </div>
                     </div>
-
                     <div className="flex items-center justify-between mt-2.5 sm:mt-3 pt-2 sm:pt-2.5 border-t border-white/[0.02]">
                       {review.rating ? (
                         <div className="flex items-center gap-1 bg-amber-500/[0.04] border border-amber-500/[0.12] px-1.5 sm:px-2 py-0.5 rounded-md sm:rounded-lg shadow-sm">
@@ -296,7 +321,6 @@ const ReviewList = ({
                       ) : (
                         <div />
                       )}
-
                       <div className="flex items-center gap-1 text-zinc-500 text-[8px] sm:text-[9px] font-semibold shrink-0 uppercase tracking-widest bg-white/[0.02] border border-white/[0.04] px-1.5 py-0.5 rounded">
                         <Calendar className="w-2.5 h-2.5 text-emerald-500/70" />
                         <span>
@@ -315,8 +339,18 @@ const ReviewList = ({
                     </div>
                   </div>
                 </div>
-
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 flex items-center gap-1">
+                  <button
+                    className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 text-zinc-500 bg-zinc-950/80 border border-white/[0.04] rounded-lg sm:rounded-xl opacity-100 sm:opacity-0 group-hover:opacity-100 hover:text-cyan-400 hover:border-cyan-500/30 hover:bg-cyan-950/40 hover:shadow-[0_0_15px_rgba(6,182,212,0.1)] transition-all duration-300 backdrop-blur-md"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShareReview(review);
+                    }}
+                    title="Share Story Card"
+                  >
+                    <Share2 className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+                  </button>
                   <button
                     className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 text-zinc-500 bg-zinc-950/80 border border-white/[0.04] rounded-lg sm:rounded-xl opacity-100 sm:opacity-0 group-hover:opacity-100 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-emerald-950/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-all duration-300 backdrop-blur-md"
                     onClick={(e) => {
@@ -328,7 +362,6 @@ const ReviewList = ({
                   >
                     <Edit3 className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
                   </button>
-
                   <button
                     className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 text-zinc-500 bg-zinc-950/80 border border-white/[0.04] rounded-lg sm:rounded-xl opacity-100 sm:opacity-0 group-hover:opacity-100 hover:text-red-400 hover:border-red-500/30 hover:bg-red-950/40 hover:shadow-[0_0_15px_rgba(239,68,68,0.1)] transition-all duration-300 backdrop-blur-md"
                     onClick={(e) => {
@@ -343,10 +376,8 @@ const ReviewList = ({
                 </div>
               </>
             );
-
             const baseStyles = `group relative flex flex-col bg-zinc-950/30 border border-white/[0.03] rounded-[20px] sm:rounded-[24px] p-3 sm:p-4 backdrop-blur-3xl transition-all duration-500 hover:shadow-[0_0_40px_rgba(16,185,129,0.04)] ${compact ? 'w-[260px] sm:w-[340px] flex-shrink-0 snap-start' : 'w-full'
               }`;
-
             return review.movieId ? (
               <Link
                 key={review.id}
@@ -363,18 +394,15 @@ const ReviewList = ({
           })}
         </div>
       )}
-
       {editingReview &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden select-none font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Segoe_UI',Roboto,sans-serif] antialiased">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-hidden select-none antialiased">
             <div
               onClick={handleCloseEdit}
               className="absolute inset-0 bg-black/50 backdrop-blur-3xl transition-opacity duration-300"
             />
-
             <div className="relative w-full max-w-2xl overflow-hidden rounded-[32px] border border-white/[0.18] bg-zinc-900/60 p-6 sm:p-7 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-3xl backdrop-saturate-200 transition-all">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-
               <div className="relative flex flex-col sm:flex-row gap-6">
                 {editingReview.posterPath ? (
                   <div className="relative shrink-0 w-32 sm:w-44 h-48 sm:h-auto rounded-2xl overflow-hidden border border-white/15 bg-black/40 shadow-2xl self-center sm:self-stretch group">
@@ -392,7 +420,6 @@ const ReviewList = ({
                     <span className="text-[10px] font-medium tracking-widest uppercase text-zinc-500">No Poster</span>
                   </div>
                 )}
-
                 <div className="flex-1 flex flex-col justify-between space-y-5 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -402,7 +429,6 @@ const ReviewList = ({
                           Edit Review
                         </h3>
                       </div>
-
                       <div className="flex items-center gap-2.5 flex-wrap">
                         <h4 className="text-lg sm:text-xl font-semibold tracking-tight text-white/95 truncate">
                           {editingReview.title || 'Untitled'}
@@ -412,7 +438,6 @@ const ReviewList = ({
                         </span>
                       </div>
                     </div>
-
                     <button
                       type="button"
                       onClick={handleCloseEdit}
@@ -421,7 +446,6 @@ const ReviewList = ({
                       <X className="h-3.5 w-3.5 stroke-[2.5]" />
                     </button>
                   </div>
-
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-0.5">
                       <label className="text-xs font-medium text-zinc-400">
@@ -444,7 +468,6 @@ const ReviewList = ({
                       />
                     </div>
                   </div>
-
                   <div className="flex items-center justify-end gap-2.5 pt-1">
                     <button
                       type="button"
@@ -453,7 +476,6 @@ const ReviewList = ({
                     >
                       Cancel
                     </button>
-
                     <button
                       type="button"
                       onClick={handleUpdateReview}
@@ -469,6 +491,139 @@ const ReviewList = ({
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {shareReview &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto bg-black/40 backdrop-blur-3xl transition-all duration-300">
+            <div
+              onClick={() => setShareReview(null)}
+              className="absolute inset-0 bg-transparent"
+            />
+            <div className="relative z-10 flex flex-col items-center w-full max-w-sm my-auto p-4 sm:p-0 space-y-4">
+              <div
+                ref={cardRef}
+                className="relative w-full rounded-[38px] overflow-hidden text-white border border-white/20 bg-white/10 backdrop-blur-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.15)] p-6 flex flex-col justify-between space-y-6 antialiased font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]"
+                style={{
+                  minHeight: '500px',
+                  boxShadow: 'inset 0 1px 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4)',
+                }}
+              >
+                {shareReview.posterPath && (
+                  <div className="absolute inset-0 z-0 opacity-20 overflow-hidden pointer-events-none">
+                    <img
+                      src={`https://image.tmdb.org/t/p/w500${shareReview.posterPath}`}
+                      alt=""
+                      className="w-full h-full object-cover blur-2xl scale-125"
+                      crossOrigin="anonymous"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/80" />
+                  </div>
+                )}
+                <div className="relative z-10 space-y-5">
+                  <div className="flex gap-4 items-start">
+                    {shareReview.posterPath && (
+                      <div className="w-20 h-28 rounded-2xl overflow-hidden border border-white/25 shrink-0 shadow-xl bg-white/5 backdrop-blur-md">
+                        <img
+                          src={`https://image.tmdb.org/t/p/w342${shareReview.posterPath.startsWith('/')
+                              ? shareReview.posterPath
+                              : `/${shareReview.posterPath}`
+                            }`}
+                          alt={shareReview.title || ''}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2 min-w-0 flex-1 pt-0.5">
+                      <h2 className="text-xl font-bold text-white tracking-tight leading-snug break-words drop-shadow-sm">
+                        {shareReview.title || 'Untitled'}
+                      </h2>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-semibold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-white/90 backdrop-blur-md shadow-inner">
+                          {shareReview.mediaType === 'tv' ? 'Series' : 'Movie'}
+                        </span>
+                        {shareReview.rating && (
+                          <div className="flex items-center gap-1 bg-amber-400/15 border border-amber-300/30 px-2.5 py-0.5 rounded-full backdrop-blur-md">
+                            <Star className="w-3 h-3 text-amber-300 fill-amber-300" />
+                            <span className="text-xs font-bold text-amber-200">
+                              {shareReview.rating.toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 pt-1">
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-white/10 border border-white/30 shrink-0 shadow-sm">
+                      <img
+                        src={userPhoto || '/user-icon.jpg'}
+                        alt={shareReview.author}
+                        className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                      />
+                    </div>
+                    <span className="text-xs font-semibold text-white/80 truncate tracking-tight">
+                      @{shareReview.author}
+                    </span>
+                  </div>
+                  <div className="relative pt-1">
+                    <Quote className="absolute -left-2 -top-1 w-4 h-4 text-white/20 rotate-180" />
+                    <p className="text-xs text-white/90 leading-relaxed font-normal pl-3 italic tracking-tight">
+                      "{shareReview.content}"
+                    </p>
+                  </div>
+                </div>
+                <div className="relative z-10 flex items-center justify-between pt-4 border-t border-white/15 text-white/60 text-[10px] font-medium tracking-wider uppercase">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 text-emerald-500" />
+                    <span>
+                      {shareReview.timestamp?.seconds
+                        ? new Date(shareReview.timestamp.seconds * 1000).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                        : 'Recent'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <img
+                      src="/Logo.png"
+                      alt="Logo"
+                      className="w-4 h-4 object-contain drop-shadow-sm"
+                    />
+                    <img
+                      src="/Cinescape.png"
+                      alt="Cinescape"
+                      className="h-3 object-contain drop-shadow-sm opacity-90"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 w-full pb-6 sm:pb-0">
+                <button
+                  type="button"
+                  onClick={() => setShareReview(null)}
+                  className="flex-1 h-12 rounded-full border border-white/20 bg-white/10 active:bg-white/20 text-xs font-semibold text-white/90 backdrop-blur-xl transition-all shadow-lg active:scale-95"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadImage}
+                  disabled={isDownloading}
+                  className="flex-1 flex items-center justify-center gap-2 h-12 rounded-full bg-white text-black text-xs font-bold shadow-2xl hover:bg-white/90 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                  ) : (
+                    <Download className="w-4 h-4 text-black" />
+                  )}
+                  <span>{isDownloading ? 'Exporting...' : 'Save Image'}</span>
+                </button>
               </div>
             </div>
           </div>,
