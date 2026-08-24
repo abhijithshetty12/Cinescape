@@ -12,6 +12,7 @@ import {
   Clapperboard,
 } from "lucide-react";
 import Loading from "../components/Loading.tsx";
+import Toast from "../components/Toast.tsx";
 
 interface ListItem {
   id: number;
@@ -23,6 +24,7 @@ interface ListItem {
   overview: string;
   voteAverage: number;
   runtimeMinutes?: number;
+  genres?: string[];
 }
 
 interface CustomFolder {
@@ -45,6 +47,7 @@ interface SearchResultItem {
   vote_average: number;
   media_type: "movie" | "tv";
   runtimeMinutes?: number;
+  genres?: string[];
 }
 
 interface StatusState {
@@ -55,6 +58,35 @@ interface StatusState {
 const API_KEY = "859afbb4b98e3b467da9c99ac390e950";
 const IMAGE_BASE = "https://image.tmdb.org/t/p/";
 const TMDB_BASE = "https://api.themoviedb.org/3";
+const GENRE_NAMES: Record<number, string> = {
+  12: "Adventure",
+  14: "Fantasy",
+  16: "Animation",
+  18: "Drama",
+  27: "Horror",
+  28: "Action",
+  35: "Comedy",
+  36: "History",
+  37: "Western",
+  53: "Thriller",
+  80: "Crime",
+  99: "Documentary",
+  878: "Science Fiction",
+  9648: "Mystery",
+  10402: "Music",
+  10749: "Romance",
+  10751: "Family",
+  10752: "War",
+  10759: "Action & Adventure",
+  10762: "Kids",
+  10763: "News",
+  10764: "Reality",
+  10765: "Sci-Fi & Fantasy",
+  10766: "Soap",
+  10767: "Talk",
+  10768: "War & Politics",
+  10770: "TV Movie",
+};
 
 const yearOf = (date?: string) => date ? date.slice(0, 4) : "—";
 const formatRuntime = (minutes?: number) => {
@@ -75,6 +107,13 @@ const posterUrl = (path: string | null | undefined, size = "w780") =>
 const backdropUrl = (path: string | null | undefined, size = "original") =>
   path ? `${IMAGE_BASE}${size}${path}` : null;
 
+const imageSource = (path: string | null | undefined) => {
+  if (!path) return null;
+  if (/^(https?:|data:|blob:)/i.test(path)) return path;
+  const normalizedPath = path.replace(/^\/?(?:original|w\d+)\//, "/");
+  return backdropUrl(normalizedPath);
+};
+
 const fetchDetails = async (id: number, type: "movie" | "tv") => {
   try {
     const response = await axios.get(`${TMDB_BASE}/${type}/${id}`, {
@@ -83,6 +122,9 @@ const fetchDetails = async (id: number, type: "movie" | "tv") => {
     return {
       runtimeMinutes: runtimeFromDetails(response.data, type),
       backdrop: backdropUrl(response.data.backdrop_path),
+      genres: Array.isArray(response.data.genres)
+        ? response.data.genres.map((genre: { name: string }) => genre.name)
+        : [],
     };
   } catch {
     return { runtimeMinutes: 0, backdrop: null };
@@ -111,17 +153,31 @@ const FallbackCover = () => {
 
   useEffect(() => {
     let mounted = true;
-    axios.get("https://api.themoviedb.org/3/movie/popular", {
-      params: { api_key: API_KEY, language: "en-US", page: 1 },
-    }).then((response) => {
-      if (mounted) setBackdrops((response.data.results ?? []).slice(0, 8).map((item: any) => backdropUrl(item.backdrop_path)).filter(Boolean));
-    }).catch(() => { });
-    return () => { mounted = false; };
+    axios
+      .get("https://api.themoviedb.org/3/movie/popular", {
+        params: { api_key: API_KEY, language: "en-US", page: 1 },
+      })
+      .then((response) => {
+        if (mounted)
+          setBackdrops(
+            (response.data.results ?? [])
+              .slice(0, 8)
+              .map((item: any) => backdropUrl(item.backdrop_path))
+              .filter(Boolean)
+          );
+      })
+      .catch(() => { });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (backdrops.length < 2) return;
-    const timer = window.setInterval(() => setActive((value) => (value + 1) % backdrops.length), 4200);
+    const timer = window.setInterval(
+      () => setActive((value) => (value + 1) % backdrops.length),
+      4200
+    );
     return () => window.clearInterval(timer);
   }, [backdrops.length]);
 
@@ -144,7 +200,11 @@ const FallbackCover = () => {
             className="absolute inset-0 opacity-30"
             animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
             transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-            style={{ backgroundImage: "linear-gradient(120deg,#7c2d12,#111827,#991b1b,#422006)", backgroundSize: "300% 300%" }}
+            style={{
+              backgroundImage:
+                "linear-gradient(120deg,#7c2d12,#111827,#991b1b,#422006)",
+              backgroundSize: "300% 300%",
+            }}
           />
         )}
       </AnimatePresence>
@@ -154,19 +214,26 @@ const FallbackCover = () => {
 };
 
 const CoverImage = ({ folder, className = "" }: { folder: CustomFolder; className?: string }) => {
-  const source = folder.coverImage || folder.items.find((item) => item.backdrop)?.backdrop;
+  const [hasError, setHasError] = useState(false);
+  const rawSource = folder.coverImage || folder.items.find((item) => item.backdrop)?.backdrop;
+
+  const source = imageSource(rawSource);
+
   return (
     <div className={`relative overflow-hidden bg-zinc-900 ${className}`}>
-      {source ? (
+      {source && !hasError ? (
         <motion.img
           src={source}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
+          onError={() => setHasError(true)}
           initial={{ scale: 1.04 }}
           whileHover={{ scale: 1.08 }}
           transition={{ duration: 0.8 }}
         />
-      ) : <FallbackCover />}
+      ) : (
+        <FallbackCover />
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
     </div>
   );
@@ -186,6 +253,8 @@ const MyList: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [status, setStatus] = useState<StatusState | null>(null);
   const [filterType, setFilterType] = useState<"all" | "movie" | "tv">("all");
+  const [genreFilter, setGenreFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"default" | "rating" | "runtime">("default");
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditingFolder, setIsEditingFolder] = useState(false);
   const [editName, setEditName] = useState("");
@@ -218,6 +287,7 @@ const MyList: React.FC = () => {
             releaseYear: item.releaseYear || "",
             voteAverage: Number(item.voteAverage) || 0,
             runtimeMinutes: Number(item.runtimeMinutes) || 0,
+            genres: Array.isArray(item.genres) ? item.genres : [],
           })) : [],
         };
       }));
@@ -263,15 +333,28 @@ const MyList: React.FC = () => {
   }, [inputQuery]);
 
   const activeFolder = folders.find((folder) => folder.id === activeFolderId);
-  const filteredItems = useMemo(() => activeFolder?.items.filter((item) => {
-    const matchesType = filterType === "all" || item.type === filterType;
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesSearch;
-  }) ?? [], [activeFolder, filterType, searchQuery]);
+  const availableGenres = useMemo(() => Array.from(new Set(
+    activeFolder?.items.flatMap((item) => item.genres || []) ?? []
+  )).sort(), [activeFolder]);
+
+  const filteredItems = useMemo(() => {
+    const items = activeFolder?.items.filter((item) => {
+      const matchesType = filterType === "all" || item.type === filterType;
+      const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesGenre = genreFilter === "all" || item.genres?.includes(genreFilter);
+      return matchesType && matchesSearch && matchesGenre;
+    }) ?? [];
+
+    return [...items].sort((a, b) => {
+      if (sortBy === "rating") return b.voteAverage - a.voteAverage;
+      if (sortBy === "runtime") return (b.runtimeMinutes || 0) - (a.runtimeMinutes || 0);
+      return 0;
+    });
+  }, [activeFolder, filterType, genreFilter, searchQuery, sortBy]);
 
   useEffect(() => {
     if (!activeFolder || !user?.uid) return;
-    const itemsWithoutDetails = activeFolder.items.filter((item) => !item.runtimeMinutes || !item.backdrop);
+    const itemsWithoutDetails = activeFolder.items.filter((item) => !item.runtimeMinutes || !item.backdrop || !item.genres?.length);
     if (!itemsWithoutDetails.length) return;
     let cancelled = false;
     const enrichItems = async () => {
@@ -285,6 +368,9 @@ const MyList: React.FC = () => {
         ...item,
         runtimeMinutes: detailMap.get(`${item.type}-${item.id}`)?.runtimeMinutes || item.runtimeMinutes || 0,
         backdrop: detailMap.get(`${item.type}-${item.id}`)?.backdrop || item.backdrop || null,
+        genres: detailMap.get(`${item.type}-${item.id}`)?.genres?.length
+          ? detailMap.get(`${item.type}-${item.id}`)?.genres
+          : item.genres || [],
       }));
       if (enrichedItems.some((item, index) =>
         item.runtimeMinutes !== activeFolder.items[index].runtimeMinutes ||
@@ -355,6 +441,7 @@ const MyList: React.FC = () => {
       overview: result.overview || "No description available.",
       voteAverage: Number((result.vote_average || 0).toFixed(1)),
       runtimeMinutes: result.runtimeMinutes || 0,
+      genres: result.genres || [],
     });
   };
 
@@ -513,14 +600,21 @@ const MyList: React.FC = () => {
             )}
           </div>
 
-          <AnimatePresence>
-            {status && <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`mt-4 p-3 rounded-2xl border text-xs font-semibold ${status.type === "success" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-red-500/10 border-red-500/20 text-red-300"}`}>{status.message}</motion.div>}
-          </AnimatePresence>
-
-          <div className="flex flex-col sm:flex-row gap-3 mt-5 mb-6">
-            <div className="relative flex-1"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search this list..." className="w-full pl-10 pr-4 py-3 rounded-2xl sm:rounded-full bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-amber-400/60 placeholder:text-zinc-600" /></div>
-            <div className="flex items-center self-start bg-white/5 border border-white/10 rounded-full p-1 overflow-x-auto">
-              {[["all", "All"], ["movie", "Movies"], ["tv", "Series"]].map(([value, label]) => <button key={value} onClick={() => setFilterType(value as typeof filterType)} className={`px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${filterType === value ? "bg-amber-400 text-black shadow-lg" : "text-zinc-400 hover:text-white"}`}>{label}</button>)}
+          <div className="flex flex-col gap-3 mt-5 mb-6">
+            <div className="relative"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search this list..." className="w-full pl-10 pr-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-amber-400/60 placeholder:text-zinc-600" /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl p-1 overflow-x-auto">
+                {[["all", "All"], ["movie", "Movies"], ["tv", "Series"]].map(([value, label]) => <button key={value} onClick={() => setFilterType(value as typeof filterType)} className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${filterType === value ? "bg-amber-400 text-black shadow-lg" : "text-zinc-400 hover:text-white"}`}>{label}</button>)}
+              </div>
+              <select value={genreFilter} onChange={(event) => setGenreFilter(event.target.value)} className="w-full px-3.5 py-2.5 rounded-2xl bg-zinc-950 border border-white/10 text-xs font-semibold text-zinc-300 focus:outline-none focus:border-amber-400/60">
+                <option value="all">All genres</option>
+                {availableGenres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
+              </select>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="w-full px-3.5 py-2.5 rounded-2xl bg-zinc-950 border border-white/10 text-xs font-semibold text-zinc-300 focus:outline-none focus:border-amber-400/60">
+                <option value="default">Sort: Recently added</option>
+                <option value="rating">Sort: Highest rating</option>
+                <option value="runtime">Sort: Longest runtime</option>
+              </select>
             </div>
           </div>
 
@@ -552,6 +646,13 @@ const MyList: React.FC = () => {
         </main>
       )}
 
+      <Toast
+        message={status?.message || ""}
+        type={status?.type || "success"}
+        isVisible={Boolean(status)}
+        onClose={() => setStatus(null)}
+      />
+
       <AnimatePresence>
         {isEditingFolder && activeFolder && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4" onMouseDown={() => setIsEditingFolder(false)}>
@@ -560,9 +661,9 @@ const MyList: React.FC = () => {
               <div className="space-y-4">
                 <label className="block"><span className="text-xs font-bold text-zinc-400">List name</span><input required value={editName} onChange={(event) => setEditName(event.target.value)} className="mt-2 w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-amber-400/60" /></label>
                 <label className="block"><span className="text-xs font-bold text-zinc-400">Description</span><textarea value={editDescription} onChange={(event) => setEditDescription(event.target.value)} rows={3} className="mt-2 w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm resize-none focus:outline-none focus:border-amber-400/60" /></label>
-                <div><span className="text-xs font-bold text-zinc-400">Choose cover image</span><div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mt-2 max-h-56 overflow-y-auto pr-1">
-                  <button type="button" onClick={() => setEditCover(null)} className={`relative aspect-[2/3] rounded-xl overflow-hidden border ${editCover === null ? "border-amber-400 ring-2 ring-amber-400/30" : "border-white/10"} bg-zinc-900`}><div className="w-full h-full flex flex-col items-center justify-center gap-1 text-zinc-500"><Sparkles className="w-4 h-4" /><span className="text-[8px] uppercase">Auto</span></div>{editCover === null && <span className="absolute top-1 right-1 bg-amber-400 text-black rounded-full p-0.5"><Check className="w-3 h-3" /></span>}</button>
-                  {activeFolder.items.filter((item) => item.backdrop).map((item) => <button type="button" key={`${item.type}-${item.id}`} onClick={() => setEditCover(item.backdrop)} className={`relative aspect-video rounded-xl overflow-hidden border ${editCover === item.backdrop ? "border-amber-400 ring-2 ring-amber-400/30" : "border-white/10"}`}><img src={item.backdrop || ""} alt={item.title} className="w-full h-full object-cover" />{editCover === item.backdrop && <span className="absolute top-1 right-1 bg-amber-400 text-black rounded-full p-0.5"><Check className="w-3 h-3" /></span>}<span className="absolute inset-x-1 bottom-1 text-[8px] text-white truncate text-left drop-shadow-md">{item.title}</span></button>)}
+                <div><span className="text-xs font-bold text-zinc-400">Choose cover image</span><div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3 max-h-64 overflow-y-auto pr-1">
+                  <button type="button" onClick={() => setEditCover(null)} className={`relative aspect-video min-w-0 rounded-xl overflow-hidden border ${editCover === null ? "border-amber-400 ring-2 ring-amber-400/30" : "border-white/10"} bg-zinc-900`}><div className="w-full h-full flex flex-col items-center justify-center gap-1 text-zinc-500"><Sparkles className="w-4 h-4" /><span className="text-[8px] uppercase">Auto</span></div>{editCover === null && <span className="absolute top-1 right-1 bg-amber-400 text-black rounded-full p-0.5"><Check className="w-3 h-3" /></span>}</button>
+                  {activeFolder.items.filter((item) => item.backdrop).map((item) => <button type="button" key={`${item.type}-${item.id}`} onClick={() => setEditCover(item.backdrop)} className={`relative aspect-video min-w-0 rounded-xl overflow-hidden border ${editCover === item.backdrop ? "border-amber-400 ring-2 ring-amber-400/30" : "border-white/10"} bg-zinc-900`}><img src={imageSource(item.backdrop) || ""} alt={item.title} className="block w-full h-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} />{editCover === item.backdrop && <span className="absolute top-1 right-1 bg-amber-400 text-black rounded-full p-0.5"><Check className="w-3 h-3" /></span>}<span className="absolute inset-x-1 bottom-1 text-[8px] text-white truncate text-left drop-shadow-md">{item.title}</span></button>)}
                 </div></div>
                 <button type="submit" className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-black font-black text-sm active:scale-[0.99] transition-transform">Save list changes</button>
               </div>

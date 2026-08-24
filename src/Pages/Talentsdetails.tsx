@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Star, Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Sparkles, CalendarDays, Calendar, ChevronDown, Check, Network } from "lucide-react";
+import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Sparkles, CalendarDays, Calendar, ChevronDown, Check, Network } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";

@@ -23,7 +23,6 @@ import {
   fetchGenres,
   MediaItem,
 } from "../api.ts";
-import Loading from "../components/Loading.tsx";
 
 const CircularRating = ({ rating }: { rating: number }) => {
   const percentage = Math.round((rating / 10) * 100);

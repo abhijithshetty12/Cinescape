@@ -6,7 +6,6 @@ import {
   Clapperboard,
   Search,
   User,
-  ChevronRight,
   Info,
   Sliders,
   X,

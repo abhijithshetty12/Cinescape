@@ -41,7 +41,6 @@ import {
   MapPin,
   CalendarDays,
   Clock,
-  TrendingUp,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";

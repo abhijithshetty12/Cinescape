@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Star, Play, Tv, Film } from "lucide-react";
+import { Star, } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase.ts";
 
