@@ -950,92 +950,85 @@ const ProfilePage = () => {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="w-full"
+              className="w-full font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif] tracking-tight antialiased"
             >
-              <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/20 p-5 sm:p-8 backdrop-blur-3xl shadow-2xl">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/5 rounded-full blur-[80px] pointer-events-none" />
-                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/[0.02] rounded-full blur-[60px] pointer-events-none" />
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+              <div className="relative overflow-hidden rounded-[28px] sm:rounded-[36px] border border-white/15 dark:border-white/10 bg-white/10 dark:bg-white/[0.04] p-4 sm:p-7 backdrop-blur-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37),inset_0_1px_1px_0_rgba(255,255,255,0.2)]">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-[90px] pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-white/5 rounded-full blur-[70px] pointer-events-none" />
 
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-md shadow-cyan-500/30">
-                      <Bookmark className="w-4 h-4 fill-current" />
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30">
+                      <Bookmark className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                     </div>
                     <div>
-                      <h2 className="text-base sm:text-lg font-bold text-white">
+                      <h2 className="text-base sm:text-xl font-bold text-white tracking-tight">
                         Watchlist
                       </h2>
-                      <p className="text-xs text-zinc-500">
-                        {watchlist.length} item
-                        {watchlist.length !== 1 ? "s" : ""} saved
+                      <p className="text-[11px] sm:text-xs text-white/50 font-medium mt-0.5">
+                        {watchlist.length} item{watchlist.length !== 1 ? "s" : ""} saved
                       </p>
                     </div>
                   </div>
                   <Link
                     to="/watchlist"
-                    className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-semibold transition-colors duration-200"
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-200 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   >
                     View all <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-1">
-                  <div className="w-full sm:w-auto bg-zinc-950/40 p-1 rounded-xl border border-white/[0.02] shadow-inner">
-                    <TogglePill
-                      value={watchlistFilter}
-                      onChange={setWatchlistFilter}
-                      options={[
-                        { value: "movie", label: "Movies" },
-                        { value: "tv", label: "Series" },
-                      ]}
-                      layoutId="watchlist-pill"
-                      activeColor="bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20"
-                    />
-                  </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5">
+                  <TogglePill
+                    value={watchlistFilter}
+                    onChange={setWatchlistFilter}
+                    options={[
+                      { value: "movie", label: "Movies" },
+                      { value: "tv", label: "Series" },
+                    ]}
+                    layoutId="watchlist-pill"
+                    activeColor="bg-blue-600/90 text-white shadow-[0_4px_16px_rgba(37,99,235,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-blue-400/40"
+                  />
                 </div>
 
-                <div className="relative rounded-2xl bg-zinc-950/10 border border-white/[0.02]">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 w-full">
-                    {filteredWatchlist.length === 0 ? (
-                      <div className="col-span-full py-12 text-center text-xs text-zinc-500 uppercase tracking-wider">
-                        {`No ${watchlistFilter === "movie" ? "movies" : "series"} in watchlist`}
-                      </div>
-                    ) : (
-                      filteredWatchlist.slice().reverse().map((item) => {
-                        const targetLink = `/${item.mediaType}/${item.id}`;
-                        return (
-                          <Link
-                            key={item.id}
-                            to={targetLink}
-                            className="group relative flex flex-col bg-zinc-950/30 border border-zinc-900 rounded-2xl p-1.5 sm:p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-cyan-500/20 hover:shadow-[0_12px_30px_rgba(6,182,212,0.04)] active:scale-[0.98]"
-                          >
-                            <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-cyan-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
-                            <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
-                              {item.posterPath ? (
-                                <img
-                                  src={item.posterPath}
-                                  alt={item.title || (item as any).name}
-                                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-700">
-                                  <Bookmark className="w-5 h-5 sm:w-6 sm:h-6" />
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 h-8 sm:h-10 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
-                            </div>
-                            <div className="pt-1.5 px-0.5">
-                              <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-cyan-400 tracking-tight transition-colors truncate">
-                                {(item.title || (item as any).name)}
-                              </p>
-                            </div>
-                          </Link>
-                        );
-                      })
-                    )}
-                  </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 w-full">
+                  {filteredWatchlist.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-xs font-semibold text-white/40 uppercase tracking-wider bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-md">
+                      {`No ${watchlistFilter === "movie" ? "movies" : "series"} in watchlist`}
+                    </div>
+                  ) : (
+                    filteredWatchlist.slice().reverse().map((item) => {
+                      const targetLink = `/${item.mediaType}/${item.id}`;
+                      return (
+                        <Link
+                          key={item.id}
+                          to={targetLink}
+                          className="group relative flex flex-col bg-white/[0.03] border border-white/10 rounded-2xl p-1.5 sm:p-2 backdrop-blur-xl transition-all duration-300 hover:bg-white/[0.08] hover:border-blue-400/40 hover:shadow-[0_12px_32px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.2)] active:scale-[0.97]"
+                        >
+                          <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-black/60 border border-white/10 shadow-md">
+                            {item.posterPath ? (
+                              <img
+                                src={item.posterPath}
+                                alt={item.title || (item as any).name}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white/30">
+                                <Bookmark className="w-5 h-5 sm:w-6 sm:h-6" />
+                              </div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+                          </div>
+                          <div className="pt-2 px-1">
+                            <p className="text-[11px] sm:text-xs font-semibold text-white/80 group-hover:text-blue-300 tracking-tight transition-colors truncate">
+                              {item.title || (item as any).name}
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1048,99 +1041,85 @@ const ProfilePage = () => {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="w-full"
+              className="w-full font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif] tracking-tight antialiased"
             >
-              <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/20 p-5 sm:p-8 backdrop-blur-3xl shadow-2xl">
-                {/* Glow Effects (Switched to emerald to match your history theme) */}
-                <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
-                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/[0.02] rounded-full blur-[60px] pointer-events-none" />
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+              <div className="relative overflow-hidden rounded-[28px] sm:rounded-[36px] border border-white/15 dark:border-white/10 bg-white/10 dark:bg-white/[0.04] p-4 sm:p-7 backdrop-blur-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37),inset_0_1px_1px_0_rgba(255,255,255,0.2)]">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-[90px] pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-white/5 rounded-full blur-[70px] pointer-events-none" />
 
-                {/* Header Section */}
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30">
-                      <History className="w-4 h-4" />
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30">
+                      <History className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
-                      <h2 className="text-base sm:text-lg font-bold text-white">
+                      <h2 className="text-base sm:text-xl font-bold text-white tracking-tight">
                         Watch History
                       </h2>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-[11px] sm:text-xs text-white/50 font-medium mt-0.5">
                         {history.length} item{history.length !== 1 ? "s" : ""} watched
                       </p>
                     </div>
                   </div>
                   <Link
                     to="/history"
-                    className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition-colors duration-200"
+                    className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition-colors duration-200 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]"
                   >
                     View all <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
-                {/* Filter Toggle Wrapper (Tightened mb-3 spacing) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
-                  <div className="w-full sm:w-auto bg-zinc-950/40 p-1 rounded-xl border border-white/[0.02] shadow-inner">
-                    <TogglePill
-                      value={historyFilter}
-                      onChange={setHistoryFilter}
-                      options={[
-                        { value: "movie", label: "Movies" },
-                        { value: "tv", label: "Series" },
-                      ]}
-                      layoutId="history-pill"
-                      activeColor="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-500/20"
-                    />
-                  </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5">
+                  <TogglePill
+                    value={historyFilter}
+                    onChange={setHistoryFilter}
+                    options={[
+                      { value: "movie", label: "Movies" },
+                      { value: "tv", label: "Series" },
+                    ]}
+                    layoutId="history-pill"
+                    activeColor="bg-emerald-600/90 text-white shadow-[0_4px_16px_rgba(5,150,105,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-emerald-400/40"
+                  />
                 </div>
 
-                <div className="relative rounded-2xl bg-zinc-950/10 border border-white/[0.02]">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 w-full">
-                    {filteredHistory.length === 0 ? (
-                      <div className="col-span-full py-12 text-center text-xs text-zinc-500 uppercase tracking-wider">
-                        {`No ${historyFilter === "movie" ? "movies" : "series"} in history`}
-                      </div>
-                    ) : (
-                      filteredHistory.slice(0, 20).map((item) => {
-                        const targetLink = `/${item.mediaType || "movie"}/${item.id}`;
-                        return (
-                          <Link
-                            key={item.id}
-                            to={targetLink}
-                            className="group relative flex flex-col bg-zinc-950/30 border border-zinc-900 rounded-2xl p-1.5 sm:p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-emerald-500/20 hover:shadow-[0_12px_30px_rgba(16,185,129,0.04)] active:scale-[0.98]"
-                          >
-                            {/* Subtle Border Glow */}
-                            <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-emerald-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
-
-                            {/* Poster Container */}
-                            <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
-                              {item.posterPath ? (
-                                <img
-                                  src={item.posterPath}
-                                  alt={item.title || (item as any).name}
-                                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-700">
-                                  <History className="w-5 h-5 sm:w-6 sm:h-6" />
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 h-8 sm:h-10 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
-                            </div>
-
-                            {/* Meta Text */}
-                            <div className="pt-1.5 px-0.5">
-                              <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-emerald-400 tracking-tight transition-colors truncate">
-                                {item.title || (item as any).name}
-                              </p>
-                            </div>
-                          </Link>
-                        );
-                      })
-                    )}
-                  </div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4 w-full">
+                  {filteredHistory.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-xs font-semibold text-white/40 uppercase tracking-wider bg-white/[0.02] border border-white/5 rounded-2xl backdrop-blur-md">
+                      {`No ${historyFilter === "movie" ? "movies" : "series"} in history`}
+                    </div>
+                  ) : (
+                    filteredHistory.slice(0, 20).map((item) => {
+                      const targetLink = `/${item.mediaType || "movie"}/${item.id}`;
+                      return (
+                        <Link
+                          key={item.id}
+                          to={targetLink}
+                          className="group relative flex flex-col bg-white/[0.03] border border-white/10 rounded-2xl p-1.5 sm:p-2 backdrop-blur-xl transition-all duration-300 hover:bg-white/[0.08] hover:border-emerald-400/40 hover:shadow-[0_12px_32px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.2)] active:scale-[0.97]"
+                        >
+                          <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-black/60 border border-white/10 shadow-md">
+                            {item.posterPath ? (
+                              <img
+                                src={item.posterPath}
+                                alt={item.title || (item as any).name}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white/30">
+                                <History className="w-5 h-5 sm:w-6 sm:h-6" />
+                              </div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+                          </div>
+                          <div className="pt-2 px-1">
+                            <p className="text-[11px] sm:text-xs font-semibold text-white/80 group-hover:text-emerald-300 tracking-tight transition-colors truncate">
+                              {item.title || (item as any).name}
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </motion.div>

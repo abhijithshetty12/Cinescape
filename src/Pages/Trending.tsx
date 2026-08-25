@@ -1,112 +1,115 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Star, TrendingUp, Play, Calendar, Film, Tv } from 'lucide-react';
+import { Star, Play, Calendar, Film, Tv, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const genreMap: Record<number, string> = {
-  28: 'Action',
-  12: 'Adventure',
-  16: 'Animation',
-  35: 'Comedy',
-  80: 'Crime',
-  99: 'Documentary',
-  18: 'Drama',
-  10751: 'Family',
-  14: 'Fantasy',
-  36: 'History',
-  27: 'Horror',
-  10402: 'Music',
-  9648: 'Mystery',
-  10749: 'Romance',
-  878: 'Sci-Fi',
-  10770: 'TV Movie',
-  53: 'Thriller',
-  10752: 'War',
-  37: 'Western',
-  10759: 'Action & Adventure',
-  10762: 'Kids',
-  10763: 'News',
-  10764: 'Reality',
-  10765: 'Sci-Fi & Fantasy',
-  10766: 'Soap',
-  10767: 'Talk',
-  10768: 'War & Politics',
-};
-
 const API_KEY = '859afbb4b98e3b467da9c99ac390e950';
-const BASE_TRENDING_URL = 'https://api.themoviedb.org/3/trending';
+const BASE_URL = 'https://api.themoviedb.org/3';
 
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.06,
-      delayChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.05, delayChildren: 0.05 },
   },
-  exit: {
-    opacity: 0,
-    transition: { duration: 0.2 },
-  },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 24, scale: 0.96 },
+  hidden: { opacity: 0, y: 16, scale: 0.96 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.4, ease: 'easeOut' },
-  },
-};
-
-const featuredVariants = {
-  hidden: { opacity: 0, y: 30, scale: 0.97 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
 const TrendingMovies = () => {
   const [trendingMovies, setTrendingMovies] = useState<any[]>([]);
+  const [genreMap, setGenreMap] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
   const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
+
+  const observer = useRef<IntersectionObserver | null>(null);
+
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        const [movieRes, tvRes] = await Promise.all([
+          axios.get(`${BASE_URL}/genre/movie/list?api_key=${API_KEY}`),
+          axios.get(`${BASE_URL}/genre/tv/list?api_key=${API_KEY}`),
+        ]);
+
+        const combined: Record<number, string> = {};
+        [...movieRes.data.genres, ...tvRes.data.genres].forEach((genre) => {
+          combined[genre.id] = genre.name;
+        });
+
+        setGenreMap(combined);
+      } catch (error) {
+        console.error('Error fetching genres:', error);
+      }
+    };
+
+    fetchGenres();
+  }, []);
 
   useEffect(() => {
     const fetchTrending = async () => {
       try {
-        const url = `${BASE_TRENDING_URL}/${mediaType}/week?api_key=${API_KEY}&page=${page}`;
+        if (page === 1) setLoading(true);
+        else setFetchingMore(true);
+
+        const url = `${BASE_URL}/trending/${mediaType}/week?api_key=${API_KEY}&page=${page}`;
         const response = await axios.get(url);
         const { data } = response;
+
         setTrendingMovies((prevMovies) =>
           page === 1 ? data.results : [...prevMovies, ...data.results]
         );
+        setHasMore(data.page < data.total_pages);
       } catch (error) {
         console.error('Error fetching trending content:', error);
       } finally {
         setLoading(false);
+        setFetchingMore(false);
       }
     };
 
     fetchTrending();
   }, [page, mediaType]);
 
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading || fetchingMore) return;
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasMore) {
+            setPage((prevPage) => prevPage + 1);
+          }
+        },
+        { threshold: 0.5 }
+      );
+
+      if (node) observer.current.observe(node);
+    },
+    [loading, fetchingMore, hasMore]
+  );
+
   const handleMediaTypeChange = (type: 'movie' | 'tv') => {
     if (type === mediaType) return;
     setMediaType(type);
     setTrendingMovies([]);
     setPage(1);
+    setHasMore(true);
     setLoading(true);
-  };
-
-  const loadMoreMovies = () => {
-    setPage((prevPage) => prevPage + 1);
   };
 
   const featured = trendingMovies.slice(0, 3);
@@ -121,69 +124,77 @@ const TrendingMovies = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-600/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif] selection:bg-white/20 antialiased relative overflow-x-hidden">
+      <svg width="0" height="0">
+        <defs>
+          <linearGradient id="trending-icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fbbf24" />
+            <stop offset="45%" stopColor="#f97316" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
 
+          <filter id="trending-icon-glow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feFlood floodColor="#f97316" floodOpacity="0.8" result="color" />
+            <feComposite in="color" in2="blur" operator="in" result="glow" />
+            <feMerge>
+              <feMergeNode in="glow" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      </svg>
+
+      <div className="fixed top-[-100px] left-1/2 -translate-x-1/2 w-[300px] sm:w-[600px] h-[300px] sm:h-[400px] bg-gradient-to-br from-pink-500/20 via-red-500/15 to-purple-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
+      <div className="fixed top-[40%] -right-[150px] w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none z-0" />
+
+      <div className="relative z-10 container mx-auto px-3 sm:px-6 py-4 sm:py-10 max-w-6xl">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-10 relative"
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-6 sm:mb-8"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-orange-500/30 blur-xl rounded-full" />
-                <TrendingUp className="relative w-10 h-10 text-orange-500" />
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2">
+            <div className="flex items-center gap-3">
+              <TrendingUp
+                className="w-7 h-7 sm:w-10 sm:h-10 shrink-0"
+                style={{
+                  stroke: "url(#trending-icon-gradient)",
+                  filter: "url(#trending-icon-glow)",
+                }}
+              />
               <div>
-                <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
-                  <span className="bg-gradient-to-r from-orange-400 via-red-500 to-red-600 bg-clip-text text-transparent">
-                    {mediaType === 'movie' ? 'Trending Movies' : 'Trending Series'}
-                  </span>
+                <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-white">
+                  {mediaType === 'movie' ? 'Trending Movies' : 'Trending Series'}
                 </h1>
-                <p className="text-gray-500 text-sm mt-1 font-medium">
-                  Most popular this week
+                <p className="text-white/60 text-xs sm:text-sm mt-0.5 font-normal">
+                  Most popular releases this week
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center">
-              <div
-                className="relative flex items-center bg-white/5 border border-white/10 backdrop-blur-xl rounded-full p-1 shadow-lg"
-                style={{
-                  WebkitBackdropFilter: 'blur(16px)',
-                  backdropFilter: 'blur(16px)',
-                }}
+            <div className="flex items-center self-start sm:self-auto bg-white/10 dark:bg-white/[0.06] backdrop-blur-2xl p-1 rounded-full border border-white/15 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
+              <button
+                onClick={() => handleMediaTypeChange('movie')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full font-medium text-xs sm:text-sm transition-all duration-300 ${mediaType === 'movie'
+                  ? 'bg-gradient-to-b from-[#FF3B30] to-[#E02B20] text-white shadow-[0_4px_15px_rgba(255,59,48,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]'
+                  : 'text-white/60 hover:text-white'
+                  }`}
               >
-                <button
-                  onClick={() => handleMediaTypeChange('movie')}
-                  className={`relative z-10 flex items-center gap-2 px-5 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${
-                    mediaType === 'movie' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+                <Film className="w-3.5 h-3.5" />
+                Movies
+              </button>
+              <button
+                onClick={() => handleMediaTypeChange('tv')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full font-medium text-xs sm:text-sm transition-all duration-300 ${mediaType === 'tv'
+                  ? 'bg-gradient-to-b from-[#FF3B30] to-[#E02B20] text-white shadow-[0_4px_15px_rgba(255,59,48,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]'
+                  : 'text-white/60 hover:text-white'
                   }`}
-                >
-                  <Film className="w-4 h-4" />
-                  Movies
-                </button>
-                <button
-                  onClick={() => handleMediaTypeChange('tv')}
-                  className={`relative z-10 flex items-center gap-2 px-5 py-2.5 font-semibold text-sm transition-colors duration-300 rounded-full ${
-                    mediaType === 'tv' ? 'text-white' : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  <Tv className="w-4 h-4" />
-                  Series
-                </button>
-                <motion.div
-                  className="absolute inset-y-1 bg-gradient-to-r from-red-600 to-red-500 rounded-full shadow-lg shadow-red-500/25"
-                  animate={{
-                    width: mediaType === 'movie' ? '108px' : '104px',
-                    x: mediaType === 'movie' ? 4 : 116,
-                  }}
-                  transition={{ duration: 0.35, ease: 'easeInOut' }}
-                />
-              </div>
+              >
+                <Tv className="w-3.5 h-3.5" />
+                Series
+              </button>
             </div>
           </div>
         </motion.div>
@@ -195,22 +206,18 @@ const TrendingMovies = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-8"
+              className="space-y-6 sm:space-y-8"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex gap-3 sm:gap-4 overflow-hidden">
                 {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-[16/9] bg-zinc-900/80 rounded-2xl animate-pulse border border-white/5"
-                  />
+                  <div key={i} className="min-w-[240px] xs:min-w-[280px] sm:min-w-[340px] h-40 sm:h-52 bg-white/[0.04] rounded-2xl sm:rounded-3xl animate-pulse border border-white/10 shrink-0" />
                 ))}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4">
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className="space-y-3">
-                    <div className="aspect-[2/3] bg-zinc-900/80 rounded-xl animate-pulse border border-white/5" />
-                    <div className="h-4 bg-zinc-900/80 rounded animate-pulse w-3/4" />
-                    <div className="h-3 bg-zinc-900/80 rounded animate-pulse w-1/2" />
+                  <div key={i} className="space-y-2 sm:space-y-3">
+                    <div className="aspect-[2/3] bg-white/[0.04] rounded-2xl sm:rounded-3xl animate-pulse border border-white/10" />
+                    <div className="h-3.5 sm:h-4 bg-white/[0.04] rounded-md w-3/4 animate-pulse" />
                   </div>
                 ))}
               </div>
@@ -222,21 +229,23 @@ const TrendingMovies = () => {
               initial="hidden"
               animate="visible"
               exit="exit"
+              className="space-y-6 sm:space-y-8"
             >
               {featured.length > 0 && (
-                <div className="mb-10">
-                  <h2 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-6 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
-                    Top Picks
+                <div>
+                  <h2 className="text-sm sm:text-base font-semibold text-white/80 mb-3 sm:mb-4 flex items-center gap-2 tracking-tight">
+                    <span className="w-1.5 h-4 bg-gradient-to-b from-[#FF3B30] to-[#FF2D55] rounded-full" />
+                    Featured Hits
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                  <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
                     {featured.map((item, index) => {
                       const title = item.title || item.name || 'Untitled';
                       const backdrop = item.backdrop_path
                         ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}`
                         : item.poster_path
-                        ? `https://image.tmdb.org/t/p/w780${item.poster_path}`
-                        : '/path/to/default-image.jpg';
+                          ? `https://image.tmdb.org/t/p/w780${item.poster_path}`
+                          : '';
                       const dateStr = item.release_date || item.first_air_date || '';
                       const year = dateStr ? new Date(dateStr).getFullYear() : 'N/A';
                       const to = mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`;
@@ -245,56 +254,60 @@ const TrendingMovies = () => {
                       return (
                         <motion.div
                           key={`featured-${item.id}`}
-                          variants={featuredVariants}
-                          custom={index}
+                          variants={itemVariants}
+                          className="min-w-[240px] xs:min-w-[280px] sm:min-w-[340px] max-w-[360px] flex-shrink-0 snap-start"
                         >
-                          <Link to={to} className="block group">
-                            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden border border-white/10 shadow-2xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-500">
+                          <Link to={to} className="group block relative h-40 xs:h-48 sm:h-52 rounded-2xl sm:rounded-3xl overflow-hidden bg-white/5 border border-white/15 dark:border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.4)] hover:border-white/40 active:scale-[0.98] transition-all duration-300">
+                            {backdrop ? (
                               <img
                                 src={backdrop}
                                 alt={title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white/30 text-xs">No Image</div>
+                            )}
 
-                              <div className="absolute top-3 left-3">
-                                <span className="text-5xl font-black text-white/20 drop-shadow-lg">
-                                  #{index + 1}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+
+                            <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 bg-black/60 backdrop-blur-md border border-white/15 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full z-10">
+                              <span className="text-[10px] sm:text-xs font-bold text-white/90 tracking-wider">
+                                #{index + 1}
+                              </span>
+                            </div>
+
+                            <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 bg-black/60 backdrop-blur-md border border-white/15 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full flex items-center gap-1 z-10">
+                              <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-300 fill-amber-300" />
+                              <span className="text-white font-semibold text-[10px] sm:text-xs">
+                                {item.vote_average?.toFixed(1) ?? 'N/A'}
+                              </span>
+                            </div>
+
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20 backdrop-blur-[2px] z-10">
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                <Play className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-white ml-0.5" />
+                              </div>
+                            </div>
+
+                            <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10 flex flex-col justify-end">
+                              <h3 className="font-bold text-base sm:text-lg text-white truncate tracking-tight group-hover:text-red-400 transition-colors">
+                                {title}
+                              </h3>
+                              <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
+                                <span className="text-[10px] sm:text-xs text-white/70 flex items-center gap-1 shrink-0">
+                                  <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                  {year}
                                 </span>
-                              </div>
-
-                              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-2.5 py-1 flex items-center gap-1.5">
-                                <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" />
-                                <span className="text-white font-bold text-xs">
-                                  {item.vote_average?.toFixed(1) ?? 'N/A'}
-                                </span>
-                              </div>
-
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                  <Play className="w-6 h-6 text-white fill-white ml-1" />
-                                </div>
-                              </div>
-
-                              <div className="absolute bottom-0 left-0 right-0 p-4">
-                                <h3 className="text-lg font-bold text-white truncate mb-1 drop-shadow-lg">
-                                  {title}
-                                </h3>
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs text-gray-300 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {year}
-                                  </span>
-                                  <div className="flex gap-1.5">
-                                    {genres.map((g) => (
-                                      <span
-                                        key={g}
-                                        className="text-[10px] px-2 py-0.5 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full text-gray-300"
-                                      >
-                                        {g}
-                                      </span>
-                                    ))}
-                                  </div>
+                                <div className="flex gap-1 overflow-hidden">
+                                  {genres.map((g) => (
+                                    <span
+                                      key={g}
+                                      className="text-[9px] sm:text-[10px] px-1.5 py-0.5 bg-white/15 backdrop-blur-md border border-white/10 rounded-full text-white/90 truncate"
+                                    >
+                                      {g}
+                                    </span>
+                                  ))}
                                 </div>
                               </div>
                             </div>
@@ -308,78 +321,68 @@ const TrendingMovies = () => {
 
               {rest.length > 0 && (
                 <div>
-                  <h2 className="text-lg font-bold text-gray-300 mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-6 bg-gradient-to-b from-orange-500 to-yellow-500 rounded-full" />
-                    More Trending
+                  <h2 className="text-sm sm:text-base font-semibold text-white/80 mb-3 sm:mb-4 flex items-center gap-2 tracking-tight">
+                    <span className="w-1.5 h-4 bg-white/40 rounded-full" />
+                    Explore Trending
                   </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4">
                     {rest.map((item, index) => {
                       const title = item.title || item.name || 'Untitled';
                       const poster = item.poster_path
                         ? `https://image.tmdb.org/t/p/w780${item.poster_path}`
                         : item.backdrop_path
-                        ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}`
-                        : '/path/to/default-image.jpg';
+                          ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}`
+                          : '';
                       const dateStr = item.release_date || item.first_air_date || '';
                       const year = dateStr ? new Date(dateStr).getFullYear() : 'N/A';
                       const to = mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`;
                       const genres = getGenreNames(item.genre_ids);
-                      const rank = index + 4;
+                      const isLastItem = index === rest.length - 1;
 
                       return (
                         <motion.div
                           key={`grid-${item.id}`}
                           variants={itemVariants}
+                          ref={isLastItem ? lastElementRef : null}
                         >
-                          <Link to={to} className="block group">
-                            <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-red-500/10 hover:border-red-500/30 transition-all duration-500 hover:-translate-y-1.5">
-                              <div className="relative aspect-[2/3] overflow-hidden">
+                          <Link to={to} className="group block space-y-1.5 sm:space-y-2">
+                            <div className="relative aspect-[2/3] w-full rounded-2xl sm:rounded-3xl overflow-hidden bg-white/5 border border-white/15 dark:border-white/10 shadow-[0_8px_25px_rgba(0,0,0,0.3)] hover:border-white/40 active:scale-[0.98] transition-all duration-300">
+                              {poster ? (
                                 <img
                                   src={poster}
                                   alt={title}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  loading="lazy"
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-white/30 text-xs">No Image</div>
+                              )}
 
-                                <div className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-0.5">
-                                  <span className="text-xs font-bold text-white">
-                                    #{rank}
-                                  </span>
-                                </div>
-
-                                <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-2 py-0.5 flex items-center gap-1">
-                                  <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                                  <span className="text-white font-bold text-[10px]">
-                                    {item.vote_average?.toFixed(1) ?? 'N/A'}
-                                  </span>
-                                </div>
-
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                  <div className="w-12 h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center">
-                                    <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-                                  </div>
-                                </div>
+                              <div className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 bg-black/60 backdrop-blur-md border border-white/15 px-1.5 py-0.5 sm:px-2 rounded-full flex items-center gap-1">
+                                <Star className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />
+                                <span className="text-white font-semibold text-[9px] sm:text-[11px]">
+                                  {item.vote_average?.toFixed(1) ?? 'N/A'}
+                                </span>
                               </div>
 
-                              <div className="p-3.5">
-                                <h3 className="text-sm font-bold text-white truncate mb-1.5 group-hover:text-red-400 transition-colors duration-300">
-                                  {title}
-                                </h3>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-gray-500 font-medium">
-                                    {year}
-                                  </span>
-                                  <div className="flex gap-1">
-                                    {genres.map((g) => (
-                                      <span
-                                        key={g}
-                                        className="text-[9px] px-1.5 py-0.5 bg-zinc-800/80 border border-zinc-700/40 rounded-full text-zinc-400"
-                                      >
-                                        {g}
-                                      </span>
-                                    ))}
-                                  </div>
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/30 backdrop-blur-[2px]">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white ml-0.5" />
                                 </div>
+                              </div>
+                            </div>
+
+                            <div className="px-0.5">
+                              <h3 className="font-semibold text-xs sm:text-sm text-white truncate tracking-tight group-hover:text-red-400 transition-colors">
+                                {title}
+                              </h3>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <span className="text-[10px] sm:text-[11px] text-white/50">{year}</span>
+                                {genres.length > 0 && (
+                                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 bg-white/10 backdrop-blur-md border border-white/10 rounded-full text-white/70 truncate max-w-[55px] sm:max-w-[80px]">
+                                    {genres[0]}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </Link>
@@ -390,37 +393,11 @@ const TrendingMovies = () => {
                 </div>
               )}
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.5 }}
-                className="flex justify-center mt-12"
-              >
-                <button
-                  onClick={loadMoreMovies}
-                  disabled={loading}
-                  className="group relative px-8 py-3.5 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm tracking-wide rounded-2xl shadow-2xl shadow-red-500/20 border border-red-400/30 backdrop-blur-xl transition-all duration-300 hover:from-red-500 hover:to-red-400 hover:scale-105 hover:shadow-red-500/30 disabled:opacity-60 disabled:hover:scale-100 overflow-hidden"
-                  style={{
-                    WebkitBackdropFilter: 'blur(20px)',
-                    backdropFilter: 'blur(20px)',
-                  }}
-                >
-                  <span className="relative z-10 flex items-center gap-2">
-                    {loading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <TrendingUp className="w-4 h-4" />
-                        Load More
-                      </>
-                    )}
-                  </span>
-                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-                </button>
-              </motion.div>
+              {fetchingMore && (
+                <div className="flex justify-center py-6">
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-red-500 rounded-full animate-spin" />
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -430,4 +407,3 @@ const TrendingMovies = () => {
 };
 
 export default TrendingMovies;
-

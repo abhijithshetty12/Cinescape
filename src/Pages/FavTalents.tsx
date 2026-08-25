@@ -1,17 +1,15 @@
 import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from 'framer-motion';
-
 import {
   Heart,
   Star,
   Users,
   Search,
-  SortAsc,
-  SortDesc,
+  ArrowUpDown,
   LayoutGrid,
   List,
-  ArrowRight,
+  ChevronRight,
   Sparkles
 } from 'lucide-react';
 import { db } from '../firebase.ts';
@@ -25,27 +23,10 @@ interface Talent {
   id: string;
   name: string;
   profilePath: string;
+  addedAt?: number;
 }
 
 const FavoriteTalentPage: React.FC = () => {
-  useEffect(() => {
-    const id = 'cinescape-glass-keyframes';
-    if (typeof document === 'undefined') return;
-    if (document.getElementById(id)) return;
-
-    const style = document.createElement('style');
-    style.id = id;
-    style.innerHTML = `
-@keyframes glassSweep {
-  0% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
-  20% { opacity: 1; }
-  60% { opacity: 0.95; }
-  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
-}`;
-    document.head.appendChild(style);
-
-  }, []);
-
   const { user } = useContext(AuthContext)!;
   const [favoriteTalents, setFavoriteTalents] = useState<Talent[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,6 +48,7 @@ const FavoriteTalentPage: React.FC = () => {
               profilePath: data.profile_path
                 ? `https://image.tmdb.org/t/p/w780${data.profile_path}`
                 : '',
+              addedAt: data.addedAt?.toMillis ? data.addedAt.toMillis() : (data.createdAt || 0),
             });
           }
         });
@@ -84,11 +66,11 @@ const FavoriteTalentPage: React.FC = () => {
     .sort((a, b) => {
       if (sortOrder === 'name') {
         return a.name.localeCompare(b.name);
+      } else {
+        return (b.addedAt || 0) - (a.addedAt || 0);
       }
-      return 0;
     });
 
-  const talentCount = filteredTalents.length;
   const totalCount = favoriteTalents.length;
 
   const toggleSort = () => {
@@ -97,39 +79,32 @@ const FavoriteTalentPage: React.FC = () => {
 
   if (favoriteTalents.length === 0) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
+      <div className="min-h-[85vh] flex items-center justify-center px-6 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]">
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
-          className="text-center max-w-lg"
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center max-w-sm w-full p-8 rounded-[38px] bg-white/[0.03] dark:bg-black/[0.25] backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.25)] relative overflow-hidden"
         >
-          <div className="relative mb-10">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-32 h-32 bg-red-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -top-24 -left-24 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative mb-6">
+            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-b from-white/20 to-white/5 dark:from-white/10 dark:to-white/[0.02] backdrop-blur-2xl border border-white/30 dark:border-white/15 shadow-[0_8px_32px_0_rgba(255,45,85,0.2)] flex items-center justify-center">
+              <Heart className="w-10 h-10 text-[#FF2D55] fill-[#FF2D55]/20" />
             </div>
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-              className="relative w-28 h-28 mx-auto bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-full flex items-center justify-center border border-zinc-700/50 shadow-2xl"
-            >
-              <Heart className="w-14 h-14 text-zinc-500" />
-            </motion.div>
           </div>
 
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            No Favorite Talents
+          <h1 className="text-2xl font-semibold tracking-tight text-white mb-2">
+            No Favorites Yet
           </h1>
-          <p className="text-zinc-400 text-lg mb-8 leading-relaxed">
-            Discover and follow your favorite talents to keep track of their latest movies and shows.
+          <p className="text-white/60 text-[15px] leading-relaxed mb-8 font-normal">
+            Explore and add your favorite stars to keep up with their latest work.
           </p>
           <Link
             to="/explore"
-            className="inline-flex items-center gap-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl shadow-red-500/20 hover:shadow-red-500/40"
+            className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-b from-[#FF3B30] to-[#E02B20] text-white py-3.5 px-6 rounded-2xl font-medium text-[15px] shadow-[0_8px_25px_rgba(255,59,48,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)] active:scale-[0.98] transition-all duration-200"
           >
-            <Users className="w-5 h-5" />
+            <Users className="w-4 h-4" />
             Discover Talents
-            <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
       </div>
@@ -137,107 +112,86 @@ const FavoriteTalentPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-10 max-w-6xl font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]">
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="mb-10"
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-6 sm:mb-8"
       >
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900/80 to-black/80 border border-zinc-800/50 p-6 md:p-10 backdrop-blur-xl">
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-red-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-red-600/5 rounded-full blur-3xl" />
+        <div className="relative rounded-[32px] sm:rounded-[40px] bg-gradient-to-b from-white/[0.08] to-white/[0.02] dark:from-white/[0.05] dark:to-white/[0.01] backdrop-blur-3xl border border-white/20 dark:border-white/10 p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.3)] overflow-hidden">
+          <div className="absolute -top-32 -right-32 w-64 h-64 bg-[#FF2D55]/15 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="p-4 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-xl shadow-red-500/20">
-                <Heart className="text-white w-8 h-8 md:w-10 md:h-10 fill-current" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-b from-[#FF3B30] to-[#FF2D55] p-0.5 shadow-[0_8px_20px_rgba(255,45,85,0.35)] flex items-center justify-center shrink-0">
+                <div className="w-full h-full rounded-[14px] bg-black/10 backdrop-blur-sm flex items-center justify-center">
+                  <Heart className="text-white w-7 h-7 fill-white" />
+                </div>
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                   Favorite Talents
                 </h1>
-                <p className="text-zinc-400 text-sm md:text-base mt-1">
-                  {totalCount} {totalCount === 1 ? 'talent' : 'talents'} in your collection
+                <p className="text-white/60 text-xs sm:text-sm mt-0.5 font-normal">
+                  {totalCount} {totalCount === 1 ? 'person' : 'people'} saved
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-zinc-800/60 backdrop-blur-sm px-5 py-3 rounded-full border border-zinc-700/50 w-fit">
-              <Sparkles className="w-4 h-4 text-yellow-400" />
-              <span className="text-zinc-300 text-sm font-medium">
-                {totalCount} talented {totalCount === 1 ? 'star' : 'stars'}
+            <div className="hidden sm:inline-flex items-center gap-2 self-start sm:self-auto bg-white/10 dark:bg-white/[0.06] backdrop-blur-2xl px-4 py-2 rounded-full border border-white/15 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-white/90 text-xs font-medium tracking-wide">
+                {totalCount} Star{totalCount === 1 ? '' : 's'}
               </span>
             </div>
           </div>
         </div>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="flex flex-col sm:flex-row gap-4 mb-8"
-      >
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 w-4 h-4 z-10" />
+      <div className="space-y-3 mb-6 sm:mb-8">
+        <div className="relative w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4 z-10 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search talents..."
-            className="w-full pl-11 pr-4 py-3 bg-zinc-800/40 backdrop-blur-md border border-white/10 rounded-2xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 focus:bg-zinc-800/60 transition-all duration-300 text-sm"
+            placeholder="Search favorites..."
+            className="w-full pl-10 pr-4 py-3 bg-white/10 dark:bg-white/[0.05] backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-2xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/15 transition-all text-sm shadow-[inset_0_1px_2px_rgba(0,0,0,0.2),0_4px_16px_rgba(0,0,0,0.1)]"
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           <button
             onClick={toggleSort}
-            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl text-zinc-300 hover:text-white hover:bg-zinc-800/60 hover:border-zinc-700/50 transition-all duration-300"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 dark:bg-white/[0.05] backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-2xl text-white/90 hover:text-white hover:bg-white/15 transition-all text-xs font-medium shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] active:scale-95"
           >
-            {sortOrder === 'name' ? (
-              <SortAsc className="w-4 h-4" />
-            ) : (
-              <SortDesc className="w-4 h-4" />
-            )}
-            <span className="text-sm font-medium">
-              {sortOrder === 'name' ? 'A-Z' : 'Recent'}
-            </span>
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            <span>Sort: {sortOrder === 'name' ? 'Name (A-Z)' : 'Recently Added'}</span>
           </button>
 
-          {/* View Toggle */}
-          <div className="flex items-center bg-zinc-900/60 backdrop-blur-sm border border-zinc-800/60 rounded-2xl p-1">
+          <div className="flex items-center bg-white/10 dark:bg-white/[0.05] backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-2xl p-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'grid'
-                ? 'bg-zinc-800 text-white shadow-md'
-                : 'text-zinc-500 hover:text-zinc-300'
+              className={`p-2 rounded-xl transition-all ${viewMode === 'grid'
+                  ? 'bg-white/20 dark:bg-white/15 text-white shadow-sm border border-white/20'
+                  : 'text-white/40 hover:text-white/70'
                 }`}
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2.5 rounded-xl transition-all duration-300 ${viewMode === 'list'
-                ? 'bg-zinc-800 text-white shadow-md'
-                : 'text-zinc-500 hover:text-zinc-300'
+              className={`p-2 rounded-xl transition-all ${viewMode === 'list'
+                  ? 'bg-white/20 dark:bg-white/15 text-white shadow-sm border border-white/20'
+                  : 'text-white/40 hover:text-white/70'
                 }`}
             >
-              <List className="w-4 h-4" />
+              <List className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-      </motion.div>
-
-      {searchTerm && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-zinc-400 text-sm mb-6"
-        >
-          Found {talentCount} {talentCount === 1 ? 'talent' : 'talents'} matching "{searchTerm}"
-        </motion.p>
-      )}
+      </div>
 
       <AnimatePresence mode="wait">
         {viewMode === 'grid' && (
@@ -246,8 +200,8 @@ const FavoriteTalentPage: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
+            transition={{ duration: 0.2 }}
+            className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"
           >
             <AnimatePresence>
               {filteredTalents.map((talent, index) => {
@@ -264,86 +218,48 @@ const FavoriteTalentPage: React.FC = () => {
                   <motion.div
                     key={talent.id}
                     layout
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.85 }}
                     transition={{
-                      duration: 0.4,
-                      delay: index * 0.05,
-                      ease: [0.25, 0.46, 0.45, 0.94],
+                      duration: 0.3,
+                      delay: index * 0.03,
+                      ease: [0.16, 1, 0.3, 1],
                     }}
                   >
                     <Link
                       to={`/talent/${talent.id}`}
-                      className="group block relative bg-gradient-to-br from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/10"
+                      className="group block relative rounded-3xl overflow-hidden bg-white/10 dark:bg-white/[0.04] backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.25)] hover:border-white/40 active:scale-[0.98] transition-all duration-200"
                     >
-                      <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1">
-                        <span className="text-xs font-bold text-zinc-300">
-                          #{index + 1}
-                        </span>
-                      </div>
-
                       <div className="absolute top-3 right-3 z-20 bg-gradient-to-br from-red-500 to-red-600 p-2 rounded-full shadow-lg shadow-red-500/30">
                         <Heart className="w-3 h-3 md:w-4 md:h-4 text-white fill-current" />
                       </div>
 
-                      <div className="relative aspect-[3/4] overflow-hidden">
+                      <div className="relative aspect-[4/5] overflow-hidden bg-white/5">
                         {talent.profilePath ? (
                           <img
                             src={talentImageUrl}
                             alt={`${talentName} profile`}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             loading="lazy"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex flex-col items-center justify-center">
-                            <div className="w-20 h-20 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center mb-3">
-                              <span className="text-2xl font-bold text-zinc-500">
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-14 h-14 rounded-full bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-md">
+                              <span className="text-base font-medium text-white/70">
                                 {initials}
                               </span>
                             </div>
-                            <span className="text-xs text-zinc-500 text-center px-4">
-                              No Image Available
-                            </span>
                           </div>
                         )}
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                          <div
-                            className="absolute top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent -skew-x-12 blur-[1px]
-                               -translate-x-[150%] 
-                               group-hover:translate-x-[250%] 
-                               transition-transform duration-1000 ease-out"
-                          />
-                        </div>
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
-                          <motion.div
-                            initial={{ y: 10, opacity: 0 }}
-                            whileHover={{ y: 0, opacity: 1 }}
-                            className="flex items-center gap-2 text-white"
-                          >
-                            <span className="text-sm font-semibold">View Profile</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </motion.div>
-                        </div>
-
-                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="absolute -top-8 -left-8 h-24 w-24 rounded-full bg-red-500/15 blur-2xl" />
-                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       </div>
 
-                      <div className="p-3 md:p-4">
-                        <h2 className="font-bold text-sm md:text-base text-white truncate transition-colors duration-300 group-hover:text-white">
+                      <div className="absolute bottom-0 inset-x-0 p-3">
+                        <h2 className="font-semibold text-xs sm:text-sm text-white truncate tracking-tight">
                           {talentName}
                         </h2>
                       </div>
-
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 via-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     </Link>
                   </motion.div>
                 );
@@ -358,8 +274,8 @@ const FavoriteTalentPage: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col gap-3"
+            transition={{ duration: 0.2 }}
+            className="space-y-2 sm:space-y-3"
           >
             <AnimatePresence>
               {filteredTalents.map((talent, index) => {
@@ -376,61 +292,47 @@ const FavoriteTalentPage: React.FC = () => {
                   <motion.div
                     key={talent.id}
                     layout
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
                     transition={{
-                      duration: 0.3,
-                      delay: index * 0.04,
+                      duration: 0.25,
+                      delay: index * 0.02,
                     }}
                   >
                     <Link
                       to={`/talent/${talent.id}`}
-                      className="group flex items-center gap-4 bg-gradient-to-r from-zinc-900/60 to-black/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5 hover:border-red-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/5 p-3"
+                      className="group flex items-center gap-3.5 p-2.5 rounded-2xl bg-white/10 dark:bg-white/[0.04] backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_25px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.2)] hover:border-white/40 active:scale-[0.99] transition-all duration-200"
                     >
-                      <span className="text-zinc-600 font-bold text-sm w-6 text-center">
-                        {index + 1}
-                      </span>
-
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-zinc-800">
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-white/10 border border-white/10">
                         {talent.profilePath ? (
                           <img
                             src={talentImageUrl}
                             alt={`${talentName} profile`}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.08]"
+                            className="w-full h-full object-cover"
                             loading="lazy"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-sm font-bold text-zinc-600">
+                            <span className="text-xs font-semibold text-white/60">
                               {initials}
                             </span>
                           </div>
                         )}
-
-                        <div
-                          aria-hidden
-                          className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                        >
-                          <div className="absolute -left-6 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent blur-[1px]" style={{ animation: 'glassSweep 900ms ease-out forwards' }} />
-                        </div>
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h2 className="font-bold text-base md:text-lg text-white truncate group-hover:text-red-400 transition-colors duration-300">
+                        <h2 className="font-semibold text-sm text-white truncate tracking-tight">
                           {talentName}
                         </h2>
-                        <p className="text-zinc-500 text-sm">Talent</p>
+                        <p className="text-white/50 text-xs mt-0.5">Artist</p>
                       </div>
 
-                      <div className="p-2 rounded-xl bg-zinc-800/50 group-hover:bg-white/10 transition-colors duration-300">
-                        <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-white/90 transition-colors duration-300" />
-                      </div>
-
-                      <div className="hidden sm:flex p-2">
-                        <Heart className="w-5 h-5 text-red-500 fill-current" />
+                      <div className="flex items-center gap-2 pr-1">
+                        <div className="bg-gradient-to-br from-red-500 to-red-600 p-1.5 rounded-full shadow-md shadow-red-500/30">
+                          <Heart className="w-3.5 h-3.5 text-white fill-current" />
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white/70 transition-colors" />
                       </div>
                     </Link>
                   </motion.div>
@@ -443,36 +345,29 @@ const FavoriteTalentPage: React.FC = () => {
 
       {filteredTalents.length === 0 && searchTerm && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-16"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-12 p-6 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 mt-4"
         >
-          <Search className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-zinc-400 mb-2">
-            No talents found
+          <Search className="w-8 h-8 text-white/30 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-white mb-1">
+            No Results
           </h3>
-          <p className="text-zinc-500">
-            Try adjusting your search terms
+          <p className="text-white/50 text-xs">
+            No talents matched "{searchTerm}"
           </p>
         </motion.div>
       )}
 
       {filteredTalents.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-12 text-center"
-        >
-          <div className="inline-flex items-center gap-3 bg-zinc-900/40 backdrop-blur-sm px-6 py-3 rounded-full border border-zinc-800/50">
-            <Star className="w-5 h-5 text-yellow-400 fill-current" />
-            <span className="text-zinc-300 text-sm md:text-base">
-              You've favorited{' '}
-              <span className="text-white font-semibold">{totalCount}</span>{' '}
-              {totalCount === 1 ? 'talent' : 'talents'}
+        <div className="mt-8 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10">
+            <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+            <span className="text-white/60 text-xs">
+              Showing <span className="text-white font-medium">{filteredTalents.length}</span> of {totalCount}
             </span>
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );
