@@ -547,10 +547,13 @@ const ProfilePage = () => {
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest transition-all duration-300 active:scale-[0.97] bg-gradient-to-r from-red-500 via-red-600 to-orange-600 text-white hover:brightness-110 relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent before:-translate-x-full hover:before:animate-[shimmer_1.5s_infinite]"
+            className="relative flex items-center justify-center gap-2 px-4 py-2 rounded-2xl text-xs font-semibold tracking-tight text-white bg-gradient-to-r from-red-500 via-red-600 to-orange-600 hover:from-red-400 hover:via-red-500 hover:to-orange-500 active:from-red-600 active:to-orange-700 border border-white/25 backdrop-blur-2xl transition-all duration-300 active:scale-95 shadow-[0_6px_20px_rgba(239,68,68,0.35),inset_0_1px_1px_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(0,0,0,0.3)] overflow-hidden group font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','SF_Pro_Display','Helvetica_Neue',sans-serif]"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Logout</span>
+            <div className="absolute top-0 inset-x-0 h-[45%] bg-gradient-to-b from-white/35 via-white/10 to-transparent rounded-t-2xl pointer-events-none" />
+            <LogOut className="w-3.5 h-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)] relative z-10 transition-transform duration-300 group-hover:-translate-x-0.5" />
+            <span className="hidden sm:inline relative z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+              Logout
+            </span>
           </button>
         </motion.div>
 
@@ -778,87 +781,117 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5 pt-4 border-t border-white/[0.08]">
-              <div className="relative overflow-hidden rounded-xl p-3 bg-gradient-to-br from-red-500/20 via-rose-600/10 to-transparent border border-red-500/25 shadow-[0_0_16px_rgba(220,38,38,0.08)]">
-                <div className="absolute top-1.5 right-1.5 w-8 h-8 bg-red-500/15 rounded-full blur-lg" />
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-md shadow-red-500/30">
-                    <Film className="w-3 h-3 text-white" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mt-5 pt-4 border-t border-white/[0.08]">
+              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-red-500/20 hover:-translate-y-0.5">
+                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-red-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-red-500/[0.18]" />
+
+                <div className="relative flex items-center justify-between mb-3">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-red-500/90 to-rose-700/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(239,68,68,0.25)]">
+                    <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-red-300">
+
+                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-red-300/80">
                     Films
                   </span>
                 </div>
-                <p className="text-2xl font-black text-white tabular-nums leading-none">
-                  {filmsWatched}
-                </p>
-                <p className="text-[9px] text-zinc-400 font-medium mt-1">
-                  Films Watched
-                </p>
+
+                <div className="relative">
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
+                    {filmsWatched}
+                  </p>
+
+                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
+                    Films Watched
+                  </p>
+                </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-xl p-3 bg-gradient-to-br from-blue-500/20 via-sky-600/10 to-transparent border border-blue-500/25 shadow-[0_0_16px_rgba(59,130,246,0.08)]">
-                <div className="absolute top-1.5 right-1.5 w-8 h-8 bg-blue-500/15 rounded-full blur-lg" />
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-sky-600 flex items-center justify-center shadow-md shadow-blue-500/30">
-                    <Tv className="w-3 h-3 text-white" />
+              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-blue-500/20 hover:-translate-y-0.5">
+                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-blue-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-blue-500/[0.18]" />
+
+                <div className="relative flex items-center justify-between mb-3">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-500/90 to-cyan-700/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(59,130,246,0.25)]">
+                    <Tv className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-blue-300">
+
+                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-blue-300/80">
                     Series
                   </span>
                 </div>
-                <p className="text-2xl font-black text-white tabular-nums leading-none">
-                  {seriesWatched}
-                </p>
-                <p className="text-[9px] text-zinc-400 font-medium mt-1">
-                  Series Watched
-                </p>
+
+                <div className="relative">
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
+                    {seriesWatched}
+                  </p>
+
+                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
+                    Series Watched
+                  </p>
+                </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-xl p-3 bg-gradient-to-br from-emerald-500/20 via-green-600/10 to-transparent border border-emerald-500/25 shadow-[0_0_16px_rgba(16,185,129,0.08)]">
-                <div className="absolute top-1.5 right-1.5 w-8 h-8 bg-emerald-500/15 rounded-full blur-lg" />
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-md shadow-emerald-500/30">
-                    <Clock className="w-3 h-3 text-white" />
+              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-emerald-500/20 hover:-translate-y-0.5">
+                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-emerald-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-emerald-500/[0.18]" />
+
+                <div className="relative flex items-center justify-between mb-3">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-emerald-400/90 to-green-700/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(16,185,129,0.25)]">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-300">
+
+                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-300/80">
                     Time
                   </span>
                 </div>
-                <p className="text-2xl font-black text-white tabular-nums leading-none">
-                  {loadingRuntimes && history.length > 0 && Object.keys(runtimeDetails).length < history.length ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-                      <span className="text-xs font-bold text-emerald-400">...</span>
-                    </span>
-                  ) : (
-                    <>
-                      {totalBingeHours}
-                      <span className="text-xs font-bold text-zinc-400 ml-0.5">h</span>
-                    </>
-                  )}
-                </p>
-                <p className="text-[9px] text-zinc-400 font-medium mt-1">
-                  Total Binge Time
-                </p>
+
+                <div className="relative">
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
+                    {loadingRuntimes &&
+                      history.length > 0 &&
+                      Object.keys(runtimeDetails).length < history.length ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-emerald-400" />
+                        <span className="text-xs sm:text-sm font-bold text-emerald-400">
+                          ...
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        {totalBingeHours}
+                        <span className="text-xs sm:text-sm font-bold text-zinc-500 ml-1">
+                          h
+                        </span>
+                      </>
+                    )}
+                  </p>
+
+                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
+                    Total Binge Time
+                  </p>
+                </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-xl p-3 bg-gradient-to-br from-yellow-500/20 via-amber-600/10 to-transparent border border-yellow-500/25 shadow-[0_0_16px_rgba(234,179,8,0.08)]">
-                <div className="absolute top-1.5 right-1.5 w-8 h-8 bg-yellow-500/15 rounded-full blur-lg" />
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-6 h-6 rounded-md bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-md shadow-yellow-500/30">
-                    <Star className="w-3 h-3 text-white fill-white" />
+              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-amber-500/20 hover:-translate-y-0.5">
+                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-amber-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-amber-500/[0.18]" />
+
+                <div className="relative flex items-center justify-between mb-3">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-yellow-400/90 to-amber-600/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(245,158,11,0.25)]">
+                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white" />
                   </div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-yellow-300">
+
+                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-amber-300/80">
                     Rating
                   </span>
                 </div>
-                <p className="text-2xl font-black text-white tabular-nums leading-none">
-                  {avgRating ?? "—"}
-                </p>
-                <p className="text-[9px] text-zinc-400 font-medium mt-1">
-                  Avg. Rating
-                </p>
+
+                <div className="relative">
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
+                    {avgRating ?? '—'}
+                  </p>
+
+                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
+                    Avg. Rating
+                  </p>
+                </div>
               </div>
             </div>
           </div>

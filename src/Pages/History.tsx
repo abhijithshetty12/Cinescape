@@ -4,21 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import {
-  History as HistoryIcon,
-  Search,
-  SortAsc,
-  SortDesc,
-  Filter,
-  ImageOff,
-  Star,
-  Clapperboard,
-  Tv,
-  X,
-  AlertCircle,
-  Check,
-  Calendar,
-} from 'lucide-react';
+import { History, Search, SortAsc, SortDesc, Filter, ImageOff, Star, Clapperboard, Tv, X, AlertCircle, Check, CalendarCheck, } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
 
@@ -45,8 +31,8 @@ const containerVariants = {
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.23, 1, 0.32, 1] } },
+  hidden: { opacity: 0, y: 15, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } },
 };
 
 const HistoryPage = () => {
@@ -159,16 +145,16 @@ const HistoryPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4 bg-zinc-950">
-        <div className="relative overflow-hidden rounded-3xl bg-zinc-900/30 border border-red-500/10 p-8 max-w-sm w-full text-center backdrop-blur-2xl shadow-2xl">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5">
+      <div className="min-h-[80vh] flex items-center justify-center px-4 bg-black font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif]">
+        <div className="relative rounded-[32px] bg-gradient-to-b from-white/[0.12] to-white/[0.03] border border-white/20 p-8 max-w-sm w-full text-center backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)]">
+          <div className="mx-auto w-14 h-14 rounded-full bg-gradient-to-b from-red-500/30 to-red-600/10 border border-red-500/30 flex items-center justify-center mb-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]">
             <AlertCircle className="w-6 h-6 text-red-500" />
           </div>
-          <h3 className="text-lg font-bold text-white mb-2 tracking-tight">Error Loading History</h3>
+          <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">Error Loading History</h3>
           <p className="text-zinc-400 mb-6 text-xs leading-relaxed">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-red-600/10"
+            className="w-full py-3.5 bg-gradient-to-b from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white font-medium text-xs rounded-full transition-all active:scale-[0.97] shadow-[0_10px_25px_rgba(220,38,38,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)]"
           >
             Retry Connection
           </button>
@@ -179,16 +165,16 @@ const HistoryPage = () => {
 
   if (!user) {
     return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4 bg-zinc-950">
-        <div className="relative overflow-hidden rounded-3xl bg-zinc-900/20 border border-white/[0.05] p-8 max-w-sm w-full text-center backdrop-blur-2xl shadow-2xl">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.08] flex items-center justify-center mb-5">
-            <HistoryIcon className="w-6 h-6 text-zinc-400" />
+      <div className="min-h-[80vh] flex items-center justify-center px-4 bg-black font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif]">
+        <div className="relative rounded-[32px] bg-gradient-to-b from-white/[0.12] to-white/[0.03] border border-white/20 p-8 max-w-sm w-full text-center backdrop-blur-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)]">
+          <div className="mx-auto w-14 h-14 rounded-full bg-gradient-to-b from-white/20 to-white/5 border border-white/30 flex items-center justify-center mb-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]">
+            <History className="w-6 h-6 text-white" />
           </div>
-          <h3 className="text-lg font-bold text-white mb-2 tracking-tight">Sign In Required</h3>
+          <h3 className="text-xl font-semibold text-white mb-2 tracking-tight">Sign In Required</h3>
           <p className="text-zinc-400 mb-6 text-xs leading-relaxed">Access your personalized timeline analytics and cloud history data.</p>
           <Link
             to="/login"
-            className="block w-full py-3 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-semibold text-xs rounded-xl transition-all text-center shadow-lg shadow-red-600/10"
+            className="block w-full py-3.5 bg-gradient-to-b from-red-500 via-red-600 to-red-700 hover:from-red-400 hover:to-red-600 text-white font-medium text-xs rounded-full transition-all text-center active:scale-[0.97] shadow-[0_10px_25px_rgba(220,38,38,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)]"
           >
             Sign In Account
           </Link>
@@ -198,20 +184,20 @@ const HistoryPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-16 antialiased selection:bg-red-500/30">
-      <div className="relative border-b border-white/[0.04] bg-gradient-to-b from-zinc-900/30 to-transparent backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+    <div className="min-h-screen bg-black text-white pb-24 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif] antialiased selection:bg-red-500/30">
+      <div className="sticky top-0 z-40 bg-black/40 backdrop-blur-3xl border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 md:py-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-xl shadow-inner">
-                  <HistoryIcon className="w-5 h-5 text-red-500" />
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="p-2.5 rounded-xl bg-gradient-to-b from-white/20 to-white/5 border border-white/20 backdrop-blur-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]">
+                  <History className="w-5 h-5 text-emerald-500" />
                 </div>
-                <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
                   Watch History
                 </h1>
               </div>
-              <p className="text-zinc-400 text-xs md:text-sm font-medium">
+              <p className="text-zinc-400 text-xs font-normal">
                 Your architectural cinematic footprint, curated dynamically.
               </p>
             </div>
@@ -230,60 +216,46 @@ const HistoryPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div className="relative flex items-center p-1.5 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-2xl w-full md:w-fit backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.5),inset_0_1px_1px_0_rgba(255,255,255,0.15)] overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-tr before:from-white/[0.02] before:via-transparent before:to-white/[0.05] before:pointer-events-none">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
+          <div className="flex items-center p-1 bg-white/[0.08] border border-white/15 rounded-full w-full sm:w-fit backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.25)]">
             <button
               onClick={() => handleMediaTypeChange('movie')}
-              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 font-bold text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${mediaType === 'movie'
-                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2 rounded-full font-semibold text-xs transition-all duration-300 active:scale-95 ${mediaType === 'movie'
+                ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-700 text-white shadow-[0_4px_15px_rgba(220,38,38,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-red-400/30'
+                : 'text-zinc-400 hover:text-white'
                 }`}
             >
-              {mediaType === 'movie' && (
-                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-              )}
-
-              {mediaType === 'movie' && (
-                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-              )}
-              <Clapperboard className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${mediaType === 'movie' ? 'scale-105' : 'group-hover:scale-105'}`} />
-              <span className="relative z-10">Movies</span>
+              <Clapperboard className="w-3.5 h-3.5" />
+              <span>Movies</span>
             </button>
             <button
               onClick={() => handleMediaTypeChange('tv')}
-              className={`relative flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 font-bold text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-xl overflow-hidden group ${mediaType === 'tv'
-                ? 'text-white shadow-[0_4px_20px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2 rounded-full font-semibold text-xs transition-all duration-300 active:scale-95 ${mediaType === 'tv'
+                ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-700 text-white shadow-[0_4px_15px_rgba(220,38,38,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-red-400/30'
+                : 'text-zinc-400 hover:text-white'
                 }`}
             >
-              {mediaType === 'tv' && (
-                <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-              )}
-
-              {mediaType === 'tv' && (
-                <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-              )}
-              <Tv className={`w-3.5 h-3.5 relative z-10 transition-transform duration-300 ${mediaType === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
-              <span className="relative z-10">Series</span>
+              <Tv className="w-3.5 h-3.5" />
+              <span>Series</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto">
-            <div className="relative flex-1 md:w-72">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/70 z-10 w-3.5 h-3.5 pointer-events-none" />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 z-10 w-3.5 h-3.5 pointer-events-none" />
               <input
                 type="text"
                 placeholder={mediaType === "movie" ? "Search movies..." : "Search series..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-9 py-2 bg-zinc-900/40 border border-white/[0.04] rounded-xl text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-amber-500/30 focus:bg-zinc-900/80 transition-all backdrop-blur-md"
+                className="w-full pl-9 pr-8 py-2 bg-white/[0.06] border border-white/15 rounded-full text-white placeholder-zinc-400 text-xs focus:outline-none focus:border-white/30 focus:bg-white/[0.1] transition-all backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]"
               />
 
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-zinc-500 hover:text-white transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-zinc-400 hover:text-white transition-colors p-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -292,7 +264,7 @@ const HistoryPage = () => {
 
             <button
               onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
-              className="p-2 bg-zinc-900/40 border border-white/[0.04] rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900/80 transition-all backdrop-blur-md aspect-square flex items-center justify-center"
+              className="p-2.5 bg-white/[0.06] border border-white/15 rounded-full text-zinc-300 hover:text-white hover:bg-white/[0.12] transition-all backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] active:scale-95 flex items-center justify-center shrink-0"
               title={sortOrder === 'newest' ? "Sort Oldest First" : "Sort Newest First"}
             >
               {sortOrder === 'newest' ? <SortDesc className="w-4 h-4" /> : <SortAsc className="w-4 h-4" />}
@@ -300,7 +272,7 @@ const HistoryPage = () => {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-xl transition-all backdrop-blur-md aspect-square flex items-center justify-center ${showFilters ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-900/40 border-white/[0.04] text-zinc-400 hover:text-white hover:bg-zinc-900/80'}`}
+              className={`p-2.5 rounded-full transition-all backdrop-blur-3xl active:scale-95 flex items-center justify-center shrink-0 ${showFilters ? 'bg-gradient-to-b from-red-500 to-red-600 border border-red-400/40 text-white shadow-[0_4px_15px_rgba(220,38,38,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'bg-white/[0.06] border border-white/15 text-zinc-300 hover:text-white hover:bg-white/[0.12] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]'}`}
             >
               <Filter className="w-4 h-4" />
             </button>
@@ -316,12 +288,12 @@ const HistoryPage = () => {
               transition={{ duration: 0.25, ease: 'easeInOut' }}
               className="overflow-hidden mb-6"
             >
-              <div className="p-3 bg-zinc-900/20 border border-white/[0.03] rounded-xl flex flex-wrap gap-2 max-h-40 overflow-y-auto backdrop-blur-md">
+              <div className="p-3 bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/15 rounded-[24px] flex flex-wrap gap-2 max-h-40 overflow-y-auto backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
                 {availableGenres.map((genre) => (
                   <button
                     key={genre}
                     onClick={() => setSelectedGenre(genre)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${selectedGenre === genre ? 'bg-red-500/10 border border-red-500/30 text-red-400' : 'bg-white/[0.02] border-white/[0.04] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'}`}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 ${selectedGenre === genre ? 'bg-gradient-to-b from-red-500 to-red-600 border border-red-400/40 text-white shadow-[0_4px_12px_rgba(220,38,38,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'bg-white/[0.06] border border-white/10 text-zinc-300 hover:bg-white/[0.12] hover:text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]'}`}
                   >
                     {genre}
                   </button>
@@ -332,11 +304,13 @@ const HistoryPage = () => {
         </AnimatePresence>
 
         {filteredAndSortedHistory.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 rounded-3xl border border-dashed border-white/[0.04] bg-zinc-900/10 backdrop-blur-sm">
-            <HistoryIcon className="w-7 h-7 text-zinc-600 mb-3 stroke-[1.5]" />
-            <p className="text-zinc-400 text-xs font-semibold tracking-wide">Timeline Index Clean</p>
-            <Link to="/" className="text-xs text-red-500 font-medium mt-1.5 hover:text-red-400 transition-colors underline underline-offset-4">
-              Explore Trending Catalogs
+          <div className="flex flex-col items-center justify-center py-20 rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent backdrop-blur-3xl text-center px-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+            <div className="w-12 h-12 rounded-full bg-white/[0.06] border border-white/15 flex items-center justify-center mb-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
+              <History className="w-5 h-5 text-zinc-400" />
+            </div>
+            <p className="text-zinc-300 text-sm font-medium tracking-tight">Timeline Index Clean</p>
+            <Link to="/" className="text-xs text-red-400 font-semibold mt-2 hover:text-red-300 transition-colors">
+              Explore Trending Catalogs &rarr;
             </Link>
           </div>
         )}
@@ -345,7 +319,7 @@ const HistoryPage = () => {
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-5"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
         >
           {filteredAndSortedHistory.map((item) => {
             const cacheKey = `${item.mediaType}_${item.movieId}`;
@@ -354,54 +328,54 @@ const HistoryPage = () => {
             return (
               <motion.div key={item.id} variants={cardVariants} layout className="w-full">
                 <Link to={`/${item.mediaType}/${item.movieId}`} className="group flex flex-col h-full">
-                  <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-zinc-900 border border-white/[0.05] shadow-lg group-hover:border-red-500/30 transition-all duration-500 group-hover:shadow-red-950/20">
+                  <div className="relative aspect-[2/3] w-full overflow-hidden rounded-[24px] bg-zinc-900 border border-white/15 shadow-[0_10px_25px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)] group-hover:border-white/30 transition-all duration-300 active:scale-[0.97]">
                     <img
                       src={`https://image.tmdb.org/t/p/w780${item.posterPath}`}
                       alt={item.title || item.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-[0.25,1,0.5,1]"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                       onError={handleImageError}
                       loading="lazy"
                     />
-                    <div className="hidden absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center text-zinc-600">
-                      <ImageOff className="w-5 h-5 mb-1.5 stroke-[1.5]" />
-                      <span className="text-[10px] tracking-wide">Image Unavailable</span>
+                    <div className="hidden absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center text-zinc-500">
+                      <ImageOff className="w-5 h-5 mb-1.5" />
+                      <span className="text-[10px]">Unavailable</span>
                     </div>
 
-                    <div className="absolute top-2.5 left-2.5 px-2 py-0.5 bg-black/60 text-[9px] uppercase tracking-widest text-zinc-300 font-bold rounded-md backdrop-blur-md border border-white/[0.04]">
+                    <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/40 text-[9px] uppercase tracking-wider text-zinc-200 font-semibold rounded-full backdrop-blur-2xl border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]">
                       {item.mediaType}
                     </div>
 
-                    <div className="absolute top-2.5 right-2.5 px-2 py-0.5 bg-black/60 text-[10px] font-extrabold text-white flex items-center gap-1 rounded-md backdrop-blur-md border border-white/[0.04]">
-                      <Star className="w-2.5 h-2.5 text-yellow-500 fill-current" />
+                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/40 text-[10px] font-bold text-white flex items-center gap-1 rounded-full backdrop-blur-2xl border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]">
+                      <Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
                       {displayRating ? displayRating.toFixed(1) : '—'}
                     </div>
 
-                    <div className="absolute bottom-2.5 right-2.5 w-5 h-5 rounded-md bg-emerald-500/90 flex items-center justify-center shadow-md backdrop-blur-sm border border-emerald-400/20 transition-transform duration-300 group-hover:scale-110">
-                      <Check className="w-3 h-3 text-zinc-950 stroke-[3.5]" />
+                    <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-gradient-to-b from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_4px_10px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] border border-emerald-300/40">
+                      <Check className="w-3 h-3 text-white stroke-[3]" />
                     </div>
                   </div>
 
-                  <div className="mt-3 px-1 flex-1 flex flex-col justify-between">
+                  <div className="mt-2.5 px-1 flex-1 flex flex-col justify-between">
                     <div>
-                      <h2 className="text-xs font-bold text-zinc-200 line-clamp-1 group-hover:text-red-400 transition-colors duration-300 tracking-tight">
+                      <h2 className="text-xs font-semibold text-zinc-100 line-clamp-1 group-hover:text-red-400 transition-colors tracking-tight">
                         {item.title || item.name}
                       </h2>
-                      <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-medium mt-1">
-                        <Calendar className="w-2.5 h-2.5 opacity-60" />
+                      <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-normal mt-0.5">
+                        <CalendarCheck className="w-3 h-3 opacity-70 text-green-500" />
                         <span>
                           {new Date(item.watchedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex gap-1 mt-2.5 overflow-hidden">
+                    <div className="flex gap-1 mt-2 overflow-hidden">
                       {item.genres.slice(0, 2).map(g => (
-                        <span key={g} className="text-[9px] font-semibold px-2 py-0.5 bg-white/[0.02] border border-white/[0.04] rounded text-zinc-400 truncate max-w-[80px]">
+                        <span key={g} className="text-[9px] font-medium px-2 py-0.5 bg-white/[0.08] border border-white/10 rounded-full text-zinc-300 truncate max-w-[75px] backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]">
                           {g}
                         </span>
                       ))}
                       {item.genres.length > 2 && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-zinc-900/60 border border-white/[0.02] rounded text-zinc-500 shrink-0">
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-white/[0.08] border border-white/10 rounded-full text-zinc-400 shrink-0 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)]">
                           +{item.genres.length - 2}
                         </span>
                       )}

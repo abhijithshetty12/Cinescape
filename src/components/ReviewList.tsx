@@ -2,23 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../firebase.ts';
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import {
-  Star,
-  Trash2,
-  Calendar,
-  MessageSquare,
-  Quote,
-  Edit3,
-  X,
-  Check,
-  Clapperboard,
-  Tv,
-  Loader2,
-  Film,
-  Share2,
-  Download,
-  Edit2
-} from 'lucide-react';
+import { Star, Trash2, LucideCalendarDays, MessageSquare, Quote, Edit3, X, Check, Clapperboard, Tv, Loader2, Film, Share2, Download, Edit2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as htmlToImage from 'html-to-image';
@@ -44,16 +28,12 @@ const ReviewList = ({
 }) => {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
-
   const [editingReview, setEditingReview] = useState<ReviewItem | null>(null);
   const [editContent, setEditContent] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
-
-  // Share / Story State
   const [shareReview, setShareReview] = useState<ReviewItem | null>(null);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
-
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
 
   useEffect(() => {
@@ -322,7 +302,7 @@ const ReviewList = ({
                         <div />
                       )}
                       <div className="flex items-center gap-1 text-zinc-500 text-[8px] sm:text-[9px] font-semibold shrink-0 uppercase tracking-widest bg-white/[0.02] border border-white/[0.04] px-1.5 py-0.5 rounded">
-                        <Calendar className="w-2.5 h-2.5 text-emerald-500/70" />
+                        <LucideCalendarDays className="w-2.5 h-2.5 text-emerald-500/70" />
                         <span>
                           {review.timestamp?.seconds
                             ? new Date(review.timestamp.seconds * 1000).toLocaleDateString(undefined, {
@@ -529,8 +509,8 @@ const ReviewList = ({
                       <div className="w-20 h-28 rounded-2xl overflow-hidden border border-white/25 shrink-0 shadow-xl bg-white/5 backdrop-blur-md">
                         <img
                           src={`https://image.tmdb.org/t/p/w342${shareReview.posterPath.startsWith('/')
-                              ? shareReview.posterPath
-                              : `/${shareReview.posterPath}`
+                            ? shareReview.posterPath
+                            : `/${shareReview.posterPath}`
                             }`}
                           alt={shareReview.title || ''}
                           className="w-full h-full object-cover"
@@ -578,7 +558,7 @@ const ReviewList = ({
                 </div>
                 <div className="relative z-10 flex items-center justify-between pt-4 border-t border-white/15 text-white/60 text-[10px] font-medium tracking-wider uppercase">
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3 h-3 text-emerald-500" />
+                    <LucideCalendarDays className="w-3 h-3 text-emerald-500" />
                     <span>
                       {shareReview.timestamp?.seconds
                         ? new Date(shareReview.timestamp.seconds * 1000).toLocaleDateString(undefined, {
