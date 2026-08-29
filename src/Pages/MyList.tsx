@@ -1,55 +1,9 @@
-import React, {
-    FormEvent,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-} from "react";
+import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import {
-    collection,
-    deleteDoc,
-    deleteField,
-    doc,
-    getDocs,
-    onSnapshot,
-    setDoc,
-    updateDoc,
-    writeBatch,
-} from "firebase/firestore";
-import {
-    ArrowLeft,
-    BarChart3,
-    Check,
-    ChevronDown,
-    ChevronRight,
-    ChevronUp,
-    Clapperboard,
-    Clock3,
-    Copy,
-    Download,
-    Edit3,
-    Film,
-    FolderPlus,
-    GripVertical,
-    Images,
-    ListPlus,
-    Loader2,
-    MoreHorizontal,
-    Pin,
-    PinOff,
-    Plus,
-    Search,
-    Share2,
-    Sparkles,
-    Star,
-    Trash2,
-    Tv,
-    X,
-} from "lucide-react";
-
+import { collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { ArrowLeft, BarChart3, Check, ChevronDown, ChevronRight, ChevronUp, Clapperboard, Clock3, Copy, Download, Edit3, Film, FolderPlus, GripVertical, Images, ListPlus, Loader2, MoreHorizontal, Pin, PinOff, Plus, Search, Share2, Sparkles, Star, Trash2, Tv, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.tsx";
 import { db } from "../firebase.ts";
 import Loading from "../components/Loading.tsx";
@@ -58,58 +12,12 @@ import Toast from "../components/Toast.tsx";
 type MediaType = "movie" | "tv";
 type CoverMode = "auto" | "single" | "collage" | "rotate";
 type SortMode = "default" | "rating" | "runtime" | "custom";
-interface ListItem {
-    id: number;
-    title: string;
-    type: MediaType;
-    poster: string | null;
-    backdrop: string | null;
-    releaseYear: string;
-    overview: string;
-    voteAverage: number;
-    runtimeMinutes?: number;
-    genres?: string[];
-    order?: number;
-}
-interface CustomFolder {
-    id: string;
-    name: string;
-    description: string;
-    items: ListItem[];
-    coverImage?: string | null;
-    coverMode?: CoverMode;
-    pinned?: boolean;
-    order?: number;
-    storageVersion?: number;
-}
-interface SearchResultItem {
-    id: number;
-    title?: string;
-    name?: string;
-    poster_path: string | null;
-    backdrop_path?: string | null;
-    release_date?: string;
-    first_air_date?: string;
-    overview: string;
-    vote_average: number;
-    media_type: MediaType;
-    runtimeMinutes?: number;
-    genres?: string[];
-}
-interface DetailsData {
-    poster: string | null;
-    backdrop: string | null;
-    runtimeMinutes: number;
-    genres: string[];
-}
-interface StatusState {
-    type: "success" | "error";
-    message: string;
-}
-interface UndoState {
-    message: string;
-    action: () => Promise<void>;
-}
+interface ListItem { id: number; title: string; type: MediaType; poster: string | null; backdrop: string | null; releaseYear: string; overview: string; voteAverage: number; runtimeMinutes?: number; genres?: string[]; order?: number; }
+interface CustomFolder { id: string; name: string; description: string; items: ListItem[]; coverImage?: string | null; coverMode?: CoverMode; pinned?: boolean; order?: number; storageVersion?: number; }
+interface SearchResultItem { id: number; title?: string; name?: string; poster_path: string | null; backdrop_path?: string | null; release_date?: string; first_air_date?: string; overview: string; vote_average: number; media_type: MediaType; runtimeMinutes?: number; genres?: string[]; }
+interface DetailsData { poster: string | null; backdrop: string | null; runtimeMinutes: number; genres: string[]; }
+interface StatusState { type: "success" | "error"; message: string; }
+interface UndoState { message: string; action: () => Promise<void>; }
 
 const API_KEY = "859afbb4b98e3b467da9c99ac390e950";
 const TMDB_BASE = "https://api.themoviedb.org/3", IMAGE_BASE = "https://image.tmdb.org/t/p";
@@ -377,6 +285,9 @@ const SuggestionRail = ({ title, subtitle, items, existing, onAdd, eyebrow = "Fo
                             <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
                             {item.vote_average?.toFixed(1) || "—"}
                         </span>
+                        <span className="absolute right-2 top-2 rounded-lg border border-white/10 bg-black/65 p-1.5">
+                            {item.media_type === "tv" ? <Tv className="h-3 w-3 text-cyan-300" /> : <Clapperboard className="h-3 w-3 text-red-500" />}
+                        </span>
                         <button disabled={added} onClick={() => onAdd(item)} className={`absolute bottom-2.5 right-2.5 z-10 flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-xs font-black transition ${added ? "bg-emerald-400 text-black" : "bg-gradient-to-br from-amber-300 to-orange-500 text-black hover:scale-110"}`}>
                             {added ? <>
                                 <Check className="h-4 w-4" />
@@ -388,10 +299,6 @@ const SuggestionRail = ({ title, subtitle, items, existing, onAdd, eyebrow = "Fo
                                 {name}
                             </p>
                             <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[9px] uppercase tracking-wider text-zinc-400">
-                                <span>
-                                    {item.media_type === "tv" ? "Series" : "Movie"}
-                                </span>
-                                <span>·</span>
                                 <span>
                                     {yearOf(item.release_date || item.first_air_date)}
                                 </span>
@@ -1032,68 +939,66 @@ const MyList: React.FC = () => {
                 })}
             </div>}
         </main> :
-            <main className="mx-auto max-w-6xl px-4 py-4 sm:py-8">
+            <main className="mx-auto max-w-6xl px-3 py-3 sm:px-4 sm:py-8">
                 {activeFolder && <>
-                    <div className="relative -mx-4 min-h-[330px] overflow-hidden border-y border-white/10 sm:mx-0 sm:min-h-[390px] sm:rounded-3xl sm:border">
+                    <div className="relative -mx-3 min-h-[280px] overflow-hidden border-y border-white/10 sm:mx-0 sm:min-h-[390px] sm:rounded-3xl sm:border">
                         <CollectionCover folder={activeFolder} hero className="absolute inset-0" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/15 to-transparent" />
-                        <div className="absolute left-4 right-4 top-4 z-20 flex items-center justify-between">
-                            <button onClick={closeFolder} className="rounded-full border border-white/20 bg-black/35 p-3 backdrop-blur-xl hover:bg-black/60">
-                                <ArrowLeft className="h-5 w-5" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent sm:bg-gradient-to-r sm:from-black/70 sm:via-black/15 sm:to-transparent" />
+                        <div className="absolute left-3 right-3 top-3 z-20 flex items-center justify-between sm:left-4 sm:right-4 sm:top-4">
+                            <button onClick={closeFolder} className="rounded-full border border-white/20 bg-black/40 p-2.5 backdrop-blur-xl active:scale-95 sm:p-3 sm:hover:bg-black/60">
+                                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                             </button>
-                            <button onClick={() => openEdit(activeFolder)} className="rounded-full border border-white/20 bg-black/35 p-3 backdrop-blur-xl hover:bg-amber-400 hover:text-black">
-                                <Edit3 className="h-5 w-5" />
+                            <button onClick={() => openEdit(activeFolder)} className="rounded-full border border-white/20 bg-black/40 p-2.5 backdrop-blur-xl active:scale-95 sm:p-3 sm:hover:bg-amber-400 sm:hover:text-black">
+                                <Edit3 className="h-4 w-4 sm:h-5 sm:w-5" />
                             </button>
                         </div>
-                        <div className="relative z-10 flex min-h-[330px] items-end p-5 sm:min-h-[390px] sm:p-8">
+                        <div className="relative z-10 flex min-h-[280px] items-end p-4 sm:min-h-[390px] sm:p-8">
                             <div className="w-full max-w-3xl">
-                                <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-amber-300">
-                                    <Sparkles className="h-3.5 w-3.5" />Personal collection</div>
-                                <h1 className="text-3xl font-black tracking-tight sm:text-5xl">
+                                <h1 className="text-2xl font-black tracking-tight sm:text-5xl">
                                     {activeFolder.name}
                                 </h1>
-                                <p className="mt-2 max-w-xl text-sm text-zinc-300">
+                                <p className="mt-1 line-clamp-2 max-w-xl text-xs text-zinc-300 sm:mt-2 sm:line-clamp-none sm:text-sm">
                                     {activeFolder.description || "A personal collection of films and series."}
                                 </p>
-                                <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold">
-                                    <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5">
+                                <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-bold sm:mt-4 sm:gap-2">
+                                    <span className="rounded-full border border-white/10 bg-black/50 px-2.5 py-1 backdrop-blur-md sm:py-1.5">
                                         {activeStats.movies} Movies</span>
-                                    <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5">
+                                    <span className="rounded-full border border-white/10 bg-black/50 px-2.5 py-1 backdrop-blur-md sm:py-1.5">
                                         {activeStats.series} Series</span>
-                                    <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5">
+                                    <span className="rounded-full border border-white/10 bg-black/50 px-2.5 py-1 backdrop-blur-md sm:py-1.5">
                                         {formatRuntime(activeStats.totalRuntime)}
                                     </span>
-                                    <span className="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5 text-amber-300">
+                                    <span className="flex items-center gap-1 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-amber-300 backdrop-blur-md sm:py-1.5">
                                         <Star className="h-3 w-3 fill-amber-300" />
                                         {activeStats.average ? activeStats.average.toFixed(1) : "—"}
                                     </span>
-                                    <button onClick={() => setShowInsights(v => !v)} className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1.5 text-amber-300">
+                                    <button onClick={() => setShowInsights(v => !v)} className="flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-amber-300 active:scale-95 sm:py-1.5">
                                         <BarChart3 className="h-3 w-3" />Insights {showInsights ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                                     </button>
                                 </div>
                                 <AnimatePresence>
-                                    {showInsights && <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-4 grid max-w-2xl grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-3 text-xs backdrop-blur-xl sm:grid-cols-4">
+                                    {showInsights && <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-3 grid max-w-2xl grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/50 p-3 text-xs backdrop-blur-xl sm:mt-4 sm:grid-cols-4">
                                         <div>
                                             <p className="text-zinc-500">Top genre</p>
-                                            <p className="mt-1 font-bold">
+                                            <p className="mt-0.5 font-bold sm:mt-1">
                                                 {activeStats.topGenre}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-zinc-500">Average rating</p>
-                                            <p className="mt-1 font-bold">
+                                            <p className="mt-0.5 font-bold sm:mt-1">
                                                 {activeStats.average ? activeStats.average.toFixed(1) : "—"}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-zinc-500">Release span</p>
-                                            <p className="mt-1 font-bold">
+                                            <p className="mt-0.5 font-bold sm:mt-1">
                                                 {activeStats.oldest && activeStats.newest ? `${activeStats.oldest}–${activeStats.newest}` : "—"}
                                             </p>
                                         </div>
                                         <div>
                                             <p className="text-zinc-500">Total watch time</p>
-                                            <p className="mt-1 font-bold">
+                                            <p className="mt-0.5 font-bold sm:mt-1">
                                                 {formatRuntime(activeStats.totalRuntime)}
                                             </p>
                                         </div>
@@ -1102,68 +1007,68 @@ const MyList: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                        <button onClick={() => setIsAddOpen(true)} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 px-5 py-3 text-sm font-black text-black shadow-[0_8px_30px_rgba(245,158,11,.18)] sm:w-auto">
+                    <div className="mt-4 flex flex-col gap-2.5 sm:mt-5 sm:flex-row sm:gap-3">
+                        <button onClick={() => setIsAddOpen(true)} className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-4 py-2.5 text-xs font-black text-black shadow-[0_8px_30px_rgba(245,158,11,.18)] active:scale-[0.98] sm:rounded-2xl sm:px-5 sm:py-3 sm:text-sm sm:w-auto">
                             <Plus className="h-4 w-4" />Add titles</button>
                         <div className="relative flex-1">
                             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search this list..." className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm outline-none placeholder:text-zinc-600 focus:border-amber-400/60" />
+                            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search this list..." className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-xs outline-none placeholder:text-zinc-600 focus:border-amber-400/60 sm:rounded-2xl sm:py-3 sm:text-sm" />
                         </div>
                     </div>
-                    <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                        <div className="flex shrink-0 rounded-2xl border border-white/10 bg-white/5 p-1">
-                            {[["all", "All"], ["movie", "Movies"], ["tv", "Series"]].map(([v, l]) => <button key={v} onClick={() => setFilterType(v as any)} className={`rounded-xl px-4 py-2 text-xs font-bold transition ${filterType === v ? "bg-amber-400 text-black" : "text-zinc-400 hover:text-white"}`}>
+                    <div className="-mx-3 mt-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
+                        <div className="flex shrink-0 rounded-xl border border-white/10 bg-white/5 p-1 sm:rounded-2xl">
+                            {[["all", "All"], ["movie", "Movies"], ["tv", "Series"]].map(([v, l]) => <button key={v} onClick={() => setFilterType(v as any)} className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition sm:rounded-xl sm:px-4 sm:py-2 sm:text-xs ${filterType === v ? "bg-amber-400 text-black" : "text-zinc-400 hover:text-white"}`}>
                                 {l}
                             </button>)}
                         </div>
                         <div className="flex shrink-0 gap-1.5">
-                            {["all", ...availableGenres.slice(0, 8)].map(g => <button key={g} onClick={() => setGenreFilter(g)} className={`rounded-full border px-3 py-2 text-[11px] font-bold whitespace-nowrap ${genreFilter === g ? "border-amber-400 bg-amber-400 text-black" : "border-white/10 bg-white/5 text-zinc-400"}`}>
+                            {["all", ...availableGenres.slice(0, 8)].map(g => <button key={g} onClick={() => setGenreFilter(g)} className={`rounded-full border px-3 py-1.5 text-[10px] font-bold whitespace-nowrap sm:py-2 sm:text-[11px] ${genreFilter === g ? "border-amber-400 bg-amber-400 text-black" : "border-white/10 bg-white/5 text-zinc-400"}`}>
                                 {g === "all" ? "All genres" : g}
                             </button>)}
                         </div>
-                        {availableGenres.length > 8 && <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)} className="shrink-0 rounded-xl border border-white/10 bg-zinc-950 px-3 py-2 text-xs text-zinc-300">
+                        {availableGenres.length > 8 && <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)} className="shrink-0 rounded-xl border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-[11px] text-zinc-300 sm:px-3 sm:py-2 sm:text-xs">
                             <option value="all">More genres</option>
                             {availableGenres.map(g => <option key={g}>
                                 {g}
                             </option>)}
                         </select>}
-                        <select value={sortBy} onChange={e => setSortBy(e.target.value as SortMode)} className="ml-auto shrink-0 rounded-xl border border-white/10 bg-zinc-950 px-3 py-2 text-xs font-semibold text-zinc-300">
+                        <select value={sortBy} onChange={e => setSortBy(e.target.value as SortMode)} className="ml-auto shrink-0 rounded-xl border border-white/10 bg-zinc-950 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-300 sm:px-3 sm:py-2 sm:text-xs">
                             <option value="default">Recently added</option>
                             <option value="rating">Highest rating</option>
                             <option value="runtime">Longest runtime</option>
                             <option value="custom">Custom order</option>
                         </select>
                     </div>
-                    {activeFilterCount > 0 && <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {filterType !== "all" && <button onClick={() => setFilterType("all")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300">
-                            {filterType === "movie" ? "Movies" : "Series"} ×</button>}{genreFilter !== "all" && <button onClick={() => setGenreFilter("all")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300">
-                                {genreFilter} ×</button>}{sortBy !== "default" && <button onClick={() => setSortBy("default")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300">
-                                    {sortBy === "rating" ? "Highest rated" : sortBy === "runtime" ? "Longest runtime" : "Custom order"} ×</button>}{searchQuery && <button onClick={() => setSearchQuery("")} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold text-zinc-300">Search ×</button>}
+                    {activeFilterCount > 0 && <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:mt-3 sm:gap-2">
+                        {filterType !== "all" && <button onClick={() => setFilterType("all")} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-zinc-300 sm:px-3 sm:py-1.5">
+                            {filterType === "movie" ? "Movies" : "Series"} ×</button>}{genreFilter !== "all" && <button onClick={() => setGenreFilter("all")} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-zinc-300 sm:px-3 sm:py-1.5">
+                                {genreFilter} ×</button>}{sortBy !== "default" && <button onClick={() => setSortBy("default")} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-zinc-300 sm:px-3 sm:py-1.5">
+                                    {sortBy === "rating" ? "Highest rated" : sortBy === "runtime" ? "Longest runtime" : "Custom order"} ×</button>}{searchQuery && <button onClick={() => setSearchQuery("")} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-zinc-300 sm:px-3 sm:py-1.5">Search ×</button>}
                         <button onClick={clearFilters} className="text-[10px] font-black text-amber-400">Clear all</button>
                     </div>}
-                    {sortBy === "custom" && !canReorder && <p className="mt-3 text-[10px] text-zinc-500">Clear search and filters to drag titles into a custom order.</p>}
-                    {filteredItems.length ? <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5">
+                    {sortBy === "custom" && !canReorder && <p className="mt-2 text-[10px] text-zinc-500 sm:mt-3">Clear search and filters to drag titles into a custom order.</p>}
+                    {filteredItems.length ? <div className="mt-4 grid grid-cols-2 gap-x-2.5 gap-y-4 sm:mt-6 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5">
                         {filteredItems.map((item, index) => <motion.article draggable={canReorder} onDragStart={() => setDraggedItemKey(itemKey(item))} onDragOver={e => canReorder && e.preventDefault()} onDrop={() => moveItem(item)} key={itemKey(item)} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -4 }} className={`group min-w-0 ${canReorder ? "cursor-grab active:cursor-grabbing" : ""}`}>
-                            <div onClick={() => navigate(`/${item.type}/${item.id}`)} className="relative aspect-[2/3] cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-lg transition group-hover:border-amber-400/50">
+                            <div onClick={() => navigate(`/${item.type}/${item.id}`)} className="relative aspect-[2/3] cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-md transition group-hover:border-amber-400/50 sm:rounded-2xl sm:shadow-lg">
                                 <SmartImage src={imageSource(item.poster, "w780")} alt={item.title} className="absolute inset-0" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-70" />
-                                {sortBy === "custom" && <span className="absolute left-2 top-2 flex items-center gap-1 rounded-lg border border-white/10 bg-black/65 px-2 py-1 text-[10px] font-black">
-                                    <GripVertical className="h-3 w-3 text-zinc-400" />#{index + 1}
-                                </span>}{sortBy !== "custom" && <span className="absolute left-2 top-2 flex items-center gap-1 rounded-lg border border-white/10 bg-black/65 px-2 py-1 text-[10px] font-black text-amber-300">
-                                    <Star className="h-3 w-3 fill-amber-300" />
+                                {sortBy === "custom" && <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-md border border-white/10 bg-black/65 px-1.5 py-0.5 text-[9px] font-black sm:left-2 sm:top-2 sm:gap-1 sm:rounded-lg sm:px-2 sm:py-1 sm:text-[10px]">
+                                    <GripVertical className="h-2.5 w-2.5 text-zinc-400 sm:h-3 sm:w-3" />#{index + 1}
+                                </span>}{sortBy !== "custom" && <span className="absolute left-1.5 top-1.5 flex items-center gap-0.5 rounded-md border border-white/10 bg-black/65 px-1.5 py-0.5 text-[9px] font-black text-amber-300 sm:left-2 sm:top-2 sm:gap-1 sm:rounded-lg sm:px-2 sm:py-1 sm:text-[10px]">
+                                    <Star className="h-2.5 w-2.5 fill-amber-300 sm:h-3 sm:w-3" />
                                     {item.voteAverage?.toFixed(1) || "—"}
                                 </span>}
-                                <span className="absolute right-2 top-2 rounded-lg border border-white/10 bg-black/65 p-1.5">
-                                    {item.type === "tv" ? <Tv className="h-3 w-3 text-cyan-300" /> : <Clapperboard className="h-3 w-3 text-red-500" />}
+                                <span className="absolute right-1.5 top-1.5 rounded-md border border-white/10 bg-black/65 p-1 sm:right-2 sm:top-2 sm:rounded-lg sm:p-1.5">
+                                    {item.type === "tv" ? <Tv className="h-2.5 w-2.5 text-cyan-300 sm:h-3 sm:w-3" /> : <Clapperboard className="h-2.5 w-2.5 text-red-500 sm:h-3 sm:w-3" />}
                                 </span>
-                                <button onClick={e => removeItem(e, item)} className="absolute bottom-2 right-2 rounded-full border border-white/15 bg-black/70 p-2 text-white opacity-100 transition hover:bg-red-500 sm:opacity-0 sm:group-hover:opacity-100">
-                                    <X className="h-3.5 w-3.5" />
+                                <button onClick={e => removeItem(e, item)} className="absolute bottom-1.5 right-1.5 rounded-full border border-white/15 bg-black/70 p-1.5 text-white active:bg-red-500 sm:bottom-2 sm:right-2 sm:p-2 sm:opacity-0 sm:group-hover:opacity-100">
+                                    <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                                 </button>
                             </div>
-                            <h2 className="mt-2 line-clamp-2 text-sm font-bold text-zinc-200 transition group-hover:text-amber-300">
+                            <h2 className="mt-1.5 line-clamp-1 text-xs font-bold text-zinc-200 transition group-hover:text-amber-300 sm:mt-2 sm:line-clamp-2 sm:text-sm">
                                 {item.title}
                             </h2>
-                            <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-500">
+                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-500 sm:mt-1 sm:gap-2">
                                 <span>
                                     {yearOf(item.releaseYear)}
                                 </span>
@@ -1175,15 +1080,15 @@ const MyList: React.FC = () => {
                                 </> : null}
                             </div>
                         </motion.article>)}
-                    </div> : !activeFolder.items.length ? <div className="mt-6 rounded-[28px] border border-white/[.09] bg-gradient-to-b from-zinc-950 to-black p-5 sm:p-7">
+                    </div> : !activeFolder.items.length ? <div className="mt-4 rounded-2xl border border-white/[.09] bg-gradient-to-b from-zinc-950 to-black p-4 sm:mt-6 sm:rounded-[28px] sm:p-7">
                         {suggestionsLoading ? (
-                            <div className="flex h-56 flex-col items-center justify-center gap-3">
-                                <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                            <div className="flex h-44 flex-col items-center justify-center gap-2.5 sm:h-56 sm:gap-3">
+                                <Loader2 className="h-5 w-5 animate-spin text-amber-400 sm:h-6 sm:w-6" />
                                 <span className="text-xs text-zinc-500">Finding movies and series…</span>
                             </div>
                         ) : suggestions.length ? (
                             <>
-                                <div className="my-6 border-t border-white/10" />
+                                <div className="my-4 border-t border-white/10 sm:my-6" />
                                 <SuggestionRail
                                     eyebrow="Discover something"
                                     title="Popular movies & series"
@@ -1194,22 +1099,22 @@ const MyList: React.FC = () => {
                                 />
                             </>
                         ) : (
-                            <div className="flex h-52 flex-col items-center justify-center text-center">
-                                <Film className="mb-3 h-8 w-8 text-zinc-700" />
-                                <h3 className="text-sm font-bold text-zinc-300">Couldn’t load recommendations</h3>
-                                <p className="mt-1 text-xs text-zinc-600">Use Add titles above to search directly.</p>
+                            <div className="flex h-44 flex-col items-center justify-center text-center sm:h-52">
+                                <Film className="mb-2 h-7 w-7 text-zinc-700 sm:mb-3 sm:h-8 sm:w-8" />
+                                <h3 className="text-xs font-bold text-zinc-300 sm:text-sm">Couldn’t load recommendations</h3>
+                                <p className="mt-1 text-[11px] text-zinc-600 sm:text-xs">Use Add titles above to search directly.</p>
                             </div>
                         )}
                     </div> : (
-                        <div className="mt-6 rounded-3xl border border-white/10 bg-white/[.025] px-6 py-16 text-center">
-                            <Search className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
-                            <h2 className="font-bold text-zinc-300">No matches found</h2>
-                            <p className="mt-1 text-xs text-zinc-600">Try changing your search or filters.</p>
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[.025] px-4 py-12 text-center sm:mt-6 sm:rounded-3xl sm:px-6 sm:py-16">
+                            <Search className="mx-auto mb-2 h-7 w-7 text-zinc-700 sm:mb-3 sm:h-8 sm:w-8" />
+                            <h2 className="text-xs font-bold text-zinc-300 sm:text-base">No matches found</h2>
+                            <p className="mt-1 text-[11px] text-zinc-600 sm:text-xs">Try changing your search or filters.</p>
                         </div>
                     )}
                     {!!activeFolder.items.length && (
                         <>
-                            <div className="my-6 border-t border-white/10" />
+                            <div className="my-4 border-t border-white/10 sm:my-6" />
                             <SuggestionRail
                                 title="You might also add"
                                 subtitle={`Recommendations shaped by ${activeStats.topGenre.toLowerCase()} and titles already in this list.`}
@@ -1247,56 +1152,160 @@ const MyList: React.FC = () => {
         </AnimatePresence>
 
         <AnimatePresence>
-            {isAddOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[300] flex items-start justify-center bg-black/75 p-3 pt-[8vh] backdrop-blur-md" onMouseDown={() => setIsAddOpen(false)}>
-                <motion.div initial={{ opacity: 0, y: 18, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12 }} onMouseDown={e => e.stopPropagation()} className="w-full max-w-2xl overflow-hidden rounded-3xl border border-white/15 bg-zinc-950 shadow-2xl">
-                    <div className="flex items-center gap-3 border-b border-white/10 p-4">
-                        <Search className="h-5 w-5 text-zinc-500" />
-                        <input ref={addInputRef} value={inputQuery} onKeyDown={handleSearchKeys} onChange={e => setInputQuery(e.target.value)} placeholder="Search movies or series..." className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-600" />
-                        {isSearching ? <Loader2 className="h-4 w-4 animate-spin text-amber-400" /> : <button onClick={() => setIsAddOpen(false)} className="rounded-full p-1 text-zinc-500 hover:text-white">
-                            <X className="h-4 w-4" />
-                        </button>}
-                    </div>
-                    <div className="max-h-[65vh] overflow-y-auto p-2">
-                        {searchResults.map((r, index) => {
-                            const name = r.title || r.name || "Untitled", added = existingKeys.has(itemKey({ id: r.id, type: r.media_type }));
-                            return <button key={itemKey({ id: r.id, type: r.media_type })} onMouseEnter={() => setSelectedResult(index)} onClick={() => !added && addItem(r)} className={`flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition ${selectedResult === index ? "bg-white/10" : "hover:bg-white/5"}`}>
-                                <SmartImage src={posterUrl(r.poster_path, "w154")} alt={name} className="h-16 w-11 shrink-0 rounded-xl" />
-                                <div className="min-w-0 flex-1">
-                                    <h4 className="truncate text-sm font-bold">
-                                        {name}
-                                    </h4>
-                                    <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[10px] text-zinc-500">
-                                        <span>
-                                            {yearOf(r.release_date || r.first_air_date)}
-                                        </span>
-                                        <span>·</span>
-                                        <span>
-                                            {r.media_type === "tv" ? "Series" : "Movie"}
-                                        </span>
-                                        <span>·</span>
-                                        <span>
-                                            <Clock3 className="mr-1 inline h-3 w-3" />
-                                            <RuntimeText id={r.id} type={r.media_type} initial={r.runtimeMinutes || 0} />
-                                        </span>
-                                        <span>·</span>
-                                        <span>★ {r.vote_average?.toFixed(1) || "—"}
-                                        </span>
+            {isAddOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[300] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md sm:items-start sm:p-4 sm:pt-[8vh]"
+                    onMouseDown={() => setIsAddOpen(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, y: "100%", scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: "100%" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[2rem] border-t border-white/15 bg-zinc-950 shadow-2xl sm:max-h-[75vh] sm:max-w-2xl sm:rounded-3xl sm:border"
+                    >
+                        <div className="mx-auto mt-2.5 h-1.5 w-12 shrink-0 rounded-full bg-white/20 sm:hidden" />
+
+                        <div className="flex shrink-0 items-center gap-2.5 border-b border-white/10 p-3.5 sm:gap-3 sm:p-4">
+                            <Search className="h-5 w-5 shrink-0 text-zinc-500" />
+                            <input
+                                ref={addInputRef}
+                                value={inputQuery}
+                                onKeyDown={handleSearchKeys}
+                                onChange={(e) => setInputQuery(e.target.value)}
+                                placeholder="Search movies or series..."
+                                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
+                            />
+                            {isSearching ? (
+                                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-400" />
+                            ) : (
+                                inputQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setInputQuery("")}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-zinc-400 transition hover:bg-white/20 hover:text-white active:scale-95"
+                                        aria-label="Clear search"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setIsAddOpen(false)}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition hover:bg-white/10 hover:text-white active:scale-95"
+                                aria-label="Close modal"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-2 sm:p-3">
+                            {searchResults.map((r, index) => {
+                                const name = r.title || r.name || "Untitled";
+                                const itemType = r.media_type;
+                                const added = existingKeys.has(itemKey({ id: r.id, type: itemType }));
+
+                                return (
+                                    <div
+                                        key={itemKey({ id: r.id, type: itemType })}
+                                        onMouseEnter={() => setSelectedResult(index)}
+                                        onClick={() => {
+                                            setIsAddOpen(false);
+                                            navigate(`/${itemType}/${r.id}`);
+                                        }}
+                                        className={`group flex w-full cursor-pointer items-center gap-3 rounded-2xl p-2 sm:p-2.5 text-left transition ${selectedResult === index ? "bg-white/10" : "hover:bg-white/5"
+                                            }`}
+                                    >
+                                        <div className="relative aspect-[2/3] h-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
+                                            <SmartImage
+                                                src={posterUrl(r.poster_path, "w154")}
+                                                alt={name}
+                                                className="h-full w-full object-cover"
+                                            />
+                                            <span className="absolute right-1 top-1 rounded-md border border-white/10 bg-black/65 p-1 backdrop-blur-md">
+                                                {itemType === "tv" ? (
+                                                    <Tv className="h-2.5 w-2.5 text-cyan-300" />
+                                                ) : (
+                                                    <Clapperboard className="h-2.5 w-2.5 text-red-500" />
+                                                )}
+                                            </span>
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="truncate text-sm font-bold text-white transition group-hover:text-amber-400">
+                                                {name}
+                                            </h4>
+                                            <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[10px] text-zinc-400">
+                                                <span>{yearOf(r.release_date || r.first_air_date)}</span>
+                                                <span>·</span>
+                                                <span className="flex items-center">
+                                                    <Clock3 className="mr-1 inline h-3 w-3 text-blue-500" />
+                                                    <RuntimeText
+                                                        id={r.id}
+                                                        type={itemType}
+                                                        initial={r.runtimeMinutes || 0}
+                                                    />
+                                                </span>
+                                                <span>·</span>
+                                                <span className="flex items-center gap-0.5 text-amber-300 font-semibold">
+                                                    <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+                                                    {r.vote_average?.toFixed(1) || "—"}
+                                                </span>
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            disabled={added}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!added) addItem(r);
+                                            }}
+                                            className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-[10px] font-black transition active:scale-95 ${added
+                                                ? "bg-emerald-400/15 text-emerald-300"
+                                                : "bg-amber-400 text-black hover:bg-amber-300"
+                                                }`}
+                                        >
+                                            {added ? (
+                                                <>
+                                                    <Check className="h-3.5 w-3.5" />
+                                                    <span>Added</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Plus className="h-3.5 w-3.5" />
+                                                    <span>Add</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+
+                            {!isSearching && inputQuery && searchResults.length === 0 && (
+                                <div className="py-14 text-center text-sm text-zinc-500">
+                                    No titles found.
+                                </div>
+                            )}
+
+                            {!inputQuery && (
+                                <div className="py-14 text-center">
+                                    <Sparkles className="mx-auto mb-3 h-7 w-7 text-amber-400" />
+                                    <p className="text-sm font-bold text-white">Add something great</p>
+                                    <p className="mt-1 text-xs text-zinc-500">
+                                        Use ↑ ↓ Enter on desktop for faster adding.
                                     </p>
                                 </div>
-                                <span className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-[10px] font-black ${added ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400 text-black"}`}>
-                                    {added ? <>
-                                        <Check className="h-3.5 w-3.5" />Added</> : <>
-                                        <Plus className="h-3.5 w-3.5" />Add</>}
-                                </span>
-                            </button>;
-                        })}{!isSearching && inputQuery && searchResults.length === 0 && <div className="py-14 text-center text-sm text-zinc-500">No titles found.</div>}{!inputQuery && <div className="py-14 text-center">
-                            <Sparkles className="mx-auto mb-3 h-7 w-7 text-amber-400" />
-                            <p className="text-sm font-bold">Add something great</p>
-                            <p className="mt-1 text-xs text-zinc-500">Use ↑ ↓ Enter on desktop for faster adding.</p>
-                        </div>}
-                    </div>
+                            )}
+                        </div>
+                    </motion.div>
                 </motion.div>
-            </motion.div>}
+            )}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -1315,16 +1324,16 @@ const MyList: React.FC = () => {
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
                         onSubmit={saveFolderDetails}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="flex max-h-[90vh] w-full flex-col rounded-t-[2rem] border-t border-white/20 bg-zinc-950/95 p-5 shadow-2xl sm:max-h-[85vh] sm:max-w-xl sm:rounded-3xl sm:border sm:p-7"
+                        className="flex max-h-[85vh] w-full flex-col rounded-t-[2rem] border-t border-white/20 bg-zinc-950/95 p-4 shadow-2xl pb-[calc(1rem+env(safe-area-inset-bottom))] sm:max-h-[85vh] sm:max-w-xl sm:rounded-3xl sm:border sm:p-7 sm:pb-7"
                     >
                         <div className="mx-auto mb-3 h-1.5 w-12 shrink-0 rounded-full bg-white/20 sm:hidden" />
 
-                        <div className="mb-4 flex items-center justify-between shrink-0">
+                        <div className="mb-3 flex items-center justify-between shrink-0 sm:mb-4">
                             <div>
                                 <p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-400">
                                     Collection settings
                                 </p>
-                                <h2 className="mt-0.5 text-xl font-black text-white">Edit list</h2>
+                                <h2 className="mt-0.5 text-lg font-black text-white sm:text-xl">Edit list</h2>
                             </div>
                             <button
                                 type="button"
@@ -1335,14 +1344,14 @@ const MyList: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="space-y-5 overflow-y-auto pr-1">
+                        <div className="flex-1 space-y-4 overflow-y-auto pr-1 sm:space-y-5">
                             <label className="block">
                                 <span className="text-xs font-bold text-zinc-400">List name</span>
                                 <input
                                     required
                                     value={editName}
                                     onChange={(e) => setEditName(e.target.value)}
-                                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-amber-400/60 focus:bg-white/10"
+                                    className="mt-1.5 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-amber-400/60 focus:bg-white/10 sm:mt-2 sm:py-3"
                                 />
                             </label>
 
@@ -1351,14 +1360,14 @@ const MyList: React.FC = () => {
                                 <textarea
                                     value={editDescription}
                                     onChange={(e) => setEditDescription(e.target.value)}
-                                    rows={3}
-                                    className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-amber-400/60 focus:bg-white/10"
+                                    rows={2}
+                                    className="mt-1.5 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-amber-400/60 focus:bg-white/10 sm:mt-2 sm:rows-3 sm:py-3"
                                 />
                             </label>
 
                             <div>
                                 <span className="text-xs font-bold text-zinc-400">Cover mode</span>
-                                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                <div className="mt-1.5 grid grid-cols-2 gap-2 sm:mt-2 sm:grid-cols-4">
                                     {[
                                         ["auto", Sparkles, "Auto"],
                                         ["single", Film, "Single"],
@@ -1369,7 +1378,7 @@ const MyList: React.FC = () => {
                                             type="button"
                                             key={value}
                                             onClick={() => setEditCoverMode(value)}
-                                            className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-3 text-xs font-bold transition active:scale-95 ${editCoverMode === value
+                                            className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 px-3 text-xs font-bold transition active:scale-95 sm:py-3 ${editCoverMode === value
                                                 ? "border-amber-400 bg-amber-400 text-black shadow-lg shadow-amber-400/20"
                                                 : "border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
                                                 }`}
@@ -1389,10 +1398,10 @@ const MyList: React.FC = () => {
                             />
                         </div>
 
-                        <div className="mt-5 pt-3 shrink-0 border-t border-white/10">
+                        <div className="mt-3 shrink-0 border-t border-white/10 pt-3 sm:mt-5 sm:pt-3">
                             <button
                                 type="submit"
-                                className="w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-4 text-sm font-black text-black shadow-lg shadow-amber-500/20 transition active:scale-[0.98] hover:brightness-110"
+                                className="w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-3.5 text-sm font-black text-black shadow-lg shadow-amber-500/20 transition active:scale-[0.98] hover:brightness-110 sm:py-4"
                             >
                                 Save list changes
                             </button>
