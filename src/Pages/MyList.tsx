@@ -449,8 +449,8 @@ const PreferredBackdropPicker = ({
                         type="button"
                         onClick={() => onChange(null)}
                         className={`relative aspect-video rounded-xl border bg-zinc-900 ${value === null
-                                ? "border-amber-400 ring-2 ring-amber-400/30"
-                                : "border-white/10"
+                            ? "border-amber-400 ring-2 ring-amber-400/30"
+                            : "border-white/10"
                             }`}
                     >
                         <div className="flex h-full flex-col items-center justify-center gap-1 text-zinc-500">
@@ -471,8 +471,8 @@ const PreferredBackdropPicker = ({
                             key={itemKey(item)}
                             onClick={() => onChange(item.backdrop)}
                             className={`relative aspect-video overflow-hidden rounded-xl border ${value === item.backdrop
-                                    ? "border-amber-400 ring-2 ring-amber-400/30"
-                                    : "border-white/10"
+                                ? "border-amber-400 ring-2 ring-amber-400/30"
+                                : "border-white/10"
                                 }`}
                         >
                             <SmartImage
@@ -1176,31 +1176,74 @@ const MyList: React.FC = () => {
                             </div>
                         </motion.article>)}
                     </div> : !activeFolder.items.length ? <div className="mt-6 rounded-[28px] border border-white/[.09] bg-gradient-to-b from-zinc-950 to-black p-5 sm:p-7">
-                        {suggestionsLoading ? <div className="flex h-56 flex-col items-center justify-center gap-3">
-                            <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
-                            <span className="text-xs text-zinc-500">Finding movies and series…</span>
-                        </div> : suggestions.length ? <SuggestionRail eyebrow="Discover something" title="Popular movies & series" subtitle="Scroll through fresh picks and add any title in one tap." items={suggestions} existing={existingKeys} onAdd={addItem} /> : <div className="flex h-52 flex-col items-center justify-center text-center">
-                            <Film className="mb-3 h-8 w-8 text-zinc-700" />
-                            <h3 className="text-sm font-bold text-zinc-300">Couldn’t load recommendations</h3>
-                            <p className="mt-1 text-xs text-zinc-600">Use Add titles above to search directly.</p>
-                        </div>}
-                    </div> : <div className="mt-6 rounded-3xl border border-white/10 bg-white/[.025] px-6 py-16 text-center">
-                        <Search className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
-                        <h2 className="font-bold text-zinc-300">No matches found</h2>
-                        <p className="mt-1 text-xs text-zinc-600">Try changing your search or filters.</p>
-                    </div>}
-                    {!!activeFolder.items.length && <SuggestionRail title="You might also add" subtitle={`Recommendations shaped by ${activeStats.topGenre.toLowerCase()} and titles already in this list.`} items={contextSuggestions} existing={existingKeys} onAdd={addItem} />}
-                </>}
-            </main>}
-
+                        {suggestionsLoading ? (
+                            <div className="flex h-56 flex-col items-center justify-center gap-3">
+                                <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                                <span className="text-xs text-zinc-500">Finding movies and series…</span>
+                            </div>
+                        ) : suggestions.length ? (
+                            <>
+                                <div className="my-6 border-t border-white/10" />
+                                <SuggestionRail
+                                    eyebrow="Discover something"
+                                    title="Popular movies & series"
+                                    subtitle="Scroll through fresh picks and add any title in one tap."
+                                    items={suggestions}
+                                    existing={existingKeys}
+                                    onAdd={addItem}
+                                />
+                            </>
+                        ) : (
+                            <div className="flex h-52 flex-col items-center justify-center text-center">
+                                <Film className="mb-3 h-8 w-8 text-zinc-700" />
+                                <h3 className="text-sm font-bold text-zinc-300">Couldn’t load recommendations</h3>
+                                <p className="mt-1 text-xs text-zinc-600">Use Add titles above to search directly.</p>
+                            </div>
+                        )}
+                    </div> : (
+                        <div className="mt-6 rounded-3xl border border-white/10 bg-white/[.025] px-6 py-16 text-center">
+                            <Search className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
+                            <h2 className="font-bold text-zinc-300">No matches found</h2>
+                            <p className="mt-1 text-xs text-zinc-600">Try changing your search or filters.</p>
+                        </div>
+                    )}
+                    {!!activeFolder.items.length && (
+                        <>
+                            <div className="my-6 border-t border-white/10" />
+                            <SuggestionRail
+                                title="You might also add"
+                                subtitle={`Recommendations shaped by ${activeStats.topGenre.toLowerCase()} and titles already in this list.`}
+                                items={contextSuggestions}
+                                existing={existingKeys}
+                                onAdd={addItem}
+                            />
+                        </>
+                    )}
+                </>
+                }
+            </main>
+        }
         <Toast message={status?.message || ""} type={status?.type || "success"} isVisible={Boolean(status)} onClose={() => setStatus(null)} />
         <AnimatePresence>
-            {undo && <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }} className="fixed bottom-5 left-1/2 z-[350] flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-between gap-4 rounded-2xl border border-white/10 bg-zinc-900/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
-                <span className="truncate text-xs font-semibold text-zinc-200">
-                    {undo.message}
-                </span>
-                <button onClick={() => undo.action()} className="shrink-0 text-xs font-black text-amber-400">Undo</button>
-            </motion.div>}
+            {undo && (
+                <motion.div
+                    initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 30, scale: 0.95 }}
+                    className="fixed bottom-5 left-1/2 z-[350] flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center justify-between gap-4 overflow-hidden rounded-2xl border border-white/20 bg-zinc-900/75 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.25)] backdrop-blur-3xl"
+                >
+                    <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+                    <span className="relative z-10 truncate text-xs font-semibold text-zinc-100">
+                        {undo.message}
+                    </span>
+                    <button
+                        onClick={() => undo.action()}
+                        className="relative z-10 shrink-0 rounded-lg bg-amber-400/10 px-2.5 py-1 text-xs font-black text-amber-300 border border-amber-400/20 backdrop-blur-md transition active:scale-95 hover:bg-amber-400/20"
+                    >
+                        Undo
+                    </button>
+                </motion.div>
+            )}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -1257,45 +1300,106 @@ const MyList: React.FC = () => {
         </AnimatePresence>
 
         <AnimatePresence>
-            {editingFolder && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={() => setEditingFolderId(null)}>
-                <motion.form initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }} onSubmit={saveFolderDetails} onMouseDown={e => e.stopPropagation()} className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border border-white/15 bg-zinc-950 p-5 shadow-2xl sm:max-w-xl sm:rounded-3xl sm:p-7">
-                    <div className="mb-5 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-400">Collection settings</p>
-                            <h2 className="mt-1 text-xl font-black">Edit list</h2>
-                        </div>
-                        <button type="button" onClick={() => setEditingFolderId(null)} className="p-2 text-zinc-500 hover:text-white">
-                            <X className="h-5 w-5" />
-                        </button>
-                    </div>
-                    <div className="space-y-4">
-                        <label className="block">
-                            <span className="text-xs font-bold text-zinc-400">List name</span>
-                            <input required value={editName} onChange={e => setEditName(e.target.value)} className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-amber-400/60" />
-                        </label>
-                        <label className="block">
-                            <span className="text-xs font-bold text-zinc-400">Description</span>
-                            <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={3} className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-amber-400/60" />
-                        </label>
-                        <div>
-                            <span className="text-xs font-bold text-zinc-400">Cover mode</span>
-                            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                {[["auto", Sparkles, "Auto"], ["single", Film, "Single"], ["collage", Images, "Collage"], ["rotate", ChevronRight, "Rotate"]].map(([value, Icon, label]: any) => <button type="button" key={value} onClick={() => setEditCoverMode(value)} className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[10px] font-black ${editCoverMode === value ? "border-amber-400 bg-amber-400 text-black" : "border-white/10 bg-white/5 text-zinc-400"}`}>
-                                    <Icon className="h-3.5 w-3.5" />
-                                    {label}
-                                </button>)}
+            {editingFolder && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[250] flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-4"
+                    onMouseDown={() => setEditingFolderId(null)}
+                >
+                    <motion.form
+                        initial={{ y: "100%", opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: "100%", opacity: 0 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        onSubmit={saveFolderDetails}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="flex max-h-[90vh] w-full flex-col rounded-t-[2rem] border-t border-white/20 bg-zinc-950/95 p-5 shadow-2xl sm:max-h-[85vh] sm:max-w-xl sm:rounded-3xl sm:border sm:p-7"
+                    >
+                        <div className="mx-auto mb-3 h-1.5 w-12 shrink-0 rounded-full bg-white/20 sm:hidden" />
+
+                        <div className="mb-4 flex items-center justify-between shrink-0">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-400">
+                                    Collection settings
+                                </p>
+                                <h2 className="mt-0.5 text-xl font-black text-white">Edit list</h2>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setEditingFolderId(null)}
+                                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition active:scale-95 hover:bg-white/10 hover:text-white"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
                         </div>
-                        <PreferredBackdropPicker
-                            folderId={editingFolder.id}
-                            items={editingFolder.items}
-                            value={editCover}
-                            onChange={setEditCover}
-                        />
-                        <button className="w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-3.5 text-sm font-black text-black">Save list changes</button>
-                    </div>
-                </motion.form>
-            </motion.div>}
+
+                        <div className="space-y-5 overflow-y-auto pr-1">
+                            <label className="block">
+                                <span className="text-xs font-bold text-zinc-400">List name</span>
+                                <input
+                                    required
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-amber-400/60 focus:bg-white/10"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="text-xs font-bold text-zinc-400">Description</span>
+                                <textarea
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    rows={3}
+                                    className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-amber-400/60 focus:bg-white/10"
+                                />
+                            </label>
+
+                            <div>
+                                <span className="text-xs font-bold text-zinc-400">Cover mode</span>
+                                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                    {[
+                                        ["auto", Sparkles, "Auto"],
+                                        ["single", Film, "Single"],
+                                        ["collage", Images, "Collage"],
+                                        ["rotate", ChevronRight, "Rotate"],
+                                    ].map(([value, Icon, label]: any) => (
+                                        <button
+                                            type="button"
+                                            key={value}
+                                            onClick={() => setEditCoverMode(value)}
+                                            className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-3 text-xs font-bold transition active:scale-95 ${editCoverMode === value
+                                                ? "border-amber-400 bg-amber-400 text-black shadow-lg shadow-amber-400/20"
+                                                : "border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+                                                }`}
+                                        >
+                                            <Icon className="h-4 w-4 shrink-0" />
+                                            <span>{label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <PreferredBackdropPicker
+                                folderId={editingFolder.id}
+                                items={editingFolder.items}
+                                value={editCover}
+                                onChange={setEditCover}
+                            />
+                        </div>
+
+                        <div className="mt-5 pt-3 shrink-0 border-t border-white/10">
+                            <button
+                                type="submit"
+                                className="w-full rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-4 text-sm font-black text-black shadow-lg shadow-amber-500/20 transition active:scale-[0.98] hover:brightness-110"
+                            >
+                                Save list changes
+                            </button>
+                        </div>
+                    </motion.form>
+                </motion.div>
+            )}
         </AnimatePresence>
 
         <AnimatePresence>

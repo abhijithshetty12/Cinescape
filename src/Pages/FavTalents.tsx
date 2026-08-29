@@ -88,11 +88,10 @@ const FavoriteTalentPage: React.FC = () => {
         >
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl pointer-events-none" />
           <div className="relative mb-6">
-            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-b from-white/20 to-white/5 dark:from-white/10 dark:to-white/[0.02] backdrop-blur-2xl border border-white/30 dark:border-white/15 shadow-[0_8px_32px_0_rgba(255,45,85,0.2)] flex items-center justify-center">
-              <Heart className="w-10 h-10 text-[#FF2D55] fill-[#FF2D55]/20" />
+            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-red-500 to-red-600 p-2 shadow-lg shadow-red-500/30 flex items-center justify-center">
+              <Heart className="w-10 h-10 text-white fill-current" />
             </div>
           </div>
-
           <h1 className="text-2xl font-semibold tracking-tight text-white mb-2">
             No Favorites Yet
           </h1>
@@ -100,7 +99,7 @@ const FavoriteTalentPage: React.FC = () => {
             Explore and add your favorite stars to keep up with their latest work.
           </p>
           <Link
-            to="/explore"
+            to="/talents"
             className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-b from-[#FF3B30] to-[#E02B20] text-white py-3.5 px-6 rounded-2xl font-medium text-[15px] shadow-[0_8px_25px_rgba(255,59,48,0.35),inset_0_1px_1px_rgba(255,255,255,0.4)] active:scale-[0.98] transition-all duration-200"
           >
             <Users className="w-4 h-4" />
@@ -174,8 +173,8 @@ const FavoriteTalentPage: React.FC = () => {
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-xl transition-all ${viewMode === 'grid'
-                  ? 'bg-white/20 dark:bg-white/15 text-white shadow-sm border border-white/20'
-                  : 'text-white/40 hover:text-white/70'
+                ? 'bg-white/20 dark:bg-white/15 text-white shadow-sm border border-white/20'
+                : 'text-white/40 hover:text-white/70'
                 }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -183,8 +182,8 @@ const FavoriteTalentPage: React.FC = () => {
             <button
               onClick={() => setViewMode('list')}
               className={`p-2 rounded-xl transition-all ${viewMode === 'list'
-                  ? 'bg-white/20 dark:bg-white/15 text-white shadow-sm border border-white/20'
-                  : 'text-white/40 hover:text-white/70'
+                ? 'bg-white/20 dark:bg-white/15 text-white shadow-sm border border-white/20'
+                : 'text-white/40 hover:text-white/70'
                 }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -358,7 +357,6 @@ const FavoriteTalentPage: React.FC = () => {
           </p>
         </motion.div>
       )}
-
       {filteredTalents.length > 0 && (
         <div className="mt-8 text-center">
           <div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10">
