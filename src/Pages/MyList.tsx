@@ -3,7 +3,7 @@ import axios from "axios";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, setDoc, updateDoc, writeBatch } from "firebase/firestore";
-import { ArrowLeft, BarChart3, Check, ChevronDown, ChevronRight, ChevronUp, Clapperboard, Clock3, Copy, Download, Edit3, Film, FolderPlus, GripVertical, Images, ListPlus, Loader2, MoreHorizontal, Pin, PinOff, Plus, Search, Share2, Sparkles, Star, Trash2, Tv, X } from "lucide-react";
+import { ArrowLeft, BarChart3, Check, ChevronDown, ChevronRight, ChevronUp, Clapperboard, Clock3, Copy, Download, Edit3, Film, FolderPlus, GripVertical, Images, ListPlus, Loader2, MoreHorizontal, Pin, PinOff, Plus, PlusSquare, Search, Share2, Sparkles, Star, Trash2, Tv, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.tsx";
 import { db } from "../firebase.ts";
 import Loading from "../components/Loading.tsx";
@@ -1166,9 +1166,42 @@ const MyList: React.FC = () => {
                         exit={{ opacity: 0, y: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[2rem] border-t border-white/15 bg-zinc-950 shadow-2xl sm:max-h-[75vh] sm:max-w-2xl sm:rounded-3xl sm:border"
+                        className="flex h-[85vh] w-full flex-col overflow-hidden rounded-t-[2rem] border-t border-white/15 bg-zinc-950 shadow-2xl sm:h-auto sm:max-h-[75vh] sm:max-w-2xl sm:rounded-3xl sm:border"
                     >
-                        <div className="mx-auto mt-2.5 h-1.5 w-12 shrink-0 rounded-full bg-white/20 sm:hidden" />
+                        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5 backdrop-blur-xl">
+                            <div className="flex w-full items-center justify-between sm:w-auto">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-b from-amber-400/20 to-amber-500/5 text-amber-400 border border-amber-400/30 shadow-[0_0_12px_rgba(251,191,36,0.15)] backdrop-blur-md">
+                                        <PlusSquare className="h-4 w-4 stroke-[2.2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+                                    </div>
+                                    <span className="text-sm font-semibold tracking-tight text-white">
+                                        Add Title
+                                    </span>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddOpen(false)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-zinc-300 transition-all hover:bg-white/20 hover:text-white active:scale-90 active:bg-white/30 sm:hidden"
+                                    aria-label="Close modal"
+                                >
+                                    <X className="h-4 w-4 stroke-[2.5]" />
+                                </button>
+                            </div>
+
+                            <div className="absolute left-1/2 top-2.5 -translate-x-1/2 sm:hidden">
+                                <div className="h-1 w-9 rounded-full bg-white/25" />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setIsAddOpen(false)}
+                                className="hidden h-7 w-7 items-center justify-center rounded-full bg-white/10 text-zinc-300 transition-all hover:bg-white/20 hover:text-white active:scale-90 active:bg-white/30 sm:flex"
+                                aria-label="Close modal"
+                            >
+                                <X className="h-4 w-4 stroke-[2.5]" />
+                            </button>
+                        </div>
 
                         <div className="flex shrink-0 items-center gap-2.5 border-b border-white/10 p-3.5 sm:gap-3 sm:p-4">
                             <Search className="h-5 w-5 shrink-0 text-zinc-500" />
@@ -1178,7 +1211,7 @@ const MyList: React.FC = () => {
                                 onKeyDown={handleSearchKeys}
                                 onChange={(e) => setInputQuery(e.target.value)}
                                 placeholder="Search movies or series..."
-                                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-600"
+                                className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-zinc-600 sm:text-sm"
                             />
                             {isSearching ? (
                                 <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-400" />
@@ -1187,24 +1220,16 @@ const MyList: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => setInputQuery("")}
-                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-zinc-400 transition hover:bg-white/20 hover:text-white active:scale-95"
+                                        className="flex h-7 w-7 items-center justify-center text-zinc-400 transition hover:bg-white/20 hover:text-white active:scale-95"
                                         aria-label="Clear search"
                                     >
                                         <X className="h-3.5 w-3.5" />
                                     </button>
                                 )
                             )}
-                            <button
-                                type="button"
-                                onClick={() => setIsAddOpen(false)}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-400 transition hover:bg-white/10 hover:text-white active:scale-95"
-                                aria-label="Close modal"
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-2 sm:p-3">
+                        <div className="flex-1 overflow-y-auto p-2.5 sm:p-3">
                             {searchResults.map((r, index) => {
                                 const name = r.title || r.name || "Untitled";
                                 const itemType = r.media_type;
@@ -1218,7 +1243,7 @@ const MyList: React.FC = () => {
                                             setIsAddOpen(false);
                                             navigate(`/${itemType}/${r.id}`);
                                         }}
-                                        className={`group flex w-full cursor-pointer items-center gap-3 rounded-2xl p-2 sm:p-2.5 text-left transition ${selectedResult === index ? "bg-white/10" : "hover:bg-white/5"
+                                        className={`group flex w-full cursor-pointer items-center gap-3 rounded-2xl p-2.5 text-left transition active:bg-white/10 ${selectedResult === index ? "bg-white/10" : "hover:bg-white/5"
                                             }`}
                                     >
                                         <div className="relative aspect-[2/3] h-16 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
@@ -1252,7 +1277,7 @@ const MyList: React.FC = () => {
                                                     />
                                                 </span>
                                                 <span>·</span>
-                                                <span className="flex items-center gap-0.5 text-amber-300 font-semibold">
+                                                <span className="flex items-center gap-0.5 font-semibold text-amber-300">
                                                     <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
                                                     {r.vote_average?.toFixed(1) || "—"}
                                                 </span>
@@ -1266,7 +1291,7 @@ const MyList: React.FC = () => {
                                                 e.stopPropagation();
                                                 if (!added) addItem(r);
                                             }}
-                                            className={`flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-[10px] font-black transition active:scale-95 ${added
+                                            className={`flex h-9 shrink-0 items-center gap-1 rounded-full px-3.5 text-xs font-black transition active:scale-95 ${added
                                                 ? "bg-emerald-400/15 text-emerald-300"
                                                 : "bg-amber-400 text-black hover:bg-amber-300"
                                                 }`}
@@ -1295,7 +1320,7 @@ const MyList: React.FC = () => {
 
                             {!inputQuery && (
                                 <div className="py-14 text-center">
-                                    <Sparkles className="mx-auto mb-3 h-7 w-7 text-amber-400" />
+                                    <Search className="mx-auto mb-3 h-7 w-7 text-amber-400" />
                                     <p className="text-sm font-bold text-white">Add something great</p>
                                     <p className="mt-1 text-xs text-zinc-500">
                                         Use ↑ ↓ Enter on desktop for faster adding.
