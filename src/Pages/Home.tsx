@@ -6,6 +6,7 @@ import { Youtube, Clock, Star, TrendingUp, Bookmark, History, Play } from "lucid
 import { Link } from "react-router-dom";
 import MovieCarousel from "../components/MovieCarousel.tsx";
 import Loading from "../components/Loading.tsx";
+import DailyPicks from "../components/DailyPicks.tsx";
 type TrailerMovie = {
     id: number;
     title: string;
@@ -174,6 +175,7 @@ const Home = () => {
                         />
                     ))}
                 </div>
+                <DailyPicks />
                 <LayoutGroup id="mediaToggles">
                     <section className="mb-8 sm:mb-16">
                         <div className="flex items-center justify-between mb-3 sm:mb-6 gap-3 pb-2.5 sm:pb-4 border-b border-white/10">
