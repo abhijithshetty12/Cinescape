@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Star, Film, Flame, Award, Tv } from "lucide-react";
+import { Star, Clapperboard, Flame, Award, Tv } from "lucide-react";
 import { RatedMovie } from "./Recommendation.tsx";
 
 const tabVariants = {
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 0, y: 16 },
   animate: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
   },
-  exit: { opacity: 0, y: -15, transition: { duration: 0.25 } },
+  exit: { opacity: 0, y: -12, transition: { duration: 0.2 } },
 };
 
 type MediaTypeFilter = "movie" | "tv";
@@ -52,78 +52,90 @@ export const UserRatingSection = ({
       initial="initial"
       animate="animate"
       exit="exit"
-      className="w-full max-w-5xl mx-auto px-4 space-y-6"
+      className="w-full max-w-5xl mx-auto px-3 sm:px-4 space-y-4 sm:space-y-6 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif] tracking-tight antialiased"
     >
-      {/* Category Toggle Bar */}
       <div className="flex items-center justify-between gap-4">
-        <div className="inline-flex items-center p-1.5 rounded-2xl bg-zinc-950/40 border border-white/[0.08] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
+        <div className="relative flex items-center p-1 bg-white/5 backdrop-blur-xl border border-white/[0.04] rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden flex-1 sm:flex-initial">
           <button
             onClick={() => setActiveFilter("movie")}
-            className={`relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
+            className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 font-bold text-xs tracking-wide transition-all duration-300 rounded-lg ${
               activeFilter === "movie"
-                ? "text-white"
-                : "text-zinc-400 hover:text-white"
+                ? "text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            {activeFilter === "movie" && (
-              <motion.div
-                layoutId="activeFilterBg"
-                className="absolute inset-0 rounded-xl bg-gradient-to-br from-amber-400/15 via-white/[0.04] to-transparent border border-white/20 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(251,191,36,0.3),_0_0_20px_rgba(245,158,11,0.12)] overflow-hidden"
-                transition={{ type: "spring", stiffness: 380, damping: 28 }}
-              >
-                <div className="absolute -top-3 -left-3 w-10 h-10 bg-amber-400/35 rounded-full blur-md pointer-events-none" />
-              </motion.div>
-            )}
-            <span className="relative z-10 flex items-center gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-              <Film className={`w-3.5 h-3.5 stroke-[2.5] ${activeFilter === "movie" ? "text-amber-300" : ""}`} />
-              <span>Movies</span>
-            </span>
+            <Clapperboard
+              className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                activeFilter === "movie" ? "scale-110 text-red-400" : ""
+              }`}
+            />
+            <span>Movies</span>
             <span
-              className={`relative z-10 px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors duration-300 ${
+              className={`ml-1 px-1.5 py-0.2 rounded-md text-[10px] font-bold transition-colors ${
                 activeFilter === "movie"
-                  ? "bg-amber-400/15 border border-amber-400/25 text-amber-300 shadow-sm"
-                  : "bg-white/[0.05] border border-white/[0.08] text-zinc-400"
+                  ? "bg-white/10 text-white"
+                  : "bg-white/[0.05] text-zinc-400"
               }`}
             >
               {movieItems.length}
             </span>
+
+            {activeFilter === "movie" && (
+              <motion.div
+                layoutId="liquid-pill"
+                className="absolute inset-0 -z-10 bg-gradient-to-b from-white/[0.08] to-white/[0.01] border border-white/[0.12] rounded-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
+                transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              />
+            )}
           </button>
 
           <button
             onClick={() => setActiveFilter("tv")}
-            className={`relative flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors duration-300 ${
+            className={`relative z-10 flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 font-bold text-xs tracking-wide transition-all duration-300 rounded-lg ${
               activeFilter === "tv"
-                ? "text-white"
-                : "text-zinc-400 hover:text-white"
+                ? "text-white drop-shadow-[0_2px_8px_rgba(255,255,255,0.2)]"
+                : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            {activeFilter === "tv" && (
-              <motion.div
-                layoutId="activeFilterBg"
-                className="absolute inset-0 rounded-xl bg-gradient-to-br from-amber-400/15 via-white/[0.04] to-transparent border border-white/20 backdrop-blur-md shadow-[inset_0_1px_1px_rgba(251,191,36,0.3),_0_0_20px_rgba(245,158,11,0.12)] overflow-hidden"
-                transition={{ type: "spring", stiffness: 380, damping: 28 }}
-              >
-                <div className="absolute -top-3 -left-3 w-10 h-10 bg-amber-400/35 rounded-full blur-md pointer-events-none" />
-              </motion.div>
-            )}
-            <span className="relative z-10 flex items-center gap-1.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-              <Tv className={`w-3.5 h-3.5 stroke-[2.5] ${activeFilter === "tv" ? "text-amber-300" : ""}`} />
-              <span>Series</span>
-            </span>
+            <Tv
+              className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                activeFilter === "tv" ? "scale-110 text-cyan-400" : ""
+              }`}
+            />
+            <span>Series</span>
             <span
-              className={`relative z-10 px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors duration-300 ${
+              className={`ml-1 px-1.5 py-0.2 rounded-md text-[10px] font-bold transition-colors ${
                 activeFilter === "tv"
-                  ? "bg-amber-400/15 border border-amber-400/25 text-amber-300 shadow-sm"
-                  : "bg-white/[0.05] border border-white/[0.08] text-zinc-400"
+                  ? "bg-white/10 text-white"
+                  : "bg-white/[0.05] text-zinc-400"
               }`}
             >
               {seriesItems.length}
             </span>
+
+            {activeFilter === "tv" && (
+              <motion.div
+                layoutId="liquid-pill"
+                className="absolute inset-0 -z-10 bg-gradient-to-b from-white/[0.08] to-white/[0.01] border border-white/[0.12] rounded-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
+                transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              />
+            )}
           </button>
+
+          <div className="absolute inset-y-1 left-1 right-1 pointer-events-none overflow-hidden rounded-lg hidden sm:block">
+            <motion.div
+              className={`absolute top-0 bottom-0 w-16 blur-md opacity-80 ${
+                activeFilter === "movie"
+                  ? "bg-gradient-to-r from-red-500/10 via-red-500/20 to-orange-500/10"
+                  : "bg-gradient-to-r from-cyan-500/10 via-cyan-500/20 to-blue-500/10"
+              }`}
+              animate={{ x: activeFilter === "movie" ? 0 : 96 }}
+              transition={{ type: "spring", stiffness: 240, damping: 28 }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
       <AnimatePresence mode="wait">
         <motion.div
           key={activeFilter}
@@ -133,79 +145,73 @@ export const UserRatingSection = ({
           transition={{ duration: 0.3 }}
         >
           {activeList.length === 0 ? (
-            <div className="relative overflow-hidden rounded-[32px] border border-white/[0.04] bg-zinc-950/40 p-8 sm:p-12 md:p-16 text-center backdrop-blur-3xl shadow-2xl">
-              <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative overflow-hidden rounded-[28px] border border-amber-500/20 bg-black p-8 sm:p-12 text-center shadow-2xl">
               <div className="relative z-10 flex flex-col items-center max-w-sm mx-auto">
-                <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.06] text-zinc-500 mb-5 shadow-inner">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/30 mb-4">
                   {activeFilter === "movie" ? (
-                    <Film className="w-6 h-6 stroke-[1.2]" />
+                    <Clapperboard className="w-6 h-6 stroke-[2]" />
                   ) : (
-                    <Tv className="w-6 h-6 stroke-[1.2]" />
+                    <Tv className="w-6 h-6 stroke-[2]" />
                   )}
                 </div>
-                <h3 className="text-lg font-bold text-white tracking-tight">
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                   No Rated {activeFilter === "movie" ? "Movies" : "Series"} Found
                 </h3>
-                <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
+                <p className="text-xs text-amber-200/60 mt-1.5 leading-relaxed font-medium">
                   Rate your favorite {activeFilter === "movie" ? "movies" : "TV shows"} across the application to build your personalized gallery.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Summary Metric Card */}
-              <div className="relative overflow-hidden rounded-[28px] border border-white/[0.04] bg-zinc-950/40 p-6 md:p-7 flex flex-col justify-between backdrop-blur-3xl shadow-xl min-h-[200px] md:min-h-[240px]">
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none" />
-                <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/5 rounded-full blur-[60px] pointer-events-none" />
-
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              <div className="relative overflow-hidden rounded-[28px] border border-amber-500/30 bg-black p-5 sm:p-6 flex flex-col justify-between shadow-2xl min-h-[180px] sm:min-h-[220px]">
                 <div className="relative z-10">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/[0.02] border border-white/[0.06] text-amber-400">
-                      <Star className="w-4.5 h-4.5 fill-amber-500/10 stroke-[1.5]" />
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 text-black shadow-md shadow-amber-500/30 shrink-0">
+                      <Star className="w-5 h-5 fill-current" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-bold tracking-tight text-white uppercase">Curated</h2>
-                      <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+                      <h2 className="text-sm font-bold tracking-tight text-white">Curated</h2>
+                      <span className="text-[10px] font-medium tracking-wider text-amber-400 uppercase block">
                         Rated {activeFilter === "movie" ? "Movies" : "Series"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="mt-8 space-y-1">
+                  <div className="mt-6 sm:mt-8 space-y-1">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-black text-white tracking-tighter">{activeList.length}</span>
-                      <span className="text-xs font-semibold text-zinc-500">
+                      <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">{activeList.length}</span>
+                      <span className="text-xs font-semibold text-amber-200/70">
                         {activeFilter === "movie" ? "Movies Rated" : "Series Rated"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-medium">
-                      <Flame className="w-3.5 h-3.5 text-amber-500" />
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-medium pt-1">
+                      <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                       <span>
-                        Average rating: <strong className="text-amber-400">{avgRating}</strong>
+                        Average rating: <strong className="text-amber-300 font-bold">{avgRating}</strong>
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Top Choice Spotlight Card */}
               <div
                 onClick={() => onMediaClick(spotlightMovie.id, activeFilter)}
-                className="group relative overflow-hidden rounded-[28px] border border-white/[0.04] hover:border-amber-500/30 bg-zinc-950/40 p-5 md:col-span-2 flex flex-col justify-end backdrop-blur-3xl shadow-xl min-h-[240px] cursor-pointer transition-all duration-500 hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]"
+                className="group relative overflow-hidden rounded-[28px] border border-amber-500/30 bg-black p-4 sm:p-5 md:col-span-2 flex flex-col justify-end shadow-2xl min-h-[220px] cursor-pointer transition-all duration-300 active:scale-[0.99]"
               >
                 {spotlightMovie.posterPath && (
                   <div className="absolute inset-0 z-0">
                     <img
                       src={getPosterUrl(spotlightMovie.posterPath)}
                       alt={spotlightMovie.title}
-                      className="w-full h-full object-cover opacity-40 scale-[1.01] group-hover:scale-105 group-hover:opacity-55 transition-all duration-700 pointer-events-none"
+                      className="w-full h-full object-cover opacity-35 scale-[1.01] group-hover:scale-105 group-hover:opacity-45 transition-all duration-500 pointer-events-none"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
                   </div>
                 )}
 
-                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 w-full mt-12 sm:mt-0">
-                  <div className="relative w-20 h-28 sm:w-24 sm:h-36 rounded-xl overflow-hidden border border-white/[0.12] shadow-2xl shrink-0 group-hover:border-amber-500/40 transition-colors duration-300">
+                <div className="relative z-10 flex flex-row items-center gap-3.5 sm:gap-4 w-full">
+                  <div className="relative w-20 h-28 sm:w-24 sm:h-36 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shrink-0">
                     {spotlightMovie.posterPath ? (
                       <img
                         src={getPosterUrl(spotlightMovie.posterPath)}
@@ -216,83 +222,80 @@ export const UserRatingSection = ({
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                         {activeFilter === "movie" ? (
-                          <Film className="w-6 h-6 text-zinc-700" />
+                          <Clapperboard className="w-6 h-6 text-amber-500/60" />
                         ) : (
-                          <Tv className="w-6 h-6 text-zinc-700" />
+                          <Tv className="w-6 h-6 text-amber-500/60" />
                         )}
                       </div>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold">
-                        <Award className="w-3 h-3 fill-current" />
-                        <span>Your Top Choice</span>
-                      </div>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 text-black text-[10px] font-bold shadow-sm shadow-amber-500/30 mb-1.5">
+                      <Award className="w-3 h-3 fill-current" />
+                      <span>Top Choice</span>
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight line-clamp-1 group-hover:text-amber-400 transition-colors duration-300">
+                    <h3 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight line-clamp-1 group-hover:text-amber-300 transition-colors duration-200">
                       {spotlightMovie.title}
                     </h3>
-                    <p className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider mt-1">
+                    <p className="text-[11px] text-amber-200/70 font-semibold uppercase tracking-wider mt-0.5">
                       {activeFilter === "movie" ? "Movie" : "Series"}
                     </p>
                   </div>
 
-                  <div className="self-start sm:self-center shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-500 text-black text-sm font-black shadow-lg shadow-amber-500/15 group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] transition-all duration-300">
-                    <Star className="w-4 h-4 fill-current" />
+                  <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 text-black text-xs font-extrabold shadow-md shadow-amber-500/30">
+                    <Star className="w-3.5 h-3.5 fill-current" />
                     <span>{spotlightMovie.rating.toFixed(1)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Remaining Media Grid */}
               {remainingMovies.length > 0 && (
-                <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+                <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 w-full pt-1">
                   {remainingMovies.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => onMediaClick(item.id, activeFilter)}
-                      className="group relative overflow-hidden rounded-[24px] border border-white/[0.04] hover:border-amber-500/40 bg-zinc-950/30 hover:bg-zinc-950/50 p-3 flex flex-col justify-between backdrop-blur-2xl shadow-md cursor-pointer aspect-[3/4] transition-all duration-300 hover:shadow-[0_0_25px_rgba(245,158,11,0.18)]"
+                      className="group relative overflow-hidden rounded-[22px] border border-amber-500/25 bg-black p-2.5 sm:p-3 flex flex-col justify-between shadow-xl cursor-pointer aspect-[3/4] transition-all duration-300 active:scale-[0.97]"
                     >
-                      <div className="absolute inset-0 z-0 rounded-[24px] overflow-hidden">
+                      <div className="absolute inset-0 z-0 rounded-[22px] overflow-hidden">
                         {item.posterPath ? (
                           <img
                             src={getPosterUrl(item.posterPath)}
                             alt={item.title}
-                            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 scale-[1.01] group-hover:scale-[1.04] transition-all duration-700 pointer-events-none"
+                            className="w-full h-full object-cover opacity-85 group-hover:opacity-100 scale-[1.01] group-hover:scale-105 transition-all duration-500 pointer-events-none"
                           />
                         ) : (
                           <div className="w-full h-full bg-zinc-950 flex items-center justify-center">
                             {activeFilter === "movie" ? (
-                              <Film className="w-6 h-6 text-zinc-800" />
+                              <Clapperboard className="w-6 h-6 text-amber-500/40" />
                             ) : (
-                              <Tv className="w-6 h-6 text-zinc-800" />
+                              <Tv className="w-6 h-6 text-amber-500/40" />
                             )}
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
                       </div>
 
                       <div className="relative z-10 flex items-center justify-between w-full">
-                        <div className="w-8 h-8 rounded-lg bg-zinc-950/80 border border-white/[0.08] backdrop-blur-md flex items-center justify-center">
+                        <div className="p-1.5 rounded-lg bg-black/70 border border-amber-500/30 backdrop-blur-md text-amber-300">
                           {activeFilter === "movie" ? (
-                            <Film className="w-3.5 h-3.5 text-zinc-400 group-hover:text-amber-400/80 transition-colors duration-300" />
+                            <Clapperboard className="w-3 h-3" />
                           ) : (
-                            <Tv className="w-3.5 h-3.5 text-zinc-400 group-hover:text-amber-400/80 transition-colors duration-300" />
+                            <Tv className="w-3 h-3" />
                           )}
                         </div>
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-950/80 border border-amber-500/[0.2] backdrop-blur-md text-amber-400 text-[10px] font-bold shadow-sm">
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 text-black text-[10px] font-extrabold shadow-md shadow-amber-500/30">
                           <Star className="w-2.5 h-2.5 fill-current" />
                           <span>{item.rating.toFixed(1)}</span>
                         </div>
                       </div>
 
-                      <div className="relative z-10 mt-auto pt-8">
-                        <h4 className="text-xs font-extrabold text-white group-hover:text-amber-400 transition-colors line-clamp-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                      <div className="relative z-10 mt-auto pt-6">
+                        <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                           {item.title}
                         </h4>
-                        <span className="text-[9px] font-semibold text-zinc-300 uppercase tracking-wider mt-0.5 block drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                        <span className="text-[9px] font-medium text-amber-200/70 uppercase tracking-wider block mt-0.5">
                           {activeFilter === "movie" ? "Movie" : "Series"}
                         </span>
                       </div>

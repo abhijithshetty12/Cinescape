@@ -16,12 +16,12 @@ import {
   TrendingUp,
   Tv,
   X,
-  Sparkles,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
 import axios from 'axios';
 import WatchlistRoulette from '../components/WatchlistRoulette.tsx';
+import { IoDiceOutline } from 'react-icons/io5';
 
 interface MediaItem {
   id: string;
@@ -310,12 +310,13 @@ const WatchlistPage = () => {
                 type="button"
                 onClick={() => filteredAndSortedWatchlist.length && setShowRoulette(true)}
                 disabled={filteredAndSortedWatchlist.length === 0}
-                className={`flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 active:scale-95 shrink-0 ${filteredAndSortedWatchlist.length === 0
-                  ? 'bg-zinc-900/20 border-zinc-900/60 text-zinc-600 cursor-not-allowed'
-                  : 'bg-zinc-950/60 border-white/[0.04] hover:border-red-500/30 text-zinc-100 hover:text-red-400'
+                aria-label="Surprise Me"
+                className={`flex items-center justify-center gap-1.5 p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 active:scale-95 shrink-0 ${filteredAndSortedWatchlist.length === 0
+                    ? 'bg-zinc-900/20 border-zinc-900/60 text-zinc-600 cursor-not-allowed'
+                    : 'bg-zinc-950/80 border-red-500/30 text-zinc-100 hover:border-red-500/50 hover:text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.15)] sm:shadow-none'
                   }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                <IoDiceOutline className="w-5 h-5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-300" />
                 <span className="hidden sm:inline">Surprise Me</span>
               </button>
             </div>
