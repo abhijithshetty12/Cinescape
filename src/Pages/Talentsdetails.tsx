@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useContext, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Flame, CalendarDays, Calendar, ChevronDown, Check, Network, Images, Download, X, ChevronLeft, ChevronRight, User, Film, Crown, Star } from "lucide-react";
+import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Flame, CalendarDays, Calendar, ChevronDown, Check, Network, Images, Download, X, ChevronLeft, ChevronRight, User, Film, Crown, Star, CalendarCheck, Bookmark, ListChecks, Trophy } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
 import { AuthContext } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
-import { collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import GlassSweep from "../components/GlassSweep.tsx";
+import Lenis from '@studio-freight/lenis';
 
 interface ColorRGB {
   r: number;
@@ -54,6 +55,79 @@ const getDominantColor = (imageUrl: string): Promise<ColorRGB> => {
   });
 };
 
+
+const storedMediaKey = (data: any, fallbackId?: string) => {
+  const fallbackMatch = typeof fallbackId === 'string' ? fallbackId.match(/^(movie|tv)[-_](\d+)$/i) : null;
+  const rawId = data?.movieId ?? data?.mediaId ?? data?.id ?? fallbackMatch?.[2] ?? fallbackId;
+  const numericId = Number(rawId);
+  if (!Number.isFinite(numericId) || numericId <= 0) return null;
+  const rawType = data?.mediaType ?? data?.type ?? fallbackMatch?.[1];
+  const mediaType = rawType === 'tv' ? 'tv' : 'movie';
+  return `${mediaType}-${numericId}`;
+};
+
+type MediaStatusIconsProps = {
+  watched?: boolean;
+  inMyList?: boolean;
+  inWatchlist?: boolean;
+  userRating?: number;
+  compact?: boolean;
+};
+
+const MediaStatusIcons = ({
+  watched = false,
+  inMyList = false,
+  inWatchlist = false,
+  userRating,
+  compact = false,
+}: MediaStatusIconsProps) => {
+  const hasRating = typeof userRating === 'number' && Number.isFinite(userRating);
+  if (!watched && !inMyList && !inWatchlist && !hasRating) return null;
+
+  const circleSize = compact ? 'h-5 min-w-5' : 'h-6 min-w-6';
+  const iconSize = compact ? 'h-2.5 w-2.5' : 'h-3 w-3';
+  const ratingSize = compact ? 'h-5 min-w-[30px] px-1.5 rounded-md text-[8px]' : 'h-6 min-w-[36px] px-2 rounded-lg text-[9px]';
+
+  return (
+    <div className="relative flex w-full items-center justify-end">
+      {hasRating && (
+        <span
+          className="flex items-center justify-center rounded-xl border-[1.5px] border-black bg-gradient-to-b from-amber-400 to-orange-700 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-bold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] shadow-[0_2px_6px_rgba(245,158,11,0.3)] [font-family:-apple-system,BlinkMacSystemFont,'SF_Pro_Text','SF_Pro_Display',sans-serif]"
+          title={`Your rating: ${userRating!.toFixed(1)}`}
+        >
+          {userRating!.toFixed(1)}
+        </span>
+      )}
+      <div className="flex items-center -space-x-1">
+        {inMyList && (
+          <span
+            className={`${circleSize} flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_6px_rgba(168,85,247,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]`}
+            title="In My List"
+          >
+            <ListChecks className={`${iconSize} stroke-[2.8]`} />
+          </span>
+        )}
+        {inWatchlist && (
+          <span
+            className={`${circleSize} flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_2px_6px_rgba(59,130,246,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]`}
+            title="In Watchlist"
+          >
+            <Bookmark className={`${iconSize} fill-current stroke-[2.6]`} />
+          </span>
+        )}
+        {watched && (
+          <span
+            className={`${circleSize} flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[0_2px_6px_rgba(16,185,129,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]`}
+            title="Watched"
+          >
+            <Check className={`${iconSize} stroke-[3.5]`} />
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Talentsdetails = () => {
   const { id } = useParams();
   const auth = useContext(AuthContext);
@@ -72,14 +146,27 @@ const Talentsdetails = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [dominantColor, setDominantColor] = useState<ColorRGB>({ r: 220, g: 38, b: 38 });
-  const [activeNavSection, setActiveNavSection] = useState<'overview' | 'bio' | 'known-for' | 'gallery' | 'filmography'>('overview');
+  const [activeNavSection, setActiveNavSection] = useState<'overview' | 'bio' | 'watched' | 'known-for' | 'gallery' | 'filmography'>('overview');
   const [isMobileViewport, setIsMobileViewport] = useState<boolean>(false);
+  const [watchedHistory, setWatchedHistory] = useState<Map<string, string>>(new Map());
+  const [watchlistKeys, setWatchlistKeys] = useState<Set<string>>(new Set());
+  const [myListKeys, setMyListKeys] = useState<Set<string>>(new Set());
+  const [userRatings, setUserRatings] = useState<Map<string, number>>(new Map());
+  const [careerMilestones, setCareerMilestones] = useState<any[]>([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(false);
 
   const heroRef = useRef<HTMLDivElement>(null);
   const bioRef = useRef<HTMLDivElement>(null);
+  const watchedRef = useRef<HTMLDivElement>(null);
   const knownForRef = useRef<HTMLDivElement>(null);
   const gallerySectionRef = useRef<HTMLDivElement>(null);
   const filmographyRef = useRef<HTMLDivElement>(null);
+  const lenisRef = useRef<Lenis | null>(null);
+  const pendingNavTargetRef = useRef<{
+    id: 'overview' | 'watched' | 'known-for' | 'gallery' | 'filmography';
+    ref: React.RefObject<HTMLDivElement | null>;
+    expiresAt: number;
+  } | null>(null);
 
   const noImageSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 150"><rect width="100%" height="100%" fill="%2327272a"/><g transform="translate(38, 50) scale(1)" stroke="%2371717a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 4.41A2 2 0 0 1 11 4h9a2 2 0 0 1 2 2v9a2 2 0 0 1-.42 1.15"/><path d="M16 16H4a2 2 0 0 1-2-2V6a2 2 0 0 1 .42-1.15"/><path d="m2 18 5.58-5.58a1 1 0 0 1 1.41 0l3.41 3.41"/><path d="m16 11.5 1-1a1 1 0 0 1 .18-.15"/></g><text x="50%" y="95" fill="%2371717a" font-size="6" font-family="sans-serif" text-anchor="middle" font-weight="500">No Image Available</text></svg>`;
   const tmdbAPIKey = "859afbb4b98e3b467da9c99ac390e950";
@@ -91,6 +178,51 @@ const Talentsdetails = () => {
   ] as const;
 
   useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const coarsePointer = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+
+    if (prefersReducedMotion || coarsePointer) {
+      lenisRef.current = null;
+      return;
+    }
+
+    const lenis = new Lenis({
+      duration: 0.78,
+      easing: (t) => 1 - Math.pow(1 - t, 4),
+      orientation: 'vertical',
+      gestureOrientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 0.92,
+      touchMultiplier: 1,
+    });
+    lenisRef.current = lenis;
+
+    let rafId = 0;
+    const raf = (time: number) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        lenis.stop();
+      } else {
+        lenis.start();
+      }
+    };
+
+    rafId = requestAnimationFrame(raf);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      lenis.destroy();
+      lenisRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     const checkMobile = () => {
       setIsMobileViewport(window.innerWidth < 768);
     };
@@ -100,28 +232,68 @@ const Talentsdetails = () => {
   }, []);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY + 140;
+    let rafId: number | null = null;
+
+    const updateActiveSection = () => {
+      rafId = null;
+      const navigationOffset = window.innerWidth < 640 ? 132 : 146;
+      const triggerY = navigationOffset + 8;
+      const pendingTarget = pendingNavTargetRef.current;
+
+      if (pendingTarget) {
+        const targetElement = pendingTarget.ref.current;
+        const targetTop = targetElement?.getBoundingClientRect().top;
+        const stillNavigating =
+          performance.now() < pendingTarget.expiresAt &&
+          typeof targetTop === 'number' &&
+          Math.abs(targetTop - navigationOffset) > 14;
+
+        if (stillNavigating) {
+          setActiveNavSection((current) => current === pendingTarget.id ? current : pendingTarget.id);
+          return;
+        }
+
+        pendingNavTargetRef.current = null;
+      }
+
       const sections = [
         { id: 'overview', ref: heroRef },
-        { id: 'bio', ref: bioRef },
+        { id: 'watched', ref: watchedRef },
         { id: 'known-for', ref: knownForRef },
         { id: 'gallery', ref: gallerySectionRef },
         { id: 'filmography', ref: filmographyRef }
-      ];
+      ] as const;
 
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const section = sections[i];
-        if (section.ref.current && section.ref.current.offsetTop <= scrollPosition) {
-          setActiveNavSection(section.id as any);
+      let nextSection: typeof sections[number]['id'] = 'overview';
+
+      for (const section of sections) {
+        const element = section.ref.current;
+        if (!element) continue;
+
+        if (element.getBoundingClientRect().top <= triggerY) {
+          nextSection = section.id;
+        } else {
           break;
         }
       }
+
+      setActiveNavSection((current) => current === nextSection ? current : nextSection);
     };
 
+    const handleScroll = () => {
+      if (rafId === null) rafId = requestAnimationFrame(updateActiveSection);
+    };
+
+    updateActiveSection();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    window.addEventListener('resize', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [loading, works.length, watchedHistory.size, images.length]);
 
   useEffect(() => {
     const fetchTalentData = async () => {
@@ -159,13 +331,14 @@ const Talentsdetails = () => {
 
         const combinedWorksMap = new Map();
         [...castContributions, ...crewContributions].forEach((item) => {
-          if (combinedWorksMap.has(item.id)) {
-            const existing = combinedWorksMap.get(item.id);
+          const workKey = `${item.media_type === 'tv' ? 'tv' : 'movie'}-${item.id}`;
+          if (combinedWorksMap.has(workKey)) {
+            const existing = combinedWorksMap.get(workKey);
             if (!existing.displayRole.includes(item.displayRole)) {
               existing.displayRole += `, ${item.displayRole}`;
             }
           } else {
-            combinedWorksMap.set(item.id, { ...item });
+            combinedWorksMap.set(workKey, { ...item });
           }
         });
 
@@ -180,16 +353,18 @@ const Talentsdetails = () => {
           ...socialRes.data,
         }));
 
-        if (user?.uid && talentRes.data.id) {
-          const favRef = collection(db, `users/${user.uid}/favouriteTalents`);
-          const favQuery = query(favRef, where("talentId", "==", talentRes.data.id));
-          const favSnap = await getDocs(favQuery);
-          if (!favSnap.empty) {
-            setIsFavorite(true);
-            setFavoriteDocId(favSnap.docs[0].id);
-          } else {
-            setIsFavorite(false);
-            setFavoriteDocId(null);
+        if (user?.uid) {
+          if (talentRes.data.id) {
+            const favRef = collection(db, `users/${user.uid}/favouriteTalents`);
+            const favQuery = query(favRef, where("talentId", "==", talentRes.data.id));
+            const favSnap = await getDocs(favQuery);
+            if (!favSnap.empty) {
+              setIsFavorite(true);
+              setFavoriteDocId(favSnap.docs[0].id);
+            } else {
+              setIsFavorite(false);
+              setFavoriteDocId(null);
+            }
           }
         }
       } catch (err: any) {
@@ -201,6 +376,272 @@ const Talentsdetails = () => {
 
     fetchTalentData();
   }, [id, user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setWatchedHistory(new Map());
+      return;
+    }
+
+    const historyRef = collection(db, `users/${user.uid}/history`);
+    const unsubscribe = onSnapshot(
+      historyRef,
+      (snapshot) => {
+        const entries = new Map<string, string>();
+
+        snapshot.forEach((historyDoc) => {
+          const data = historyDoc.data();
+          const mediaId = Number(data.movieId);
+          const mediaType = data.mediaType === 'tv' ? 'tv' : 'movie';
+
+          if (!Number.isFinite(mediaId) || mediaId <= 0) return;
+
+          let watchedDate = '';
+          if (typeof data.watchedDate === 'string') {
+            watchedDate = data.watchedDate;
+          } else if (data.watchedDate && typeof data.watchedDate.toDate === 'function') {
+            watchedDate = data.watchedDate.toDate().toISOString();
+          }
+
+          entries.set(`${mediaType}-${mediaId}`, watchedDate);
+        });
+
+        setWatchedHistory(entries);
+      },
+      (error) => {
+        console.error('Error fetching watch history:', error);
+        setWatchedHistory(new Map());
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setWatchlistKeys(new Set());
+      return;
+    }
+
+    const watchlistRef = collection(db, `users/${user.uid}/watchlist`);
+    const unsubscribe = onSnapshot(
+      watchlistRef,
+      (snapshot) => {
+        const keys = new Set<string>();
+        snapshot.docs.forEach((watchlistDoc) => {
+          const key = storedMediaKey(watchlistDoc.data(), watchlistDoc.id);
+          if (key) keys.add(key);
+        });
+        setWatchlistKeys(keys);
+      },
+      () => setWatchlistKeys(new Set())
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setUserRatings(new Map());
+      return;
+    }
+
+    const ratingsRef = collection(db, `users/${user.uid}/ratings`);
+    const unsubscribe = onSnapshot(
+      ratingsRef,
+      (snapshot) => {
+        const ratings = new Map<string, number>();
+        snapshot.docs.forEach((ratingDoc) => {
+          const data = ratingDoc.data();
+          const key = storedMediaKey(data, ratingDoc.id);
+          const rating = data.rating === null || data.rating === undefined ? NaN : Number(data.rating);
+          if (key && Number.isFinite(rating)) ratings.set(key, rating);
+        });
+        setUserRatings(ratings);
+      },
+      () => setUserRatings(new Map())
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setMyListKeys(new Set());
+      return;
+    }
+
+    const legacyKeysByFolder = new Map<string, Set<string>>();
+    const itemKeysByFolder = new Map<string, Set<string>>();
+    const itemUnsubscribes = new Map<string, () => void>();
+
+    const emit = () => {
+      const keys = new Set<string>();
+      legacyKeysByFolder.forEach((folderKeys) => folderKeys.forEach((key) => keys.add(key)));
+      itemKeysByFolder.forEach((folderKeys) => folderKeys.forEach((key) => keys.add(key)));
+      setMyListKeys(keys);
+    };
+
+    const rootRef = collection(db, `users/${user.uid}/customWatchlists`);
+    const rootUnsubscribe = onSnapshot(
+      rootRef,
+      (snapshot) => {
+        const liveFolderIds = new Set<string>();
+
+        snapshot.docs.forEach((folderDoc) => {
+          const folderId = folderDoc.id;
+          const folderData = folderDoc.data();
+          const legacyKeys = new Set<string>();
+
+          if (Array.isArray(folderData.items)) {
+            folderData.items.forEach((item: any) => {
+              const key = storedMediaKey(item);
+              if (key) legacyKeys.add(key);
+            });
+          }
+
+          legacyKeysByFolder.set(folderId, legacyKeys);
+          liveFolderIds.add(folderId);
+
+          if (!itemUnsubscribes.has(folderId)) {
+            const itemsRef = collection(db, `users/${user.uid}/customWatchlists/${folderId}/items`);
+            const unsubscribeItems = onSnapshot(
+              itemsRef,
+              (itemsSnapshot) => {
+                const keys = new Set<string>();
+                itemsSnapshot.docs.forEach((itemDoc) => {
+                  const key = storedMediaKey(itemDoc.data(), itemDoc.id);
+                  if (key) keys.add(key);
+                });
+                itemKeysByFolder.set(folderId, keys);
+                emit();
+              },
+              () => {
+                itemKeysByFolder.set(folderId, new Set());
+                emit();
+              }
+            );
+            itemUnsubscribes.set(folderId, unsubscribeItems);
+          }
+        });
+
+        [...itemUnsubscribes.entries()].forEach(([folderId, unsubscribeItems]) => {
+          if (!liveFolderIds.has(folderId)) {
+            unsubscribeItems();
+            itemUnsubscribes.delete(folderId);
+            itemKeysByFolder.delete(folderId);
+            legacyKeysByFolder.delete(folderId);
+          }
+        });
+
+        emit();
+      },
+      () => setMyListKeys(new Set())
+    );
+
+    return () => {
+      rootUnsubscribe();
+      itemUnsubscribes.forEach((unsubscribeItems) => unsubscribeItems());
+      itemUnsubscribes.clear();
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (works.length === 0) {
+      setCareerMilestones([]);
+      setMilestonesLoading(false);
+      return;
+    }
+
+    const buildCareerMilestones = async () => {
+      setMilestonesLoading(true);
+
+      const movieCandidates = [...works]
+        .filter((work) => work.media_type !== 'tv' && work.id && (work.poster_path || work.backdrop_path))
+        .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+        .slice(0, 14);
+
+      const detailedMovies = await Promise.all(
+        movieCandidates.map(async (work) => {
+          try {
+            const response = await axios.get(
+              `https://api.themoviedb.org/3/movie/${work.id}?api_key=${tmdbAPIKey}&language=en-US`
+            );
+
+            return {
+              ...work,
+              milestoneRevenue: Number(response.data?.revenue) || 0,
+              milestoneVoteAverage: Number(response.data?.vote_average ?? work.vote_average) || 0,
+              milestoneVoteCount: Number(response.data?.vote_count ?? work.vote_count) || 0
+            };
+          } catch {
+            return {
+              ...work,
+              milestoneRevenue: 0,
+              milestoneVoteAverage: Number(work.vote_average) || 0,
+              milestoneVoteCount: Number(work.vote_count) || 0
+            };
+          }
+        })
+      );
+
+      const revenueMilestones = detailedMovies
+        .filter((work) => work.milestoneRevenue > 0)
+        .sort((a, b) => b.milestoneRevenue - a.milestoneRevenue)
+        .slice(0, 5);
+
+      const selectedKeys = new Set(
+        revenueMilestones.map((work) => `${work.media_type === 'tv' ? 'tv' : 'movie'}-${work.id}`)
+      );
+
+      const fallbackMilestones = [...works]
+        .filter((work) => {
+          const key = `${work.media_type === 'tv' ? 'tv' : 'movie'}-${work.id}`;
+          return !selectedKeys.has(key) && (work.poster_path || work.backdrop_path);
+        })
+        .sort((a, b) => {
+          const scoreA = (Number(a.vote_average) || 0) * Math.log10((Number(a.vote_count) || 0) + 10) + (Number(a.popularity) || 0) * 0.08;
+          const scoreB = (Number(b.vote_average) || 0) * Math.log10((Number(b.vote_count) || 0) + 10) + (Number(b.popularity) || 0) * 0.08;
+          return scoreB - scoreA;
+        });
+
+      const combined = [...revenueMilestones];
+
+      for (const work of fallbackMilestones) {
+        if (combined.length >= 5) break;
+        const key = `${work.media_type === 'tv' ? 'tv' : 'movie'}-${work.id}`;
+        if (selectedKeys.has(key)) continue;
+        selectedKeys.add(key);
+        combined.push({
+          ...work,
+          milestoneRevenue: 0,
+          milestoneVoteAverage: Number(work.vote_average) || 0,
+          milestoneVoteCount: Number(work.vote_count) || 0
+        });
+      }
+
+      const ordered = combined
+        .slice(0, 5)
+        .sort((a, b) => {
+          const dateA = new Date(a.release_date || a.first_air_date || '9999-12-31').getTime();
+          const dateB = new Date(b.release_date || b.first_air_date || '9999-12-31').getTime();
+          return dateA - dateB;
+        });
+
+      if (!cancelled) {
+        setCareerMilestones(ordered);
+        setMilestonesLoading(false);
+      }
+    };
+
+    buildCareerMilestones();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [works, id]);
 
   const handleNextImage = useCallback(() => {
     if (selectedImageIndex === null || images.length === 0) return;
@@ -301,20 +742,49 @@ const Talentsdetails = () => {
     }
   };
 
-  const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
+  const scrollToSection = (
+    ref: React.RefObject<HTMLDivElement | null>,
+    sectionId: 'overview' | 'watched' | 'known-for' | 'gallery' | 'filmography'
+  ) => {
     if (ref.current) {
-      const offset = 100;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = ref.current.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
+      const offset = window.innerWidth < 640 ? 132 : 146;
+      const elementPosition = ref.current.getBoundingClientRect().top + window.scrollY;
       const offsetPosition = elementPosition - offset;
 
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      });
+      pendingNavTargetRef.current = {
+        id: sectionId,
+        ref,
+        expiresAt: performance.now() + 1600
+      };
+      setActiveNavSection(sectionId);
+
+      if (lenisRef.current) {
+        lenisRef.current.scrollTo(offsetPosition, { duration: 1.2 });
+      } else {
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
     }
   };
+
+  const workHistoryKey = useCallback(
+    (work: any) => `${work.media_type === 'tv' ? 'tv' : 'movie'}-${work.id}`,
+    []
+  );
+
+  const watchedWorks = useMemo(() => {
+    return [...works]
+      .filter((work) => watchedHistory.has(workHistoryKey(work)))
+      .sort((a, b) => {
+        const dateA = watchedHistory.get(workHistoryKey(a));
+        const dateB = watchedHistory.get(workHistoryKey(b));
+        const timeA = dateA ? new Date(dateA).getTime() : 0;
+        const timeB = dateB ? new Date(dateB).getTime() : 0;
+        return timeB - timeA;
+      });
+  }, [works, watchedHistory, workHistoryKey]);
 
   const knownForWorks = useMemo(() => {
     return [...works]
@@ -322,6 +792,18 @@ const Talentsdetails = () => {
       .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
       .slice(0, 6);
   }, [works]);
+
+  const watchedCount = watchedWorks.length;
+
+  const totalWorksCount = works.length;
+  const watchedPercentage = totalWorksCount > 0 ? Math.round((watchedCount / totalWorksCount) * 100) : 0;
+
+  const formatMilestoneRevenue = (value: number) => {
+    if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(value >= 10_000_000_000 ? 0 : 1)}B`;
+    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value >= 100_000_000 ? 0 : 1)}M`;
+    if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+    return `$${value.toLocaleString()}`;
+  };
 
   if (loading) {
     return <Loading />;
@@ -366,29 +848,25 @@ const Talentsdetails = () => {
     show: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.04,
-        delayChildren: 0.02
+        staggerChildren: isMobileViewport ? 0.004 : 0.012,
+        delayChildren: 0
       }
     }
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    hidden: { opacity: 0, y: isMobileViewport ? 8 : 12, scale: isMobileViewport ? 1 : 0.985 },
     show: {
       opacity: 1,
       y: 0,
       scale: 1,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 24
-      }
+      transition: { duration: isMobileViewport ? 0.16 : 0.22, ease: [0.16, 1, 0.3, 1] }
     },
     exit: {
       opacity: 0,
-      scale: 0.9,
-      y: -10,
-      transition: { duration: 0.15 }
+      scale: 0.985,
+      y: -6,
+      transition: { duration: 0.12 }
     }
   };
 
@@ -407,9 +885,30 @@ const Talentsdetails = () => {
           scale: 1 !important;
           rotate: none !important;
         }
+        .filmography-poster-clean [class*="bg-gradient"][class*="from-black"] {
+          background-image: none !important;
+          background-color: transparent !important;
+        }
+        html.lenis,
+        html.lenis body {
+          height: auto;
+        }
+        .lenis.lenis-smooth {
+          scroll-behavior: auto !important;
+        }
+        .lenis.lenis-smooth [data-lenis-prevent] {
+          overscroll-behavior: contain;
+        }
+        .lenis.lenis-stopped {
+          overflow: hidden;
+        }
+        [data-lenis-prevent] {
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
+        }
       `}</style>
       <div
-        className="fixed inset-0 pointer-events-none transition-all duration-1000 z-0 opacity-25"
+        className="fixed inset-0 pointer-events-none z-0 opacity-25 transform-gpu"
         style={{
           background: `radial-gradient(1200px circle at 50% -10%, rgba(${dominantColor.r}, ${dominantColor.g}, ${dominantColor.b}, 0.35), transparent 70%)`
         }}
@@ -417,9 +916,9 @@ const Talentsdetails = () => {
 
       <div className="relative z-10 container mx-auto px-4 py-6 md:py-12 max-w-7xl">
         <div ref={heroRef} className="relative mb-6 md:mb-10 rounded-[32px] sm:rounded-[40px] overflow-hidden p-0.5 bg-gradient-to-b from-white/30 via-white/10 to-transparent shadow-[0_32px_64px_-16px_rgba(0,0,0,0.8)]">
-          <div className="relative min-h-none sm:min-h-[380px] md:h-[420px] rounded-[30px] sm:rounded-[38px] overflow-hidden bg-black/60 backdrop-blur-3xl">
+          <div className="relative min-h-none sm:min-h-[380px] md:h-[420px] rounded-[30px] sm:rounded-[38px] overflow-hidden bg-black/60 backdrop-blur-md sm:backdrop-blur-xl md:backdrop-blur-2xl transform-gpu">
             <div
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 filter blur-xl opacity-50 transition-all duration-700"
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 blur-md sm:blur-xl opacity-50 transform-gpu"
               style={{ backgroundImage: backgroundImageUrl }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
@@ -442,6 +941,8 @@ const Talentsdetails = () => {
                           alt={`${talentName} profile`}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                           loading="lazy"
+                          decoding="async"
+                          draggable={false}
                         />
                       ) : (
                         <div className="w-full h-full bg-zinc-900 flex flex-col items-center justify-center text-zinc-500">
@@ -459,7 +960,15 @@ const Talentsdetails = () => {
                     {talentName}
                   </h1>
 
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-4 sm:mb-5">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-2.5 mb-4 sm:mb-5">
+                    <Link
+                      to={`/talent/${talent?.id}/connections`}
+                      className="group flex items-center justify-center gap-2 bg-gradient-to-b from-white/25 to-white/10 hover:from-white/35 hover:to-white/15 backdrop-blur-2xl px-3.5 py-1.5 rounded-full border border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.12)] transition-all active:scale-95 text-white"
+                    >
+                      <Network className="w-3.5 h-3.5 shrink-0 text-blue-400 transition-transform duration-300 group-hover:scale-110" />
+                      <span className="font-semibold text-xs tracking-wide">Connections</span>
+                    </Link>
+
                     <div className="flex items-center gap-2 bg-gradient-to-b from-white/25 to-white/10 backdrop-blur-2xl px-3.5 py-1.5 rounded-full border border-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
                       <ChartNoAxesCombined className="w-4 h-4 text-amber-300 shrink-0" />
                       <span className="font-semibold text-xs tracking-wide text-white">{formattedPopularity}</span>
@@ -521,51 +1030,99 @@ const Talentsdetails = () => {
           </div>
         </div>
 
-        <div className="sticky top-4 z-40 mb-8 w-full max-w-fit mx-auto sm:mx-0 px-2 sm:px-0">
-          <nav className="flex items-center gap-1 sm:gap-2 p-1.5 bg-zinc-950/80 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] sm:max-w-none touch-pan-x -webkit-overflow-scrolling-touch">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mb-6 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.075] to-white/[0.025] px-4 py-3.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),0_10px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:mb-8 sm:px-5 sm:py-4"
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+          <div className="mb-2.5 flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-400/20 bg-emerald-500/10">
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold tracking-wide text-zinc-200 sm:text-xs">Completion Progress</p>
+                <p className="truncate text-[9px] font-medium text-zinc-500 sm:text-[10px]">
+                  {watchedCount} of {totalWorksCount} credited titles watched
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <span className="text-sm font-bold tracking-tight text-white sm:text-base">{watchedPercentage}%</span>
+              <span className="ml-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-400/80 sm:text-[10px]">Completed</span>
+            </div>
+          </div>
+          <div className="relative h-1.5 overflow-hidden rounded-full border border-white/[0.05] bg-black/45 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, Math.max(0, watchedPercentage))}%` }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="relative h-full rounded-full bg-gradient-to-r from-emerald-600 via-emerald-400 to-green-300 shadow-[0_0_12px_rgba(52,211,153,0.36)]"
+            >
+              <div className="absolute inset-x-0 top-0 h-px bg-white/45" />
+            </motion.div>
+          </div>
+        </motion.div>
+
+        <div className="sticky top-[72px] sm:top-[80px] lg:top-[84px] z-40 mb-8 w-full max-w-fit mx-auto sm:mx-0 px-2 sm:px-0">
+          <nav className="flex items-center gap-1 sm:gap-2 p-1.5 bg-zinc-950/90 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 rounded-full shadow-xl overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] sm:max-w-none touch-pan-x overscroll-x-contain -webkit-overflow-scrolling-touch transform-gpu">
             <button
-              onClick={() => scrollToSection(heroRef)}
-              className={`px-3 sm:px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'overview'
+              onClick={() => scrollToSection(heroRef, 'overview')}
+              className={`h-10 w-10 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'overview'
                 ? 'bg-white text-black shadow-lg scale-105'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <User className="w-3.5 h-3.5 shrink-0" />
-              <span>Overview</span>
+              <span className="hidden sm:inline">Overview</span>
             </button>
+            {watchedWorks.length > 0 && (
+              <button
+                onClick={() => scrollToSection(watchedRef, 'watched')}
+                className={`h-10 w-10 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'watched'
+                  ? 'bg-emerald-400 text-black shadow-lg scale-105'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                <Check className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Watched</span>
+              </button>
+            )}
             {knownForWorks.length > 0 && (
               <button
-                onClick={() => scrollToSection(knownForRef)}
-                className={`px-3 sm:px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'known-for'
+                onClick={() => scrollToSection(knownForRef, 'known-for')}
+                className={`h-10 w-10 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'known-for'
                   ? 'bg-white text-black shadow-lg scale-105'
                   : 'text-zinc-400 hover:text-white hover:bg-white/5'
                   }`}
               >
                 <Crown className="w-3.5 h-3.5 shrink-0" />
-                <span>Known For</span>
+                <span className="hidden sm:inline">Known For</span>
               </button>
             )}
             {images.length > 0 && (
               <button
-                onClick={() => scrollToSection(gallerySectionRef)}
-                className={`px-3 sm:px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'gallery'
+                onClick={() => scrollToSection(gallerySectionRef, 'gallery')}
+                className={`h-10 w-10 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'gallery'
                   ? 'bg-white text-black shadow-lg scale-105'
                   : 'text-zinc-400 hover:text-white hover:bg-white/5'
                   }`}
               >
                 <Images className="w-3.5 h-3.5 shrink-0" />
-                <span>Gallery</span>
+                <span className="hidden sm:inline">Gallery</span>
               </button>
             )}
             <button
-              onClick={() => scrollToSection(filmographyRef)}
-              className={`px-3 sm:px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'filmography'
+              onClick={() => scrollToSection(filmographyRef, 'filmography')}
+              className={`h-10 w-10 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'filmography'
                 ? 'bg-white text-black shadow-lg scale-105'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Film className="w-3.5 h-3.5 shrink-0" />
-              <span>Filmography</span>
+              <span className="hidden sm:inline">Filmography</span>
             </button>
           </nav>
         </div>
@@ -579,6 +1136,7 @@ const Talentsdetails = () => {
                   { label: 'Born', value: talent?.birthday ?? 'N/A' },
                   { label: 'Place of Birth', value: talent?.place_of_birth ?? 'N/A' },
                   { label: 'Known For', value: talent?.known_for_department ?? 'N/A' },
+                  { label: 'Watched', value: `${watchedCount} / ${totalWorksCount} (${watchedPercentage}%)` },
                   { label: 'Total Credits', value: `${works.length} titles` }
                 ].map(({ label, value }) => (
                   <div key={label} className="border-b border-zinc-800/40 pb-3 last:border-b-0 last:pb-0">
@@ -652,21 +1210,241 @@ const Talentsdetails = () => {
           </div>
         </div>
 
+        {(milestonesLoading || careerMilestones.length > 0) && (
+          <section className="mb-12">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-gradient-to-b from-amber-400/20 to-orange-500/[0.06] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]">
+                  <Trophy className="h-4 w-4 text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Career Milestones</h2>
+                  <p className="mt-0.5 truncate text-[10px] font-medium text-zinc-500 sm:text-xs">
+                    Major box-office and standout projects across {talentName}&apos;s career
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {milestonesLoading && careerMilestones.length === 0 ? (
+              <div className="flex gap-3.5 overflow-hidden sm:gap-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="w-[210px] shrink-0 sm:w-[238px]">
+                    <div className="mb-3 h-4 w-12 animate-pulse rounded bg-white/[0.07]" />
+                    <div className="h-[116px] animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.035]" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="-mx-4 overflow-x-auto px-4 pb-2 no-scrollbar touch-pan-x overscroll-x-contain sm:mx-0 sm:px-0" data-lenis-prevent>
+                <div className="relative flex min-w-max gap-3.5 pt-5 sm:gap-4">
+                  <div className="pointer-events-none absolute left-3 right-3 top-[27px] h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+                  {careerMilestones.map((work, index) => {
+                    const mediaType = work.media_type === 'tv' ? 'tv' : 'movie';
+                    const releaseDate = work.release_date || work.first_air_date;
+                    const year = releaseDate && releaseDate.trim() !== '' ? releaseDate.split('-')[0] : 'TBD';
+                    const revenue = Number(work.milestoneRevenue) || 0;
+                    const rating = Number(work.milestoneVoteAverage ?? work.vote_average) || 0;
+                    const milestoneLabel = revenue > 0 ? 'Box Office' : rating >= 7.5 ? 'Top Rated' : 'Career Highlight';
+                    const milestoneMetric = revenue > 0
+                      ? formatMilestoneRevenue(revenue)
+                      : rating > 0
+                        ? `${rating.toFixed(1)}/10`
+                        : `${Math.round(Number(work.popularity) || 0)} popularity`;
+                    const statusKey = workHistoryKey(work);
+                    const isWatched = watchedHistory.has(statusKey);
+                    const isInMyList = myListKeys.has(statusKey);
+                    const isInWatchlist = watchlistKeys.has(statusKey);
+                    const userRating = userRatings.get(statusKey);
+
+                    return (
+                      <Link key={`milestone-${mediaType}-${work.id}`} to={`/${mediaType}/${work.id}`} className="group relative w-[210px] shrink-0 snap-start sm:w-[238px]">
+                        <div className="relative z-10 mb-3 flex items-center gap-2 pl-2">
+                          <div className="flex h-4 w-4 items-center justify-center rounded-full border border-amber-300/40 bg-black shadow-[0_0_0_4px_rgba(0,0,0,0.75)]">
+                            <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          </div>
+                          <span className="text-[10px] font-bold tracking-[0.12em] text-zinc-400">{year}</span>
+                        </div>
+
+                        <div className="relative overflow-hidden rounded-2xl border border-white/[0.10] bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10),0_10px_28px_rgba(0,0,0,0.24)] transition-colors duration-300 group-hover:border-white/20">
+                          <div className="flex min-w-0 gap-3">
+                            <div className="relative h-[92px] w-[62px] shrink-0">
+                              <div className="h-full w-full overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
+                                <img
+                                  src={work.poster_path ? `https://image.tmdb.org/t/p/w342${work.poster_path}` : noImageSvg}
+                                  alt={work.title || work.name}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                  draggable={false}
+                                />
+                                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-tr from-white/[0.14] via-transparent to-transparent" />
+                              </div>
+                              <div className="absolute -bottom-2 inset-x-0 z-30 px-0.5">
+                                <MediaStatusIcons
+                                  watched={isWatched}
+                                  inMyList={isInMyList}
+                                  inWatchlist={isInWatchlist}
+                                  compact
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex min-w-0 flex-1 flex-col py-0.5">
+                              <div className="mb-1.5 flex items-center gap-1.5">
+                                <span className="rounded-md border border-amber-400/15 bg-amber-400/[0.08] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-300">
+                                  {milestoneLabel}
+                                </span>
+                                <span className="text-[8px] font-semibold uppercase tracking-[0.08em] text-zinc-600">
+                                  {mediaType === 'tv' ? 'Series' : 'Movie'}
+                                </span>
+                              </div>
+
+                              <p className="line-clamp-2 text-xs font-semibold leading-snug tracking-tight text-zinc-100 sm:text-[13px]">
+                                {work.title || work.name}
+                              </p>
+
+                              <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+                                <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold text-zinc-400">
+                                  {revenue > 0 ? (
+                                    <ChartNoAxesCombined className="h-3 w-3 shrink-0 text-emerald-400" />
+                                  ) : (
+                                    <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+                                  )}
+                                  <span className="truncate">{milestoneMetric}</span>
+                                </div>
+                                <span className="text-[9px] font-bold text-white/25">#{index + 1}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {watchedWorks.length > 0 && (
+          <div ref={watchedRef} className="mb-12">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/25 bg-gradient-to-b from-emerald-400/25 to-emerald-600/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.24),0_8px_24px_rgba(16,185,129,0.12)] backdrop-blur-2xl">
+                  <Check className="h-4 w-4 text-emerald-300" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight text-white">Watched</h2>
+                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-zinc-300 backdrop-blur-xl">
+                      {watchedWorks.length}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] font-medium text-zinc-500 sm:text-xs">
+                    Movies and series featuring {talentName} from your watch history
+                  </p>
+                </div>
+              </div>
+              <div className="hidden items-center gap-1.5 rounded-full border border-emerald-400/15 bg-emerald-500/[0.07] px-3 py-1.5 text-[10px] font-semibold text-emerald-300 sm:flex">
+                <Check className="h-3.5 w-3.5 text-emerald-300" />
+                <span>{watchedPercentage}% of credits</span>
+              </div>
+            </div>
+
+            <div className="-mx-4 flex snap-x snap-proximity gap-3.5 overflow-x-auto px-4 pb-4 no-scrollbar touch-pan-x -webkit-overflow-scrolling-touch sm:mx-0 sm:gap-4 sm:px-0" data-lenis-prevent>
+              {watchedWorks.map((work) => {
+                const mediaType = work.media_type === 'tv' ? 'tv' : 'movie';
+                const watchedDate = watchedHistory.get(workHistoryKey(work));
+                const releaseDate = work.release_date || work.first_air_date;
+                const workYear = releaseDate && releaseDate.trim() !== '' ? releaseDate.split('-')[0] : 'TBD';
+                const rating = work.vote_average ? work.vote_average.toFixed(1) : null;
+                const watchedLabel = watchedDate
+                  ? new Date(watchedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                  : 'Watched';
+                const statusKey = workHistoryKey(work);
+                const isInMyList = myListKeys.has(statusKey);
+                const isInWatchlist = watchlistKeys.has(statusKey);
+                const userRating = userRatings.get(statusKey);
+
+                return (
+                  <Link
+                    key={`watched-${mediaType}-${work.id}`}
+                    to={`/${mediaType}/${work.id}`}
+                    className="group block w-[142px] shrink-0 snap-start sm:w-[164px] md:w-[184px]"
+                  >
+                    <div className="relative">
+                      <div className="relative aspect-[2/3] overflow-hidden rounded-[24px] border border-white/[0.13] bg-zinc-950 shadow-[0_12px_34px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] transition-colors duration-300 group-hover:border-white/25">
+                        <img
+                          src={work.poster_path ? `https://image.tmdb.org/t/p/w500${work.poster_path}` : noImageSvg}
+                          alt={work.title || work.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          draggable={false}
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-white/[0.16] via-transparent to-transparent" />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                        {rating && (
+                          <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 px-2.5 py-1 shadow-md backdrop-blur-none sm:backdrop-blur-md">
+                            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 sm:h-3 sm:w-3" />
+                            <span className="text-[10px] font-semibold leading-none text-white sm:text-[11px]">{rating}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="absolute -bottom-2 inset-x-0 z-30 px-2">
+                        <MediaStatusIcons
+                          watched
+                          inMyList={isInMyList}
+                          inWatchlist={isInWatchlist}
+                          userRating={userRating}
+                        />
+                      </div>
+                    </div>
+                    <div className="px-1 pt-2">
+                      <p className="line-clamp-2 text-sm font-semibold leading-tight tracking-tight text-zinc-100 transition-colors group-hover:text-white sm:text-[15px]">
+                        {work.title || work.name}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-1.5 text-[9px] font-medium text-zinc-500 sm:text-[10px]">
+                        <span>{workYear}</span>
+                        <span className="text-white/20">•</span>
+                        <span>{mediaType === 'tv' ? 'Series' : 'Movie'}</span>
+                      </div>
+                      <p className="mt-1 flex items-center gap-1 truncate text-[9px] font-medium text-zinc-500 sm:text-[10px]">
+                        <CalendarCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+                        <span className="truncate">{watchedLabel}</span>
+                      </p>
+                      <p className="mt-0.5 truncate text-[9px] font-medium capitalize text-zinc-600 sm:text-[10px]">
+                        {work.displayRole}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {knownForWorks.length > 0 && (
           <div ref={knownForRef} className="mb-12">
             <div className="flex items-center gap-3 mb-6">
               <Crown className="w-5 h-5 text-amber-500 shrink-0" />
               <h2 className="text-2xl font-bold text-white tracking-tight">Known For</h2>
             </div>
-            <div className="flex overflow-x-auto gap-4 snap-x snap-mandatory scroll-smooth no-scrollbar touch-pan-x -webkit-overflow-scrolling-touch pb-4 px-4 sm:px-0 -mx-4 sm:mx-0">
+            <div className="flex overflow-x-auto gap-4 snap-x snap-proximity no-scrollbar touch-pan-x -webkit-overflow-scrolling-touch pb-4 px-4 sm:px-0 -mx-4 sm:mx-0" data-lenis-prevent>
               {knownForWorks.map((work) => {
                 const mediaType = work.media_type === "tv" ? "tv" : "movie";
                 const rating = work.vote_average ? work.vote_average.toFixed(1) : null;
                 const releaseDate = work.release_date || work.first_air_date;
                 const workYear = releaseDate && releaseDate.trim() !== "" ? releaseDate.split("-")[0] : "TBD";
+                const statusKey = workHistoryKey(work);
+                const isWatched = watchedHistory.has(statusKey);
+                const isInMyList = myListKeys.has(statusKey);
+                const isInWatchlist = watchlistKeys.has(statusKey);
+                const userRating = userRatings.get(statusKey);
 
                 return (
-                  <Link key={work.id} to={`/${mediaType}/${work.id}`} className="group block shrink-0 w-[140px] sm:w-[160px] md:w-[180px] snap-start">
+                  <Link key={work.id} to={`/${mediaType}/${work.id}`} className="group relative block shrink-0 w-[140px] sm:w-[160px] md:w-[180px] snap-start">
                     <div className="relative aspect-[2/3] rounded-3xl overflow-hidden bg-gradient-to-b from-white/20 via-white/5 to-transparent p-[1px] shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
                       <div className="relative w-full h-full rounded-[23px] overflow-hidden bg-zinc-950">
                         <img
@@ -674,16 +1452,18 @@ const Talentsdetails = () => {
                           alt={work.title || work.name}
                           className="w-full h-full object-cover"
                           loading="lazy"
+                          decoding="async"
+                          draggable={false}
                         />
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/25 via-transparent to-transparent pointer-events-none z-10" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
                         {rating && (
-                          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 shadow-md">
+                          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
                             <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 fill-amber-400" />
                             <span className="text-[10px] sm:text-[11px] font-semibold text-white leading-none tracking-tight">{rating}</span>
                           </div>
                         )}
-                        <div className="absolute top-2.5 right-2.5 z-20 flex items-center justify-center px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 shadow-md">
+                        <div className="absolute top-2.5 right-2.5 z-20 flex items-center justify-center px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
                           <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-200 leading-none tracking-tight">{workYear}</span>
                         </div>
 
@@ -692,6 +1472,14 @@ const Talentsdetails = () => {
                           <span className="text-[10px] text-zinc-300 line-clamp-1 font-medium">{work.displayRole}</span>
                         </div>
                       </div>
+                    </div>
+                    <div className="absolute -bottom-2 inset-x-0 z-30 px-2">
+                      <MediaStatusIcons
+                        watched={isWatched}
+                        inMyList={isInMyList}
+                        inWatchlist={isInWatchlist}
+                        userRating={userRating}
+                      />
                     </div>
                   </Link>
                 );
@@ -714,7 +1502,7 @@ const Talentsdetails = () => {
                 View All ({images.length})
               </button>
             </div>
-            <div className="flex sm:grid sm:grid-cols-3 md:grid-cols-6 gap-4 overflow-x-auto no-scrollbar touch-pan-x -webkit-overflow-scrolling-touch -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex sm:grid sm:grid-cols-3 md:grid-cols-6 gap-4 overflow-x-auto no-scrollbar touch-pan-x -webkit-overflow-scrolling-touch -mx-4 px-4 sm:mx-0 sm:px-0" data-lenis-prevent>
               {images.slice(0, 6).map((img, idx) => (
                 <div
                   key={img.file_path || idx}
@@ -726,6 +1514,8 @@ const Talentsdetails = () => {
                     alt={`${talentName} preview ${idx + 1}`}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                     loading="lazy"
+                    decoding="async"
+                    draggable={false}
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Images className="w-6 h-6 text-white" />
@@ -738,81 +1528,72 @@ const Talentsdetails = () => {
 
         <section ref={filmographyRef}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <h2 className="text-xl md:text-2xl font-bold text-white whitespace-nowrap">Filmography</h2>
-              <div className="h-px bg-gradient-to-r from-zinc-800 to-transparent flex-1 hidden sm:block" />
+              <div className="h-px min-w-8 flex-1 bg-gradient-to-r from-zinc-700 via-zinc-800/80 to-transparent" />
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-              <div className="relative flex items-center p-1 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-xl w-auto sm:w-auto backdrop-blur-2xl shadow-[0_4px_20px_0_rgba(0,0,0,0.4),inset_0_1px_1px_0_rgba(255,255,255,0.15)] overflow-hidden">
-                <button
-                  onClick={() => setActiveTab('all')}
-                  className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 md:px-4 py-1 font-semibold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-lg overflow-hidden group ${activeTab === 'all'
-                    ? 'text-white shadow-[0_2px_12px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
-                    }`}
-                >
-                  {activeTab === 'all' && (
-                    <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-                  )}
-                  {activeTab === 'all' && (
-                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-                  )}
-                  <Layers className={`w-3 h-3 relative z-10 transition-transform duration-300 ${activeTab === 'all' ? 'scale-105' : 'group-hover:scale-105'}`} />
-                  <span className="relative z-10">All</span>
-                </button>
+            <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-2.5">
+              <div className="flex min-w-0 flex-1 items-center sm:flex-initial">
+                <div className="inline-flex min-w-0 flex-1 items-center bg-white/10 dark:bg-white/[0.06] backdrop-blur-2xl p-1 rounded-xl border border-white/15 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] sm:flex-initial">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 px-2.5 py-1.5 sm:flex-initial sm:gap-1.5 sm:px-3.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 z-10 ${activeTab === 'all' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'}`}
+                  >
+                    <Layers className="w-3 h-3 relative z-10" />
+                    <span className="relative z-10">All</span>
+                    {activeTab === 'all' && (
+                      <motion.div
+                        layoutId="filmographyActive"
+                        className="absolute inset-0 bg-gradient-to-b from-[#FF3B30] to-[#E02B20] rounded-lg -z-10 shadow-[0_4px_15px_rgba(255,59,48,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                  </button>
 
-                <button
-                  onClick={() => setActiveTab('movie')}
-                  className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 md:px-4 py-1 font-semibold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-lg overflow-hidden group ${activeTab === 'movie'
-                    ? 'text-white shadow-[0_2px_12px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
-                    }`}
-                >
-                  {activeTab === 'movie' && (
-                    <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-                  )}
-                  {activeTab === 'movie' && (
-                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-                  )}
-                  <Clapperboard className={`w-3 h-3 relative z-10 transition-transform duration-300 ${activeTab === 'movie' ? 'scale-105' : 'group-hover:scale-105'}`} />
-                  <span className="relative z-10">Movies</span>
-                </button>
+                  <button
+                    onClick={() => setActiveTab('movie')}
+                    className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 px-2.5 py-1.5 sm:flex-initial sm:gap-1.5 sm:px-3.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 z-10 ${activeTab === 'movie' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'}`}
+                  >
+                    <Clapperboard className="w-3 h-3 relative z-10" />
+                    <span className="relative z-10">Movies</span>
+                    {activeTab === 'movie' && (
+                      <motion.div
+                        layoutId="filmographyActive"
+                        className="absolute inset-0 bg-gradient-to-b from-[#FF3B30] to-[#E02B20] rounded-lg -z-10 shadow-[0_4px_15px_rgba(255,59,48,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                  </button>
 
-                <button
-                  onClick={() => setActiveTab('tv')}
-                  className={`relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 md:px-4 py-1 font-semibold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-lg overflow-hidden group ${activeTab === 'tv'
-                    ? 'text-white shadow-[0_2px_12px_rgba(220,38,38,0.25),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.03]'
-                    }`}
-                >
-                  {activeTab === 'tv' && (
-                    <div className="absolute inset-0 bg-gradient-to-b from-red-500 via-red-600 to-red-700 before:absolute before:inset-0 before:bg-[linear-gradient(to_bottom,rgba(255,255,255,0.35)_0%,rgba(255,255,255,0)_50%,rgba(0,0,0,0.15)_100%)]" />
-                  )}
-                  {activeTab === 'tv' && (
-                    <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent" />
-                  )}
-                  <Tv className={`w-3 h-3 relative z-10 transition-transform duration-300 ${activeTab === 'tv' ? 'scale-105' : 'group-hover:scale-105'}`} />
-                  <span className="relative z-10">Series</span>
-                </button>
-
-                <Link
-                  to={`/talent/${talent?.id}/connections`}
-                  className="relative flex-1 sm:flex-initial flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 md:px-4 py-1 font-semibold text-[11px] md:text-xs tracking-wide transition-all duration-500 ease-[0.25,1,0.5,1] rounded-lg overflow-hidden group text-white border border-transparent hover:border-blue-400/40 hover:bg-blue-500/10"
-                >
-                  <Network className="w-3 h-3 relative z-10 transition-transform duration-300 group-hover:scale-110 text-blue-400" />
-                  <span className="relative z-10">Connections</span>
-                </Link>
+                  <button
+                    onClick={() => setActiveTab('tv')}
+                    className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 px-2.5 py-1.5 sm:flex-initial sm:gap-1.5 sm:px-3.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 z-10 ${activeTab === 'tv' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'}`}
+                  >
+                    <Tv className="w-3 h-3 relative z-10" />
+                    <span className="relative z-10">Series</span>
+                    {activeTab === 'tv' && (
+                      <motion.div
+                        layoutId="filmographyActive"
+                        className="absolute inset-0 bg-gradient-to-b from-[#FF3B30] to-[#E02B20] rounded-lg -z-10 shadow-[0_4px_15px_rgba(255,59,48,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]"
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   onClick={() => setIsSortOpen(!isSortOpen)}
-                  className="w-full sm:w-auto flex items-center justify-between gap-2 min-h-[38px] px-3 py-1.5 bg-gradient-to-b from-white/[0.07] to-white/[0.01] border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] rounded-xl backdrop-blur-2xl shadow-[0_4px_20px_0_rgba(0,0,0,0.4),inset_0_1px_1px_0_rgba(255,255,255,0.15)] text-white font-medium text-xs transition-all duration-300 hover:border-white/20 active:scale-98"
+                  className="flex min-h-[38px] items-center justify-between gap-1.5 rounded-xl border border-t-white/[0.15] border-x-white/[0.08] border-b-white/[0.03] bg-gradient-to-b from-white/[0.07] to-white/[0.01] px-2.5 py-1.5 text-[10px] font-medium text-white shadow-[0_4px_20px_0_rgba(0,0,0,0.4),inset_0_1px_1px_0_rgba(255,255,255,0.15)] backdrop-blur-2xl transition-all duration-300 hover:border-white/20 active:scale-98 sm:gap-2 sm:px-3 sm:text-xs"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <ActiveSortIcon className="w-3.5 h-3.5 text-red-500" />
-                    <span>{sortOptions.find(o => o.id === sortBy)?.label}</span>
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <ActiveSortIcon className="h-3 w-3 shrink-0 text-red-500 sm:h-3.5 sm:w-3.5" />
+                    <span className="sm:hidden">
+                      {sortBy === 'latest' ? 'Latest' : sortBy === 'oldest' ? 'Oldest' : 'Popular'}
+                    </span>
+                    <span className="hidden sm:inline">{sortOptions.find(o => o.id === sortBy)?.label}</span>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-300 ${isSortOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-3 w-3 shrink-0 text-zinc-400 transition-transform duration-300 sm:h-3.5 sm:w-3.5 ${isSortOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 <AnimatePresence>
@@ -858,7 +1639,7 @@ const Talentsdetails = () => {
             animate="show"
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
           >
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode={isMobileViewport ? "sync" : "popLayout"}>
               {filteredWorks.map((work) => {
                 const workTitle = work.title || work.name || "Untitled Project";
                 const mediaType = work.media_type === "tv" ? "tv" : "movie";
@@ -867,20 +1648,25 @@ const Talentsdetails = () => {
                 const hasYear = releaseDate && releaseDate.trim() !== "";
                 const workYear = hasYear ? releaseDate.split("-")[0] : "TBD";
                 const rating = work.vote_average ? work.vote_average.toFixed(1) : null;
+                const statusKey = workHistoryKey(work);
+                const isWatched = watchedHistory.has(statusKey);
+                const isInMyList = myListKeys.has(statusKey);
+                const isInWatchlist = watchlistKeys.has(statusKey);
+                const userRating = userRatings.get(statusKey);
 
                 return (
                   <motion.div
                     key={work.uniqueKey || work.id}
                     variants={cardVariants}
-                    layout
+                    layout={isMobileViewport ? false : "position"}
                     className="filmography-card-static"
                   >
-                    <Link to={`/${mediaType}/${work.id}`} className="block h-full group">
+                    <Link to={`/${mediaType}/${work.id}`} className="relative block h-full group">
                       <div className="h-full relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/25 via-white/10 to-transparent shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-colors duration-300 group-hover:from-white/40 group-hover:via-white/20 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]">
-                        <div className="relative w-full h-full rounded-[15px] overflow-hidden bg-zinc-950">
+                        <div className="filmography-poster-clean relative w-full h-full rounded-[15px] overflow-hidden bg-zinc-950">
                           {rating && (
                             <div className="absolute top-2 left-2 md:top-3 md:left-3 z-30 pointer-events-none">
-                              <div className="flex items-center gap-1 h-5 md:h-6 px-2 rounded-full bg-black/50 backdrop-blur-md border border-white/15 shadow-md">
+                              <div className="flex items-center gap-1 h-5 md:h-6 px-2 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
                                 <Star className="w-2.5 h-2.5 md:w-3 md:h-3 text-amber-400 fill-amber-400" />
                                 <span className="text-[9px] md:text-[10px] font-semibold text-white leading-none tracking-tight">
                                   {rating}
@@ -891,14 +1677,14 @@ const Talentsdetails = () => {
                           <div className="absolute top-2 right-2 md:top-3 md:right-3 z-30 pointer-events-none">
                             <div
                               className={`flex items-center justify-center h-5 md:h-6 px-2 rounded-full backdrop-blur-md border shadow-md transition-colors duration-300 ${hasYear
-                                  ? "bg-black/50 border-white/15 group-hover:bg-black/60 group-hover:border-white/25"
-                                  : "bg-amber-500/10 border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/30"
+                                ? "bg-black/50 border-white/15 group-hover:bg-black/60 group-hover:border-white/25"
+                                : "bg-amber-500/10 border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/30"
                                 }`}
                             >
                               <span
                                 className={`text-[9px] md:text-[10px] font-semibold leading-none tracking-tight transition-colors duration-300 ${hasYear
-                                    ? "text-zinc-200 group-hover:text-white"
-                                    : "text-amber-400 font-bold group-hover:text-amber-300"
+                                  ? "text-zinc-200 group-hover:text-white"
+                                  : "text-amber-400 font-bold group-hover:text-amber-300"
                                   }`}
                               >
                                 {workYear}
@@ -916,6 +1702,14 @@ const Talentsdetails = () => {
                             }
                           />
                         </div>
+                      </div>
+                      <div className="absolute -bottom-2 inset-x-0 z-40 px-2">
+                        <MediaStatusIcons
+                          watched={isWatched}
+                          inMyList={isInMyList}
+                          inWatchlist={isInWatchlist}
+                          userRating={userRating}
+                        />
                       </div>
                     </Link>
                   </motion.div>
@@ -982,7 +1776,7 @@ const Talentsdetails = () => {
                 </button>
               </div>
 
-              <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 auto-rows-max">
+              <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 auto-rows-max" data-lenis-prevent>
                 {images.map((img, idx) => (
                   <div
                     key={img.file_path || idx}
@@ -994,6 +1788,8 @@ const Talentsdetails = () => {
                       alt={`${talentName} ${idx + 1}`}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"
+                      decoding="async"
+                      draggable={false}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3">
                       <span className="text-[10px] font-mono text-zinc-300">{img.width}x{img.height}</span>
