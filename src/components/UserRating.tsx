@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Award, Calendar, Check, ChevronDown, Clapperboard, Copy, Download, Eye, Flame, Heart, Image as ImageIcon, Link2, Loader2, Pencil, RotateCcw, Search, Share2, Sparkles, Star, Trash2, Tv, X } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -366,6 +367,8 @@ const ShareSheet = ({
   const [shareOverview, setShareOverview] = useState("");
   const [baseBackdrop, setBaseBackdrop] = useState("");
   const [tmdbRating, setTmdbRating] = useState<number | null>(null);
+  const [shareUserPhoto, setShareUserPhoto] = useState("/user-icon.jpg");
+  const [shareUsername, setShareUsername] = useState("Cinescape User");
   const [feedback, setFeedback] = useState("");
 
   const open = Boolean(payload);
@@ -397,6 +400,50 @@ const ShareSheet = ({
     setSelectedStatus(null);
     setFeedback("");
   }, [open, payloadKey, payload?.posterUrl]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const auth = getAuth();
+    let unsubscribeUser: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      unsubscribeUser?.();
+      unsubscribeUser = null;
+
+      if (!currentUser) {
+        setShareUserPhoto("/user-icon.jpg");
+        setShareUsername("Cinescape User");
+        return;
+      }
+
+      const fallbackUsername = currentUser.displayName?.trim() || currentUser.email?.split("@")[0] || "Cinescape User";
+      const fallbackPhoto = currentUser.photoURL || "/user-icon.jpg";
+
+      setShareUsername(fallbackUsername);
+      setShareUserPhoto(fallbackPhoto);
+
+      unsubscribeUser = onSnapshot(
+        doc(db, "users", currentUser.uid),
+        (snapshot) => {
+          const data = snapshot.exists() ? snapshot.data() : {};
+          const username = String(data.username ?? data.displayName ?? data.name ?? fallbackUsername).trim();
+          const photo = data.photoDataUrl ?? data.photoURL ?? fallbackPhoto;
+          setShareUsername(username || fallbackUsername);
+          setShareUserPhoto(typeof photo === "string" && photo.trim() ? photo : fallbackPhoto);
+        },
+        () => {
+          setShareUsername(fallbackUsername);
+          setShareUserPhoto(fallbackPhoto);
+        },
+      );
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeUser?.();
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !mediaId) return;
@@ -567,7 +614,7 @@ const ShareSheet = ({
   const generateCardBlob = async (): Promise<Blob | null> => {
     if (!storyCardRef.current) return null;
     try {
-      await Promise.all([preloadImage(previewBackdrop), preloadImage(previewPoster)]);
+      await Promise.all([preloadImage(previewBackdrop), preloadImage(previewPoster), preloadImage(shareUserPhoto)]);
       const dataUrl = await toPng(storyCardRef.current, {
         cacheBust: true,
         pixelRatio: 1,
@@ -659,21 +706,32 @@ const ShareSheet = ({
 
   const canNativeShare = typeof navigator !== "undefined" && Boolean(navigator.share);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && item && payload && (
         <>
-          <motion.div
-            className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/70 p-0 backdrop-blur-xl sm:items-center sm:bg-black/30 sm:p-5 sm:backdrop-blur-md"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            onClick={onClose}
+          <div
+            className="fixed inset-0 z-[10000] flex items-end justify-center p-0 sm:items-center sm:p-5"
             role="dialog"
             aria-modal="true"
             aria-label={`Share rating for ${title}`}
           >
+            <motion.button
+              type="button"
+              aria-label="Close share dialog"
+              className="absolute inset-0 h-full w-full cursor-default border-0 bg-black/[0.68] p-0 sm:bg-black/[0.46]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                WebkitBackdropFilter: "blur(14px) saturate(0.9)",
+                backdropFilter: "blur(14px) saturate(0.9)",
+              }}
+              onClick={onClose}
+            />
             <div className="fixed -left-[9999px] -top-[9999px] pointer-events-none" aria-hidden="true">
               <div
                 ref={storyCardRef}
@@ -696,7 +754,6 @@ const ShareSheet = ({
                     <MediumIcon className="h-7 w-7 text-white" />
                     <span className="text-2xl font-bold uppercase tracking-[0.12em] text-white">{medium}</span>
                   </div>
-
                   <div className="flex items-center gap-3 rounded-full border border-amber-400/40 bg-black/80 px-7 py-3.5 shadow-2xl">
                     <span className="rounded bg-[#0d253f] px-2.5 py-1 text-xs font-black tracking-wider text-[#01b4e4]">TMDB</span>
                     <Star className="h-7 w-7 fill-amber-300 text-amber-300" />
@@ -706,6 +763,26 @@ const ShareSheet = ({
                   </div>
                 </div>
                 <div className="relative z-10 my-auto flex flex-col items-center">
+                  <div className="mb-8 flex items-center justify-center">
+                    <div className="flex max-w-[560px] items-center gap-4 rounded-full border border-white/25 bg-black/60 py-2.5 pl-2.5 pr-7 shadow-[0_14px_44px_rgba(0,0,0,0.38),inset_0_1px_1px_rgba(255,255,255,0.16)] backdrop-blur-2xl">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white/40 bg-zinc-900 shadow-xl">
+                        <img
+                          src={shareUserPhoto || "/user-icon.jpg"}
+                          crossOrigin="anonymous"
+                          alt={shareUsername}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <p className="truncate text-[26px] font-black leading-tight tracking-tight text-white">
+                          {shareUsername.replace(/^@/, "")}
+                        </p>
+                        <p className="mt-1 text-[15px] font-bold uppercase tracking-[0.16em] text-white/45">
+                          Rated on Cinescape
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="relative rounded-[62px] border border-white/30 bg-white/10 p-3 shadow-[0_42px_110px_rgba(0,0,0,0.85)]">
                     <div className="relative h-[1050px] w-[700px] overflow-hidden rounded-[52px] bg-black/60">
                       {previewPoster ? (
@@ -718,12 +795,12 @@ const ShareSheet = ({
                     </div>
                   </div>
                   {statusMeta && (
-                    <div className="mt-12 flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-950/60 px-6 py-2.5 text-xl font-black tracking-[0.18em] text-amber-200 shadow-xl">
+                    <div className="mt-10 flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-950/60 px-6 py-2.5 text-xl font-black tracking-[0.18em] text-amber-200 shadow-xl">
                       <statusMeta.icon className="h-5 w-5" />
                       {statusMeta.label}
                     </div>
                   )}
-                  <h1 className="mt-10 max-w-[900px] text-center text-[58px] font-black leading-[1.04] tracking-tight text-white drop-shadow-2xl">
+                  <h1 className="mt-8 max-w-[900px] text-center text-[58px] font-black leading-[1.04] tracking-tight text-white drop-shadow-2xl">
                     {title}
                   </h1>
                   <div className="mt-6 flex items-center justify-center">
@@ -764,7 +841,7 @@ const ShareSheet = ({
               onDragEnd={(_, info) => {
                 if (info.offset.y > 120 || info.velocity.y > 700) onClose();
               }}
-              className="relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[34px] border border-white/15 bg-zinc-950 shadow-[0_28px_90px_rgba(0,0,0,0.9)] sm:max-h-[86vh] sm:rounded-[34px] sm:border-white/20 sm:bg-zinc-950/62 sm:shadow-[0_32px_100px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.12)] sm:backdrop-blur-3xl"
+              className="relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[34px] border border-white/15 bg-zinc-950 shadow-[0_28px_90px_rgba(0,0,0,0.9)] sm:max-h-[86vh] sm:rounded-[34px] sm:border-white/20 sm:bg-zinc-950/82 sm:shadow-[0_32px_100px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.12)]"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.055] via-transparent to-black/30" />
@@ -836,6 +913,12 @@ const ShareSheet = ({
                         <ExactRatingStars rating={rating} size={11} gap={1} />
                         <span className="text-[10px] font-semibold tabular-nums text-amber-200">{rating.toFixed(1)}</span>
                       </div>
+                      <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+                        <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-white/25 bg-zinc-900">
+                          <img src={shareUserPhoto || "/user-icon.jpg"} alt={shareUsername} className="h-full w-full object-cover" />
+                        </div>
+                        <span className="truncate text-[9px] font-semibold text-white/55">@{shareUsername.replace(/^@/, "")}</span>
+                      </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium text-white/60">
                         {year && <span>{year}</span>}
                         {shareGenres.slice(0, 2).map((genre) => <React.Fragment key={genre}><span className="text-white/30">•</span><span>{genre}</span></React.Fragment>)}
@@ -901,12 +984,26 @@ const ShareSheet = ({
                 </AnimatePresence>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
 
           <AnimatePresence>
             {artworkSelector && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[11000] flex items-end justify-center bg-black/80 p-0 backdrop-blur-xl sm:items-center sm:p-4" onClick={() => setArtworkSelector(null)}>
-                <motion.div initial={{ opacity: 0, y: 40, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.99 }} transition={{ duration: 0.2 }} onClick={(event) => event.stopPropagation()} className="flex h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-white/15 bg-zinc-950 shadow-2xl sm:h-[82vh] sm:rounded-[32px] sm:bg-zinc-950/78 sm:backdrop-blur-3xl">
+              <div className="fixed inset-0 z-[11000] flex items-end justify-center p-0 sm:items-center sm:p-4">
+                <motion.button
+                  type="button"
+                  aria-label="Close artwork selector"
+                  className="absolute inset-0 h-full w-full cursor-default border-0 bg-black/[0.78] p-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  style={{
+                    WebkitBackdropFilter: "blur(12px) saturate(0.9)",
+                    backdropFilter: "blur(12px) saturate(0.9)",
+                  }}
+                  onClick={() => setArtworkSelector(null)}
+                />
+                <motion.div initial={{ opacity: 0, y: 40, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.99 }} transition={{ duration: 0.2 }} onClick={(event) => event.stopPropagation()} className="relative flex h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-white/15 bg-zinc-950 shadow-2xl sm:h-[82vh] sm:rounded-[32px] sm:bg-zinc-950/88">
                   <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5">
                     <div><h3 className="text-sm font-bold text-white">Select {artworkSelector === "poster" ? "Poster" : "Backdrop"}</h3><p className="text-[11px] text-white/45">{artworkChoices.length} images available</p></div>
                     <button type="button" onClick={() => setArtworkSelector(null)} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white active:scale-90"><X className="h-4 w-4" /></button>
@@ -961,12 +1058,13 @@ const ShareSheet = ({
                     <button type="button" onClick={() => setArtworkSelector(null)} className="ml-auto h-9 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-5 text-[10px] font-black text-black shadow-lg transition hover:brightness-110 active:scale-95">Done</button>
                   </div>
                 </motion.div>
-              </motion.div>
+              </div>
             )}
           </AnimatePresence>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };
 
@@ -1494,7 +1592,7 @@ export const UserRatingSection = ({
                         <div className="min-w-0 flex-1 pt-1 sm:pt-0">
                           <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 px-2.5 py-0.5 text-[10px] font-bold text-black shadow-sm shadow-amber-500/30"><Award className="w-3 h-3 fill-current" /><span>Top Choice</span></div>
                           <h3 className="line-clamp-2 text-xl font-extrabold leading-tight tracking-tight text-white transition-colors duration-200 sm:text-2xl sm:group-hover:text-amber-300">{getDisplayTitle(spotlightMovie)}</h3>
-                          <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-amber-200/70"><Calendar className="h-3.5 w-3.5" />{getReleaseYear(spotlightMovie)}</p>
+                          <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-white/60"><Calendar className="h-3.5 w-3.5 text-green-500" />{getReleaseYear(spotlightMovie)}</p>
                           <div className="mt-3 flex items-center gap-1.5 text-[10px] font-semibold text-white/45 sm:hidden"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /><span>Your highest-rated pick</span></div>
                         </div>
                       </div>
@@ -1631,7 +1729,7 @@ export const UserRatingSection = ({
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <h4 className="line-clamp-2 text-xs font-bold text-white transition-colors group-hover:text-amber-300 sm:text-sm">{getDisplayTitle(item)}</h4>
-                                <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-zinc-500 sm:text-[11px]"><Calendar className="h-3 w-3" />{getReleaseYear(item)}</span>
+                                <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-zinc-500 sm:text-[11px]"><Calendar className="h-3 w-3 text-green-500" />{getReleaseYear(item)}</span>
                               </div>
                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShare(item); }} className="lg:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-300"><Share2 className="h-3.5 w-3.5" /></button>
                             </div>
