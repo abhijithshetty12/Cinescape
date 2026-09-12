@@ -678,81 +678,76 @@ const ShareSheet = ({
               <div
                 ref={storyCardRef}
                 className="relative isolate flex h-[1920px] w-[1080px] flex-col items-center overflow-hidden bg-black px-20 pb-24 pt-24 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]"
+                style={{ transform: "translateZ(0)" }}
               >
                 {previewBackdrop && (
-                  <img src={previewBackdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  <img
+                    src={previewBackdrop}
+                    crossOrigin="anonymous"
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover scale-110"
+                    style={{ filter: "blur(40px) brightness(0.6)" }}
+                  />
                 )}
-                <div className="absolute inset-0 bg-black/50" />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-black/90" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_33%,transparent_0%,rgba(0,0,0,0.12)_42%,rgba(0,0,0,0.58)_100%)]" />
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/90" />
                 <div className="relative z-10 flex w-full items-center justify-between">
-                  <div className="flex items-center gap-3 rounded-full border border-white/25 bg-black/45 px-7 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.18)] backdrop-blur-2xl">
+                  <div className="flex items-center gap-3 rounded-full border border-white/30 bg-black/70 px-7 py-3.5 shadow-2xl">
                     <MediumIcon className="h-7 w-7 text-white" />
                     <span className="text-2xl font-bold uppercase tracking-[0.12em] text-white">{medium}</span>
                   </div>
 
-                  <div className="flex items-center gap-3 rounded-full border border-amber-400/30 bg-black/55 px-7 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.2)] backdrop-blur-2xl">
-                    <span className="rounded bg-[#0d253f] px-2 py-0.5 text-xs font-black tracking-wider text-[#01b4e4]">TMDB</span>
+                  <div className="flex items-center gap-3 rounded-full border border-amber-400/40 bg-black/80 px-7 py-3.5 shadow-2xl">
+                    <span className="rounded bg-[#0d253f] px-2.5 py-1 text-xs font-black tracking-wider text-[#01b4e4]">TMDB</span>
                     <Star className="h-7 w-7 fill-amber-300 text-amber-300" />
                     <span className="text-2xl font-black tabular-nums text-white">
                       {displayedTmdbRating !== null ? displayedTmdbRating.toFixed(1) : "—"}
                     </span>
                   </div>
                 </div>
-
                 <div className="relative z-10 my-auto flex flex-col items-center">
-                  <div className="relative rounded-[62px] border border-white/30 bg-white/[0.12] p-3 shadow-[0_42px_110px_rgba(0,0,0,0.78),inset_0_1px_2px_rgba(255,255,255,0.26)] backdrop-blur-2xl">
-                    <div className="relative h-[1050px] w-[700px] overflow-hidden rounded-[52px] bg-black/40">
+                  <div className="relative rounded-[62px] border border-white/30 bg-white/10 p-3 shadow-[0_42px_110px_rgba(0,0,0,0.85)]">
+                    <div className="relative h-[1050px] w-[700px] overflow-hidden rounded-[52px] bg-black/60">
                       {previewPoster ? (
                         <img src={previewPoster} crossOrigin="anonymous" alt={title} className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center"><MediumIcon className="h-36 w-36 text-white/20" /></div>
+                        <div className="flex h-full w-full items-center justify-center">
+                          <MediumIcon className="h-36 w-36 text-white/20" />
+                        </div>
                       )}
                     </div>
                   </div>
-
                   {statusMeta && (
-                    <div className="mt-12 flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/15 px-6 py-2.5 text-xl font-black tracking-[0.18em] text-amber-200 backdrop-blur-2xl">
+                    <div className="mt-12 flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-950/60 px-6 py-2.5 text-xl font-black tracking-[0.18em] text-amber-200 shadow-xl">
                       <statusMeta.icon className="h-5 w-5" />
                       {statusMeta.label}
                     </div>
                   )}
-
-                  <h1 className="mt-10 max-w-[900px] text-center text-[58px] font-black leading-[1.04] tracking-tight text-white drop-shadow-2xl">{title}</h1>
-
+                  <h1 className="mt-10 max-w-[900px] text-center text-[58px] font-black leading-[1.04] tracking-tight text-white drop-shadow-2xl">
+                    {title}
+                  </h1>
                   <div className="mt-6 flex items-center justify-center">
                     <ExactRatingStars rating={rating} size={46} gap={10} />
                   </div>
-
-                  <div className="mt-5 flex items-center gap-4 text-[24px] font-semibold text-white/75">
+                  <div className="mt-5 flex items-center gap-4 text-[24px] font-semibold text-white/80">
                     {year && <span>{year}</span>}
-                    {year && shareGenres.length > 0 && <span className="text-white/35">•</span>}
+                    {year && shareGenres.length > 0 && <span className="text-white/40">•</span>}
                     {shareGenres.length > 0 && <span>{shareGenres.slice(0, 3).join(", ")}</span>}
                   </div>
-
                   <div className="mt-5 flex items-center gap-2.5 text-[28px] font-black text-amber-300">
-                    <span className="text-white/60 text-2xl font-bold">Your rating:</span>
+                    <span className="text-white/70 text-2xl font-bold">Your rating:</span>
                     <span>{rating.toFixed(1)} / 10</span>
                   </div>
                 </div>
-
                 <div className="relative z-10 flex w-full flex-col items-center gap-4">
                   <div className="flex w-full max-w-[520px] items-center gap-6">
-                    <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/30" />
-                    <span className="whitespace-nowrap text-lg font-bold uppercase tracking-[0.3em] text-white/50">Shared from</span>
-                    <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/30" />
+                    <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/40" />
+                    <span className="whitespace-nowrap text-lg font-bold uppercase tracking-[0.3em] text-white/60">Shared from</span>
+                    <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/40" />
                   </div>
                   <div className="flex items-center justify-center gap-4">
-                    <img
-                      src="/Logo.png"
-                      alt="Logo"
-                      className="h-10 w-auto object-contain drop-shadow-lg"
-                    />
-                    <img
-                      src="/Cinescape.png"
-                      alt="Cinescape"
-                      className="h-8 w-auto object-contain drop-shadow-lg"
-                    />
+                    <img src="/Logo.png" alt="Logo" className="h-10 w-auto object-contain drop-shadow-lg" />
+                    <img src="/Cinescape.png" alt="Cinescape" className="h-8 w-auto object-contain drop-shadow-lg" />
                   </div>
                 </div>
               </div>
