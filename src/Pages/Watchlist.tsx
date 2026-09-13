@@ -224,8 +224,13 @@ const PosterImage = ({ item }: { item: MediaItem }) => {
   );
 };
 
-const MiniStatusCluster = ({ watched, inMyList }: { watched: boolean; inMyList: boolean }) => (
+const MiniStatusCluster = ({ favorite, watched, inMyList }: { favorite: boolean; watched: boolean; inMyList: boolean }) => (
   <div className="flex items-center -space-x-1">
+    {favorite && (
+      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_6px_rgba(239,68,68,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="Favorite">
+        <Heart className="h-2.5 w-2.5 fill-current stroke-[2.6]" />
+      </span>
+    )}
     {inMyList && (
       <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_6px_rgba(168,85,247,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="In My List">
         <ListChecks className="h-2.5 w-2.5 stroke-[2.8]" />
@@ -1034,12 +1039,12 @@ const WatchlistPage = () => {
                       {item.priority && <PriorityBadge priority={item.priority} compact />}
                       <span className="rounded-lg border border-white/10 bg-black/65 px-2 py-1 text-[9px] font-black tabular-nums text-white/85 shadow-lg backdrop-blur-md">{releaseYear(item) || 'TBA'}</span>
                     </div>
-                    <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="absolute right-2 top-10 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/65 text-white/90 shadow-lg backdrop-blur-md transition hover:bg-black/80 active:scale-95 lg:hidden" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></button>
+                    {!selectionMode && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="absolute bottom-2 left-2 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/65 text-white/90 shadow-[0_5px_16px_rgba(0,0,0,0.38)] backdrop-blur-md transition hover:bg-black/80 active:scale-95 lg:hidden" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></button>}
 
                     {isUpcoming(item) && <div className="pointer-events-none absolute left-2 top-9 rounded-lg border border-sky-400/20 bg-sky-500/15 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-sky-300 backdrop-blur-md">Upcoming · {formatReleaseDate(item)}</div>}
 
                     {userRating !== undefined && <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 -translate-x-1/2"><UserRatingBadge rating={userRating} /></div>}
-                    <div className="pointer-events-none absolute bottom-2 right-2 z-20"><MiniStatusCluster watched={watched} inMyList={inMyList} /></div>
+                    <div className="pointer-events-none absolute bottom-2 right-2 z-20"><MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /></div>
 
                     {selectionMode && <button type="button" onClick={(event) => { event.stopPropagation(); toggleSelection(item); }} className={`absolute left-2 bottom-2 z-50 flex h-7 w-7 items-center justify-center rounded-lg border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/15 bg-black/60 text-white/60'}`}><Check className="h-4 w-4 stroke-[3]" /></button>}
 
@@ -1048,8 +1053,9 @@ const WatchlistPage = () => {
                         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleFavorite(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/10 ${favorite ? 'text-rose-400' : 'text-white/80'}`} title={favorite ? 'Remove Favorite' : 'Favorite'}><Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} /></button>
                         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleHistory(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl ${watched ? 'text-emerald-400' : 'text-white/80 hover:bg-white/10 hover:text-emerald-300'}`} title={watched ? 'Remove from History' : 'Mark Watched'}><Check className="h-3.5 w-3.5" /></button>
                         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); inMyList ? removeFromMyList(item) : openMyListPicker(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/10 ${inMyList ? 'text-violet-400' : 'text-white/80 hover:text-violet-300'}`} title={inMyList ? 'Remove from My List' : 'Add to My List'}><ListChecks className="h-3.5 w-3.5" /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-white/10 hover:text-white active:scale-95" title="More"><MoreHorizontal className="h-3.5 w-3.5" /></button>
                         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); removeItem(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-rose-500/15 hover:text-rose-300" title="Remove from Watchlist"><BookmarkMinus className="h-3.5 w-3.5" /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-white/10 hover:text-white active:scale-95" title="More"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+
                       </div>
                     )}
                   </div>
@@ -1104,14 +1110,15 @@ const WatchlistPage = () => {
               const watched = watchHistory.has(key);
               const inMyList = myListKeys.has(key);
               const userRating = userRatings.get(key);
+              const favorite = favoriteKeys.has(key);
               const selected = selectedIds.has(item.id);
               return (
                 <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.15 }} className={`flex items-center gap-3 rounded-2xl border bg-zinc-950/60 p-2.5 backdrop-blur-xl transition ${selected ? 'border-emerald-400/50' : 'border-white/[0.05] hover:border-white/10'}`}>
                   {selectionMode && <button onClick={() => toggleSelection(item)} className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/5 text-white/50'}`}><Check className="h-4 w-4 stroke-[3]" /></button>}
                   <button onClick={() => handleCardOpen(item)} className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900"><PosterImage item={item} /></button>
-                  <button onClick={() => handleCardOpen(item)} className="min-w-0 flex-1 text-left"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-white">{item.title || item.name}</h3>{isUpcoming(item) && <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-sky-300">Upcoming</span>}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500"><span>{isUpcoming(item) ? formatReleaseDate(item) : releaseYear(item) || 'N/A'}</span>{item.runtimeMinutes ? <><span>·</span><span className="inline-flex items-center gap-1">{formatRuntime(item.runtimeMinutes)}</span></> : null}<span>·</span><span >{item.vote_average?.toFixed(1) || '—'}</span>{item.priority && <><span>·</span><span className={priorityMeta[item.priority].text}>{priorityMeta[item.priority].label} priority</span></>}</div><div className="mt-1.5 flex flex-wrap gap-1">{item.genres.slice(0, 3).map((genre) => <span key={genre} className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">{genre}</span>)}{item.addedReason && <span className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">Why: {item.addedReason}</span>}</div></button>
+                  <button onClick={() => handleCardOpen(item)} className="min-w-0 flex-1 text-left"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-white">{item.title || item.name}</h3>{isUpcoming(item) && <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-sky-300">Upcoming</span>}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500"><span>{isUpcoming(item) ? formatReleaseDate(item) : releaseYear(item) || 'N/A'}</span>{item.runtimeMinutes ? <><span>·</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{formatRuntime(item.runtimeMinutes)}</span></> : null}<span>·</span><span>{item.vote_average?.toFixed(1) || '—'} TMDB</span>{item.priority && <><span>·</span><span className={priorityMeta[item.priority].text}>{priorityMeta[item.priority].label} priority</span></>}</div><div className="mt-1.5 flex flex-wrap gap-1">{item.genres.slice(0, 3).map((genre) => <span key={genre} className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">{genre}</span>)}{item.addedReason && <span className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">Why: {item.addedReason}</span>}</div></button>
                   <div className="hidden min-w-[120px] flex-col items-end gap-1.5 sm:flex"><ProviderRow providers={item.providers} compact /><span className="text-[9px] text-zinc-600">{formatAddedAt(item.addedAt)}</span></div>
-                  <div className="flex shrink-0 items-center gap-2">{userRating !== undefined && <UserRatingBadge rating={userRating} />}<MiniStatusCluster watched={watched} inMyList={inMyList} /><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95"><MoreHorizontal className="h-4 w-4" /></button></div>
+                  <div className="flex shrink-0 items-center gap-2">{userRating !== undefined && <UserRatingBadge rating={userRating} />}<MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95"><MoreHorizontal className="h-4 w-4" /></button></div>
                 </motion.div>
               );
             })}
@@ -1231,27 +1238,32 @@ const WatchlistPage = () => {
       )}
 
       {smartCollections.length > 0 && (
-        <section className="mx-auto mb-8 max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between"><div><h2 className="text-lg font-black tracking-tight text-white">Smart Collections</h2><p className="text-[11px] font-medium text-zinc-500">Automatic picks from your current {mediaType === 'movie' ? 'movie' : 'series'} watchlist.</p></div></div>
-          <div className="space-y-5">
-            {smartCollections.map((section) => {
-              const Icon = section.icon;
-              return (
-                <div key={section.id}>
-                  <div className="mb-2.5 flex items-center gap-2"><Icon className="h-4 w-4 text-amber-400" /><h3 className="text-xs font-bold text-zinc-200">{section.title}</h3><span className="text-[10px] text-zinc-600">{section.items.length}</span></div>
-                  <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar">
-                    {section.items.map((item) => (
-                      <button type="button" key={`${section.id}-${item.id}`} onClick={() => handleCardOpen(item)} className="group w-[104px] shrink-0 text-left sm:w-[116px]">
-                        <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900 shadow-md transition group-hover:border-white/15"><PosterImage item={item} />{isUpcoming(item) && <span className="absolute left-1.5 top-1.5 rounded-md border border-sky-400/20 bg-sky-500/15 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide text-sky-300 backdrop-blur-md">Upcoming</span>}</div>
-                        <p className="mt-1.5 line-clamp-1 text-[10px] font-bold text-zinc-300 group-hover:text-white">{item.title || item.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+        <>
+          <div className="mx-auto mt-10 mb-7 max-w-7xl px-4 sm:mt-12 sm:mb-8 sm:px-6 lg:px-8">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
           </div>
-        </section>
+          <section className="mx-auto mb-8 max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between"><div><h2 className="text-lg font-black tracking-tight text-white">Smart Collections</h2><p className="text-[11px] font-medium text-zinc-500">Automatic picks from your current {mediaType === 'movie' ? 'movie' : 'series'} watchlist.</p></div></div>
+            <div className="space-y-5">
+              {smartCollections.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <div key={section.id}>
+                    <div className="mb-2.5 flex items-center gap-2"><Icon className="h-4 w-4 text-amber-400" /><h3 className="text-xs font-bold text-zinc-200">{section.title}</h3><span className="text-[10px] text-zinc-600">{section.items.length}</span></div>
+                    <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar">
+                      {section.items.map((item) => (
+                        <button type="button" key={`${section.id}-${item.id}`} onClick={() => handleCardOpen(item)} className="group w-[104px] shrink-0 text-left sm:w-[116px]">
+                          <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900 shadow-md transition group-hover:border-white/15"><PosterImage item={item} />{isUpcoming(item) && <span className="absolute left-1.5 top-1.5 rounded-md border border-sky-400/20 bg-sky-500/15 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide text-sky-300 backdrop-blur-md">Upcoming</span>}</div>
+                          <p className="mt-1.5 line-clamp-1 text-[10px] font-bold text-zinc-300 group-hover:text-white">{item.title || item.name}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </>
       )}
 
       {showFolderPicker && createPortal(
