@@ -1070,7 +1070,12 @@ const ReviewList = ({
                     {shareReview.rating !== undefined && (
                       <div className="mt-[12px] flex items-center gap-[10px]">
                         <ShareRatingStars rating={shareReview.rating} size={28} gap={4} />
-                        {shareIsFavorite && <Heart className="h-[26px] w-[26px] fill-rose-400 text-rose-400" />}
+                        <span className="text-[20px] font-medium leading-none text-zinc-400">
+                          {Number.isInteger(shareReview.rating) ? shareReview.rating : shareReview.rating.toFixed(1)}/10
+                        </span>
+                        {shareIsFavorite && (
+                          <Heart className="h-[26px] w-[26px] shrink-0 fill-red-500 text-red-500 drop-shadow-[0_2px_8px_rgba(239,68,68,0.4)]" />
+                        )}
                       </div>
                     )}
                   </div>
