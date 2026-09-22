@@ -225,23 +225,23 @@ const PosterImage = ({ item }: { item: MediaItem }) => {
 };
 
 const MiniStatusCluster = ({ favorite, watched, inMyList }: { favorite: boolean; watched: boolean; inMyList: boolean }) => (
-  <div className="flex items-center -space-x-1">
+  <div className="flex items-center justify-end -space-x-1.5 sm:justify-start sm:-space-x-1">
     {favorite && (
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_6px_rgba(239,68,68,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="Favorite">
-        <Heart className="h-2.5 w-2.5 fill-current stroke-[2.6]" />
+      <span className="relative z-[4] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_7px_rgba(239,68,68,0.32),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="Favorite">
+        <Heart className="h-2 w-2 fill-current stroke-[2.6] sm:h-2.5 sm:w-2.5" />
       </span>
     )}
     {inMyList && (
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_6px_rgba(168,85,247,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="In My List">
-        <ListChecks className="h-2.5 w-2.5 stroke-[2.8]" />
+      <span className="relative z-[3] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_7px_rgba(168,85,247,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="In My List">
+        <ListChecks className="h-2 w-2 stroke-[2.8] sm:h-2.5 sm:w-2.5" />
       </span>
     )}
-    <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_2px_6px_rgba(59,130,246,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="In Watchlist">
-      <Bookmark className="h-2.5 w-2.5 fill-current stroke-[2.6]" />
+    <span className="relative z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_2px_7px_rgba(59,130,246,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="In Watchlist">
+      <Bookmark className="h-2 w-2 fill-current stroke-[2.6] sm:h-2.5 sm:w-2.5" />
     </span>
     {watched && (
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[0_2px_6px_rgba(16,185,129,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="Watched">
-        <Check className="h-2.5 w-2.5 stroke-[3.5]" />
+      <span className="relative z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[0_2px_7px_rgba(16,185,129,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="Watched">
+        <Check className="h-2 w-2 stroke-[3.5] sm:h-2.5 sm:w-2.5" />
       </span>
     )}
   </div>
@@ -1118,7 +1118,7 @@ const WatchlistPage = () => {
                   <button onClick={() => handleCardOpen(item)} className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900"><PosterImage item={item} /></button>
                   <button onClick={() => handleCardOpen(item)} className="min-w-0 flex-1 text-left"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-white">{item.title || item.name}</h3>{isUpcoming(item) && <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-sky-300">Upcoming</span>}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500"><span>{isUpcoming(item) ? formatReleaseDate(item) : releaseYear(item) || 'N/A'}</span>{item.runtimeMinutes ? <><span>·</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{formatRuntime(item.runtimeMinutes)}</span></> : null}<span>·</span><span>{item.vote_average?.toFixed(1) || '—'} TMDB</span>{item.priority && <><span>·</span><span className={priorityMeta[item.priority].text}>{priorityMeta[item.priority].label} priority</span></>}</div><div className="mt-1.5 flex flex-wrap gap-1">{item.genres.slice(0, 3).map((genre) => <span key={genre} className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">{genre}</span>)}{item.addedReason && <span className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">Why: {item.addedReason}</span>}</div></button>
                   <div className="hidden min-w-[120px] flex-col items-end gap-1.5 sm:flex"><ProviderRow providers={item.providers} compact /><span className="text-[9px] text-zinc-600">{formatAddedAt(item.addedAt)}</span></div>
-                  <div className="flex shrink-0 items-center gap-2">{userRating !== undefined && <UserRatingBadge rating={userRating} />}<MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95"><MoreHorizontal className="h-4 w-4" /></button></div>
+                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">{userRating !== undefined && <UserRatingBadge rating={userRating} />}<MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95"><MoreHorizontal className="h-4 w-4" /></button></div>
                 </motion.div>
               );
             })}

@@ -300,24 +300,24 @@ const PosterImage = ({ item }: { item: WatchedItem }) => {
 };
 
 const MiniStatusCluster = ({ favorite, inMyList, inWatchlist }: { favorite: boolean; inMyList: boolean; inWatchlist: boolean }) => (
-  <div className="flex items-center -space-x-1">
+  <div className="flex items-center justify-end -space-x-1.5 sm:justify-start sm:-space-x-1">
     {favorite && (
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_6px_rgba(239,68,68,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="Favorite">
-        <Heart className="h-2.5 w-2.5 fill-current stroke-[2.6]" />
+      <span className="relative z-[4] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_7px_rgba(239,68,68,0.32),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="Favorite">
+        <Heart className="h-2 w-2 fill-current stroke-[2.6] sm:h-2.5 sm:w-2.5" />
       </span>
     )}
     {inMyList && (
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_6px_rgba(168,85,247,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="In My List">
-        <ListChecks className="h-2.5 w-2.5 stroke-[2.8]" />
+      <span className="relative z-[3] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_7px_rgba(168,85,247,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="In My List">
+        <ListChecks className="h-2 w-2 stroke-[2.8] sm:h-2.5 sm:w-2.5" />
       </span>
     )}
     {inWatchlist && (
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_2px_6px_rgba(59,130,246,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="In Watchlist">
-        <Bookmark className="h-2.5 w-2.5 fill-current stroke-[2.6]" />
+      <span className="relative z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-[0_2px_7px_rgba(59,130,246,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="In Watchlist">
+        <Bookmark className="h-2 w-2 fill-current stroke-[2.6] sm:h-2.5 sm:w-2.5" />
       </span>
     )}
-    <span className="flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[0_2px_6px_rgba(16,185,129,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]" title="Watched">
-      <Check className="h-2.5 w-2.5 stroke-[3.5]" />
+    <span className="relative z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-[1.5px] border-black/90 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[0_2px_7px_rgba(16,185,129,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)] sm:h-5 sm:min-w-5 sm:border-2" title="Watched">
+      <Check className="h-2 w-2 stroke-[3.5] sm:h-2.5 sm:w-2.5" />
     </span>
   </div>
 );

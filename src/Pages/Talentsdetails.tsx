@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useContext, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Flame, CalendarDays, Calendar, ChevronDown, Check, Network, Images, Download, X, ChevronLeft, ChevronRight, User, Film, Crown, Star, CalendarCheck, Bookmark, ListChecks, Trophy } from "lucide-react";
+import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Flame, CalendarDays, Calendar, ChevronDown, Check, Network, Images, Download, X, ChevronLeft, ChevronRight, User, Film, Crown, Star, CalendarCheck, Bookmark, ListChecks, Trophy, MoreHorizontal, History, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
 import { AuthContext } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
-import { collection, addDoc, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDoc, getDocs, deleteDoc, onSnapshot, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import GlassSweep from "../components/GlassSweep.tsx";
@@ -16,6 +16,11 @@ interface ColorRGB {
   r: number;
   g: number;
   b: number;
+}
+
+interface MyListFolder {
+  id: string;
+  name: string;
 }
 
 const getDominantColor = (imageUrl: string): Promise<ColorRGB> => {
@@ -67,6 +72,7 @@ const storedMediaKey = (data: any, fallbackId?: string) => {
 };
 
 type MediaStatusIconsProps = {
+  favorite?: boolean;
   watched?: boolean;
   inMyList?: boolean;
   inWatchlist?: boolean;
@@ -75,6 +81,7 @@ type MediaStatusIconsProps = {
 };
 
 const MediaStatusIcons = ({
+  favorite = false,
   watched = false,
   inMyList = false,
   inWatchlist = false,
@@ -82,11 +89,10 @@ const MediaStatusIcons = ({
   compact = false,
 }: MediaStatusIconsProps) => {
   const hasRating = typeof userRating === 'number' && Number.isFinite(userRating);
-  if (!watched && !inMyList && !inWatchlist && !hasRating) return null;
+  if (!favorite && !watched && !inMyList && !inWatchlist && !hasRating) return null;
 
   const circleSize = compact ? 'h-5 min-w-5' : 'h-6 min-w-6';
   const iconSize = compact ? 'h-2.5 w-2.5' : 'h-3 w-3';
-  const ratingSize = compact ? 'h-5 min-w-[30px] px-1.5 rounded-md text-[8px]' : 'h-6 min-w-[36px] px-2 rounded-lg text-[9px]';
 
   return (
     <div className="relative flex w-full items-center justify-end">
@@ -99,6 +105,14 @@ const MediaStatusIcons = ({
         </span>
       )}
       <div className="flex items-center -space-x-1">
+        {favorite && (
+          <span
+            className={`${circleSize} flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-br from-red-500 to-red-600 text-white shadow-[0_2px_6px_rgba(239,68,68,0.28),inset_0_1px_1px_rgba(255,255,255,0.32)]`}
+            title="Favorite"
+          >
+            <Heart className={`${iconSize} fill-current stroke-[2.6]`} />
+          </span>
+        )}
         {inMyList && (
           <span
             className={`${circleSize} flex items-center justify-center rounded-full border-2 border-black bg-gradient-to-b from-fuchsia-500 to-purple-700 text-white shadow-[0_2px_6px_rgba(168,85,247,0.22),inset_0_1px_1px_rgba(255,255,255,0.32)]`}
@@ -149,11 +163,19 @@ const Talentsdetails = () => {
   const [activeNavSection, setActiveNavSection] = useState<'overview' | 'bio' | 'watched' | 'known-for' | 'gallery' | 'filmography'>('overview');
   const [isMobileViewport, setIsMobileViewport] = useState<boolean>(false);
   const [watchedHistory, setWatchedHistory] = useState<Map<string, string>>(new Map());
+  const [historyDocIds, setHistoryDocIds] = useState<Map<string, string>>(new Map());
   const [watchlistKeys, setWatchlistKeys] = useState<Set<string>>(new Set());
+  const [watchlistDocIds, setWatchlistDocIds] = useState<Map<string, string>>(new Map());
   const [myListKeys, setMyListKeys] = useState<Set<string>>(new Set());
+  const [myListFolders, setMyListFolders] = useState<MyListFolder[]>([]);
+  const [myListFolderKeys, setMyListFolderKeys] = useState<Map<string, Set<string>>>(new Map());
+  const [favoriteMediaKeys, setFavoriteMediaKeys] = useState<Set<string>>(new Set());
+  const [favoriteMediaDocIds, setFavoriteMediaDocIds] = useState<Map<string, string>>(new Map());
   const [userRatings, setUserRatings] = useState<Map<string, number>>(new Map());
   const [careerMilestones, setCareerMilestones] = useState<any[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(false);
+  const [quickActionWork, setQuickActionWork] = useState<any | null>(null);
+  const [showQuickMyListFolders, setShowQuickMyListFolders] = useState(false);
 
   const heroRef = useRef<HTMLDivElement>(null);
   const bioRef = useRef<HTMLDivElement>(null);
@@ -380,6 +402,7 @@ const Talentsdetails = () => {
   useEffect(() => {
     if (!user?.uid) {
       setWatchedHistory(new Map());
+      setHistoryDocIds(new Map());
       return;
     }
 
@@ -388,29 +411,37 @@ const Talentsdetails = () => {
       historyRef,
       (snapshot) => {
         const entries = new Map<string, string>();
+        const docIds = new Map<string, string>();
 
         snapshot.forEach((historyDoc) => {
           const data = historyDoc.data();
-          const mediaId = Number(data.movieId);
-          const mediaType = data.mediaType === 'tv' ? 'tv' : 'movie';
-
-          if (!Number.isFinite(mediaId) || mediaId <= 0) return;
+          const key = storedMediaKey(data, historyDoc.id);
+          if (!key) return;
 
           let watchedDate = '';
-          if (typeof data.watchedDate === 'string') {
+          if (Array.isArray(data.watchedDates) && data.watchedDates.length) {
+            const latest = data.watchedDates
+              .map((value: any) => value?.toDate ? value.toDate() : new Date(value))
+              .filter((value: Date) => !Number.isNaN(value.getTime()))
+              .sort((a: Date, b: Date) => b.getTime() - a.getTime())[0];
+            watchedDate = latest ? latest.toISOString() : '';
+          } else if (typeof data.watchedDate === 'string') {
             watchedDate = data.watchedDate;
           } else if (data.watchedDate && typeof data.watchedDate.toDate === 'function') {
             watchedDate = data.watchedDate.toDate().toISOString();
           }
 
-          entries.set(`${mediaType}-${mediaId}`, watchedDate);
+          entries.set(key, watchedDate);
+          docIds.set(key, historyDoc.id);
         });
 
         setWatchedHistory(entries);
+        setHistoryDocIds(docIds);
       },
       (error) => {
         console.error('Error fetching watch history:', error);
         setWatchedHistory(new Map());
+        setHistoryDocIds(new Map());
       }
     );
 
@@ -420,6 +451,7 @@ const Talentsdetails = () => {
   useEffect(() => {
     if (!user?.uid) {
       setWatchlistKeys(new Set());
+      setWatchlistDocIds(new Map());
       return;
     }
 
@@ -428,16 +460,54 @@ const Talentsdetails = () => {
       watchlistRef,
       (snapshot) => {
         const keys = new Set<string>();
+        const docIds = new Map<string, string>();
         snapshot.docs.forEach((watchlistDoc) => {
           const key = storedMediaKey(watchlistDoc.data(), watchlistDoc.id);
-          if (key) keys.add(key);
+          if (key) {
+            keys.add(key);
+            docIds.set(key, watchlistDoc.id);
+          }
         });
         setWatchlistKeys(keys);
+        setWatchlistDocIds(docIds);
       },
-      () => setWatchlistKeys(new Set())
+      () => {
+        setWatchlistKeys(new Set());
+        setWatchlistDocIds(new Map());
+      }
     );
 
     return () => unsubscribe();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setFavoriteMediaKeys(new Set());
+      setFavoriteMediaDocIds(new Map());
+      return;
+    }
+
+    const favoritesRef = collection(db, `users/${user.uid}/favouriteMedia`);
+    return onSnapshot(
+      favoritesRef,
+      (snapshot) => {
+        const keys = new Set<string>();
+        const docIds = new Map<string, string>();
+        snapshot.docs.forEach((favoriteDoc) => {
+          const key = storedMediaKey(favoriteDoc.data(), favoriteDoc.id);
+          if (key) {
+            keys.add(key);
+            docIds.set(key, favoriteDoc.id);
+          }
+        });
+        setFavoriteMediaKeys(keys);
+        setFavoriteMediaDocIds(docIds);
+      },
+      () => {
+        setFavoriteMediaKeys(new Set());
+        setFavoriteMediaDocIds(new Map());
+      }
+    );
   }, [user?.uid]);
 
   useEffect(() => {
@@ -468,6 +538,8 @@ const Talentsdetails = () => {
   useEffect(() => {
     if (!user?.uid) {
       setMyListKeys(new Set());
+      setMyListFolders([]);
+      setMyListFolderKeys(new Map());
       return;
     }
 
@@ -477,9 +549,22 @@ const Talentsdetails = () => {
 
     const emit = () => {
       const keys = new Set<string>();
-      legacyKeysByFolder.forEach((folderKeys) => folderKeys.forEach((key) => keys.add(key)));
-      itemKeysByFolder.forEach((folderKeys) => folderKeys.forEach((key) => keys.add(key)));
+      const folderKeys = new Map<string, Set<string>>();
+      const folderIds = new Set<string>([
+        ...legacyKeysByFolder.keys(),
+        ...itemKeysByFolder.keys(),
+      ]);
+
+      folderIds.forEach((folderId) => {
+        const merged = new Set<string>();
+        legacyKeysByFolder.get(folderId)?.forEach((key) => merged.add(key));
+        itemKeysByFolder.get(folderId)?.forEach((key) => merged.add(key));
+        merged.forEach((key) => keys.add(key));
+        folderKeys.set(folderId, merged);
+      });
+
       setMyListKeys(keys);
+      setMyListFolderKeys(folderKeys);
     };
 
     const rootRef = collection(db, `users/${user.uid}/customWatchlists`);
@@ -487,10 +572,12 @@ const Talentsdetails = () => {
       rootRef,
       (snapshot) => {
         const liveFolderIds = new Set<string>();
+        const folders: MyListFolder[] = [];
 
         snapshot.docs.forEach((folderDoc) => {
           const folderId = folderDoc.id;
           const folderData = folderDoc.data();
+          folders.push({ id: folderId, name: folderData.name || folderData.title || folderData.listName || 'Untitled List' });
           const legacyKeys = new Set<string>();
 
           if (Array.isArray(folderData.items)) {
@@ -534,9 +621,14 @@ const Talentsdetails = () => {
           }
         });
 
+        setMyListFolders(folders);
         emit();
       },
-      () => setMyListKeys(new Set())
+      () => {
+        setMyListKeys(new Set());
+        setMyListFolders([]);
+        setMyListFolderKeys(new Map());
+      }
     );
 
     return () => {
@@ -774,6 +866,221 @@ const Talentsdetails = () => {
     []
   );
 
+  const workMediaData = (work: any) => {
+    const mediaType: 'movie' | 'tv' = work.media_type === 'tv' ? 'tv' : 'movie';
+    const title = work.title || work.name || 'Untitled';
+    const releaseDate = work.release_date || work.first_air_date || '';
+    const genres = Array.isArray(work.genres)
+      ? work.genres.map((genre: any) => typeof genre === 'string' ? genre : genre?.name).filter(Boolean)
+      : [];
+    return { mediaType, title, releaseDate, genres };
+  };
+
+  const closeQuickActions = () => {
+    setQuickActionWork(null);
+    setShowQuickMyListFolders(false);
+  };
+
+  const openQuickActions = (event: React.MouseEvent, work: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setQuickActionWork(work);
+    setShowQuickMyListFolders(false);
+  };
+
+  const toggleWorkWatchlist = async (work: any) => {
+    if (!user?.uid) {
+      setToast({ message: 'Please sign in to update your watchlist.', type: 'error', isVisible: true });
+      return;
+    }
+    const key = workHistoryKey(work);
+    const existingId = watchlistDocIds.get(key);
+    try {
+      if (existingId) {
+        await deleteDoc(doc(db, `users/${user.uid}/watchlist/${existingId}`));
+        setToast({ message: `${work.title || work.name || 'Title'} removed from watchlist.`, type: 'info', isVisible: true });
+      } else {
+        const { mediaType, title, releaseDate, genres } = workMediaData(work);
+        await setDoc(doc(db, `users/${user.uid}/watchlist/${key}`), {
+          movieId: Number(work.id),
+          mediaId: Number(work.id),
+          mediaType,
+          title,
+          name: mediaType === 'tv' ? title : '',
+          posterPath: work.poster_path || '',
+          releaseDate: mediaType === 'movie' ? releaseDate : '',
+          first_air_date: mediaType === 'tv' ? releaseDate : '',
+          genres,
+          addedAt: serverTimestamp(),
+          priority: null,
+        }, { merge: true });
+        setToast({ message: `${title} added to watchlist.`, type: 'success', isVisible: true });
+      }
+      closeQuickActions();
+    } catch {
+      setToast({ message: 'Failed to update watchlist.', type: 'error', isVisible: true });
+    }
+  };
+
+  const toggleWorkHistory = async (work: any) => {
+    if (!user?.uid) {
+      setToast({ message: 'Please sign in to update your history.', type: 'error', isVisible: true });
+      return;
+    }
+    const key = workHistoryKey(work);
+    const existingId = historyDocIds.get(key);
+    try {
+      if (existingId) {
+        await deleteDoc(doc(db, `users/${user.uid}/history/${existingId}`));
+        setToast({ message: `${work.title || work.name || 'Title'} removed from history.`, type: 'info', isVisible: true });
+      } else {
+        const { mediaType, title, releaseDate, genres } = workMediaData(work);
+        const watchedDate = new Date().toISOString();
+        await setDoc(doc(db, `users/${user.uid}/history/${key}`), {
+          movieId: Number(work.id),
+          mediaId: Number(work.id),
+          mediaType,
+          title,
+          name: mediaType === 'tv' ? title : '',
+          posterPath: work.poster_path || '',
+          releaseDate: mediaType === 'movie' ? releaseDate : '',
+          first_air_date: mediaType === 'tv' ? releaseDate : '',
+          genres,
+          watchedDate,
+          watchedDates: [watchedDate],
+          timestamp: serverTimestamp(),
+        }, { merge: true });
+        setToast({ message: `${title} added to history.`, type: 'success', isVisible: true });
+      }
+      closeQuickActions();
+    } catch {
+      setToast({ message: 'Failed to update watch history.', type: 'error', isVisible: true });
+    }
+  };
+
+  const toggleWorkFavorite = async (work: any) => {
+    if (!user?.uid) {
+      setToast({ message: 'Please sign in to update favourites.', type: 'error', isVisible: true });
+      return;
+    }
+    const key = workHistoryKey(work);
+    const existingId = favoriteMediaDocIds.get(key);
+    try {
+      if (existingId) {
+        await deleteDoc(doc(db, `users/${user.uid}/favouriteMedia/${existingId}`));
+        setToast({ message: `${work.title || work.name || 'Title'} removed from favourites.`, type: 'info', isVisible: true });
+      } else {
+        const { mediaType, title } = workMediaData(work);
+        await setDoc(doc(db, `users/${user.uid}/favouriteMedia/${key}`), {
+          movieId: Number(work.id),
+          mediaId: Number(work.id),
+          mediaType,
+          title,
+          posterPath: work.poster_path || '',
+          addedAt: serverTimestamp(),
+        }, { merge: true });
+        setToast({ message: `${title} added to favourites.`, type: 'success', isVisible: true });
+      }
+      closeQuickActions();
+    } catch {
+      setToast({ message: 'Failed to update favourites.', type: 'error', isVisible: true });
+    }
+  };
+
+  const setOptimisticFolderMembership = (folderId: string, key: string, included: boolean) => {
+    setMyListFolderKeys((current) => {
+      const next = new Map(current);
+      const folderKeys = new Set(next.get(folderId) || []);
+      if (included) folderKeys.add(key);
+      else folderKeys.delete(key);
+      next.set(folderId, folderKeys);
+      return next;
+    });
+  };
+
+  const addWorkToMyListFolder = async (work: any, folderId: string) => {
+    if (!user?.uid || !folderId) return;
+    const key = workHistoryKey(work);
+    const folder = myListFolders.find((item) => item.id === folderId);
+    const { mediaType, title, releaseDate, genres } = workMediaData(work);
+
+    setOptimisticFolderMembership(folderId, key, true);
+
+    try {
+      await setDoc(doc(db, `users/${user.uid}/customWatchlists/${folderId}/items/${key}`), {
+        id: Number(work.id),
+        movieId: Number(work.id),
+        mediaId: Number(work.id),
+        type: mediaType,
+        mediaType,
+        title,
+        poster: work.poster_path || '',
+        posterPath: work.poster_path || '',
+        releaseYear: releaseDate ? String(releaseDate).slice(0, 4) : '',
+        voteAverage: Number(work.vote_average) || 0,
+        runtimeMinutes: 0,
+        genres,
+        addedAt: serverTimestamp(),
+      }, { merge: true });
+      setToast({ message: `${title} added to ${folder?.name || 'My List'}.`, type: 'success', isVisible: true });
+    } catch {
+      setOptimisticFolderMembership(folderId, key, false);
+      setToast({ message: 'Failed to update My List.', type: 'error', isVisible: true });
+    }
+  };
+
+  const removeWorkFromMyListFolder = async (work: any, folderId: string) => {
+    if (!user?.uid || !folderId) return;
+    const key = workHistoryKey(work);
+    const folder = myListFolders.find((item) => item.id === folderId);
+
+    setOptimisticFolderMembership(folderId, key, false);
+
+    try {
+      const folderRef = doc(db, `users/${user.uid}/customWatchlists/${folderId}`);
+      const folderSnapshot = await getDoc(folderRef);
+      const tasks: Promise<unknown>[] = [];
+
+      if (folderSnapshot.exists()) {
+        const folderData = folderSnapshot.data();
+        if (Array.isArray(folderData.items)) {
+          const nextItems = folderData.items.filter((storedItem: any) => storedMediaKey(storedItem) !== key);
+          if (nextItems.length !== folderData.items.length) {
+            tasks.push(updateDoc(folderRef, { items: nextItems }));
+          }
+        }
+      }
+
+      const itemsSnapshot = await getDocs(collection(db, `users/${user.uid}/customWatchlists/${folderId}/items`));
+      itemsSnapshot.docs.forEach((itemDoc) => {
+        if (storedMediaKey(itemDoc.data(), itemDoc.id) === key) {
+          tasks.push(deleteDoc(doc(db, `users/${user.uid}/customWatchlists/${folderId}/items/${itemDoc.id}`)));
+        }
+      });
+
+      await Promise.all(tasks);
+      setToast({ message: `${work.title || work.name || 'Title'} removed from ${folder?.name || 'My List'}.`, type: 'info', isVisible: true });
+    } catch {
+      setOptimisticFolderMembership(folderId, key, true);
+      setToast({ message: 'Failed to update My List.', type: 'error', isVisible: true });
+    }
+  };
+
+  const toggleWorkMyListFolder = async (work: any, folderId: string) => {
+    const key = workHistoryKey(work);
+    const isInFolder = myListFolderKeys.get(folderId)?.has(key) || false;
+
+    if (isInFolder) {
+      await removeWorkFromMyListFolder(work, folderId);
+    } else {
+      await addWorkToMyListFolder(work, folderId);
+    }
+  };
+
+  const handleQuickMyList = () => {
+    setShowQuickMyListFolders((current) => !current);
+  };
+
   const watchedWorks = useMemo(() => {
     return [...works]
       .filter((work) => watchedHistory.has(workHistoryKey(work)))
@@ -871,6 +1178,15 @@ const Talentsdetails = () => {
   };
 
   const isBioLong = talent?.biography && talent.biography.length > 300;
+  const quickActionKey = quickActionWork ? workHistoryKey(quickActionWork) : '';
+  const quickActionWatched = Boolean(quickActionKey && watchedHistory.has(quickActionKey));
+  const quickActionWatchlisted = Boolean(quickActionKey && watchlistKeys.has(quickActionKey));
+  const quickActionListCount = quickActionKey ? myListFolders.filter((folder) => myListFolderKeys.get(folder.id)?.has(quickActionKey)).length : 0;
+  const quickActionInMyList = quickActionListCount > 0;
+  const quickActionFavorite = Boolean(quickActionKey && favoriteMediaKeys.has(quickActionKey));
+  const quickActionMediaType = quickActionWork?.media_type === 'tv' ? 'tv' : 'movie';
+  const quickActionReleaseDate = quickActionWork?.release_date || quickActionWork?.first_air_date || '';
+  const quickActionYear = quickActionReleaseDate ? String(quickActionReleaseDate).slice(0, 4) : 'TBD';
 
   return (
     <div className="relative min-h-screen font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]">
@@ -1255,70 +1571,84 @@ const Talentsdetails = () => {
                     const isWatched = watchedHistory.has(statusKey);
                     const isInMyList = myListKeys.has(statusKey);
                     const isInWatchlist = watchlistKeys.has(statusKey);
+                    const isFavoriteMedia = favoriteMediaKeys.has(statusKey);
                     const userRating = userRatings.get(statusKey);
 
                     return (
-                      <Link key={`milestone-${mediaType}-${work.id}`} to={`/${mediaType}/${work.id}`} className="group relative w-[210px] shrink-0 snap-start sm:w-[238px]">
-                        <div className="relative z-10 mb-3 flex items-center gap-2 pl-2">
-                          <div className="flex h-4 w-4 items-center justify-center rounded-full border border-amber-300/40 bg-black shadow-[0_0_0_4px_rgba(0,0,0,0.75)]">
-                            <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                          </div>
-                          <span className="text-[10px] font-bold tracking-[0.12em] text-zinc-400">{year}</span>
-                        </div>
-
-                        <div className="relative overflow-hidden rounded-2xl border border-white/[0.10] bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10),0_10px_28px_rgba(0,0,0,0.24)] transition-colors duration-300 group-hover:border-white/20">
-                          <div className="flex min-w-0 gap-3">
-                            <div className="relative h-[92px] w-[62px] shrink-0">
-                              <div className="h-full w-full overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
-                                <img
-                                  src={work.poster_path ? `https://image.tmdb.org/t/p/w342${work.poster_path}` : noImageSvg}
-                                  alt={work.title || work.name}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                  decoding="async"
-                                  draggable={false}
-                                />
-                                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-tr from-white/[0.14] via-transparent to-transparent" />
-                              </div>
-                              <div className="absolute -bottom-2 inset-x-0 z-30 px-0.5">
-                                <MediaStatusIcons
-                                  watched={isWatched}
-                                  inMyList={isInMyList}
-                                  inWatchlist={isInWatchlist}
-                                  compact
-                                />
-                              </div>
+                      <div key={`milestone-${mediaType}-${work.id}`} className="group relative w-[210px] shrink-0 snap-start sm:w-[238px]">
+                        <Link to={`/${mediaType}/${work.id}`} className="block">
+                          <div className="relative z-10 mb-3 flex items-center gap-2 pl-2">
+                            <div className="flex h-4 w-4 items-center justify-center rounded-full border border-amber-300/40 bg-black shadow-[0_0_0_4px_rgba(0,0,0,0.75)]">
+                              <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                             </div>
+                            <span className="text-[10px] font-bold tracking-[0.12em] text-zinc-400">{year}</span>
+                          </div>
 
-                            <div className="flex min-w-0 flex-1 flex-col py-0.5">
-                              <div className="mb-1.5 flex items-center gap-1.5">
-                                <span className="rounded-md border border-amber-400/15 bg-amber-400/[0.08] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-300">
-                                  {milestoneLabel}
-                                </span>
-                                <span className="text-[8px] font-semibold uppercase tracking-[0.08em] text-zinc-600">
-                                  {mediaType === 'tv' ? 'Series' : 'Movie'}
-                                </span>
-                              </div>
-
-                              <p className="line-clamp-2 text-xs font-semibold leading-snug tracking-tight text-zinc-100 sm:text-[13px]">
-                                {work.title || work.name}
-                              </p>
-
-                              <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-                                <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold text-zinc-400">
-                                  {revenue > 0 ? (
-                                    <ChartNoAxesCombined className="h-3 w-3 shrink-0 text-emerald-400" />
-                                  ) : (
-                                    <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
-                                  )}
-                                  <span className="truncate">{milestoneMetric}</span>
+                          <div className="relative overflow-hidden rounded-2xl border border-white/[0.10] bg-gradient-to-b from-white/[0.07] to-white/[0.025] p-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10),0_10px_28px_rgba(0,0,0,0.24)] transition-colors duration-300 group-hover:border-white/20">
+                            <div className="flex min-w-0 gap-3">
+                              <div className="relative h-[92px] w-[62px] shrink-0">
+                                <div className="h-full w-full overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
+                                  <img
+                                    src={work.poster_path ? `https://image.tmdb.org/t/p/w342${work.poster_path}` : noImageSvg}
+                                    alt={work.title || work.name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                    draggable={false}
+                                  />
+                                  <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-tr from-white/[0.14] via-transparent to-transparent" />
                                 </div>
-                                <span className="text-[9px] font-bold text-white/25">#{index + 1}</span>
+                                <div className="absolute -bottom-2 inset-x-0 z-30 px-0.5">
+                                  <MediaStatusIcons
+                                    favorite={isFavoriteMedia}
+                                    watched={isWatched}
+                                    inMyList={isInMyList}
+                                    inWatchlist={isInWatchlist}
+                                    userRating={userRating}
+                                    compact
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex min-w-0 flex-1 flex-col py-0.5 pr-5 sm:pr-6">
+                                <div className="mb-1.5 flex items-center gap-1.5">
+                                  <span className="rounded-md border border-amber-400/15 bg-amber-400/[0.08] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-300">
+                                    {milestoneLabel}
+                                  </span>
+                                  <span className="text-[8px] font-semibold uppercase tracking-[0.08em] text-zinc-600">
+                                    {mediaType === 'tv' ? 'Series' : 'Movie'}
+                                  </span>
+                                </div>
+
+                                <p className="line-clamp-2 text-xs font-semibold leading-snug tracking-tight text-zinc-100 sm:text-[13px]">
+                                  {work.title || work.name}
+                                </p>
+
+                                <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+                                  <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold text-zinc-400">
+                                    {revenue > 0 ? (
+                                      <ChartNoAxesCombined className="h-3 w-3 shrink-0 text-emerald-400" />
+                                    ) : (
+                                      <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+                                    )}
+                                    <span className="truncate">{milestoneMetric}</span>
+                                  </div>
+                                  <span className="text-[9px] font-bold text-white/25">#{index + 1}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </Link>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={(event) => openQuickActions(event, work)}
+                          className="absolute right-1.5 top-[39px] z-40 flex h-6 w-6 items-center justify-center rounded-lg border border-white/20 bg-black/40 text-zinc-200 shadow-md backdrop-blur-md backdrop-saturate-150 transition hover:bg-black/80 hover:text-white active:scale-90 sm:right-2 sm:top-[41px] sm:h-7 sm:w-7 sm:rounded-xl sm:bg-black/60"
+                          aria-label={`Quick actions for ${work.title || work.name || 'title'}`}
+                          title="Quick actions"
+                        >
+                          <MoreHorizontal className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1365,60 +1695,72 @@ const Talentsdetails = () => {
                 const statusKey = workHistoryKey(work);
                 const isInMyList = myListKeys.has(statusKey);
                 const isInWatchlist = watchlistKeys.has(statusKey);
+                const isFavoriteMedia = favoriteMediaKeys.has(statusKey);
                 const userRating = userRatings.get(statusKey);
 
                 return (
-                  <Link
-                    key={`watched-${mediaType}-${work.id}`}
-                    to={`/${mediaType}/${work.id}`}
-                    className="group block w-[142px] shrink-0 snap-start sm:w-[164px] md:w-[184px]"
-                  >
-                    <div className="relative">
-                      <div className="relative aspect-[2/3] overflow-hidden rounded-[24px] border border-white/[0.13] bg-zinc-950 shadow-[0_12px_34px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] transition-colors duration-300 group-hover:border-white/25">
-                        <img
-                          src={work.poster_path ? `https://image.tmdb.org/t/p/w500${work.poster_path}` : noImageSvg}
-                          alt={work.title || work.name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          draggable={false}
-                        />
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-white/[0.16] via-transparent to-transparent" />
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
-                        {rating && (
-                          <div className="absolute right-2.5 top-2.5 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 px-2.5 py-1 shadow-md backdrop-blur-none sm:backdrop-blur-md">
-                            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 sm:h-3 sm:w-3" />
-                            <span className="text-[10px] font-semibold leading-none text-white sm:text-[11px]">{rating}</span>
-                          </div>
-                        )}
+                  <div key={`watched-${mediaType}-${work.id}`} className="group relative w-[142px] shrink-0 snap-start sm:w-[164px] md:w-[184px]">
+                    <Link
+                      to={`/${mediaType}/${work.id}`}
+                      className="block"
+                    >
+                      <div className="relative">
+                        <div className="relative aspect-[2/3] overflow-hidden rounded-[24px] border border-white/[0.13] bg-zinc-950 shadow-[0_12px_34px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] transition-colors duration-300 group-hover:border-white/25">
+                          <img
+                            src={work.poster_path ? `https://image.tmdb.org/t/p/w500${work.poster_path}` : noImageSvg}
+                            alt={work.title || work.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            draggable={false}
+                          />
+                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-white/[0.16] via-transparent to-transparent" />
+                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                          {rating && (
+                            <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 shadow-md backdrop-blur-md sm:right-2.5 sm:top-2.5 sm:px-2.5 sm:py-1">
+                              <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 sm:h-3 sm:w-3" />
+                              <span className="text-[10px] font-semibold leading-none text-white sm:text-[11px]">{rating}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute -bottom-2 inset-x-0 z-30 px-2">
+                          <MediaStatusIcons
+                            favorite={isFavoriteMedia}
+                            watched
+                            inMyList={isInMyList}
+                            inWatchlist={isInWatchlist}
+                            userRating={userRating}
+                          />
+                        </div>
                       </div>
-                      <div className="absolute -bottom-2 inset-x-0 z-30 px-2">
-                        <MediaStatusIcons
-                          watched
-                          inMyList={isInMyList}
-                          inWatchlist={isInWatchlist}
-                          userRating={userRating}
-                        />
+                      <div className="px-1 pt-2">
+                        <p className="line-clamp-2 text-sm font-semibold leading-tight tracking-tight text-zinc-100 transition-colors group-hover:text-white sm:text-[15px]">
+                          {work.title || work.name}
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[9px] font-medium text-zinc-500 sm:text-[10px]">
+                          <span>{workYear}</span>
+                          <span className="text-white/20">•</span>
+                          <span>{mediaType === 'tv' ? 'Series' : 'Movie'}</span>
+                        </div>
+                        <p className="mt-1 flex items-center gap-1 truncate text-[9px] font-medium text-zinc-500 sm:text-[10px]">
+                          <CalendarCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+                          <span className="truncate">{watchedLabel}</span>
+                        </p>
+                        <p className="mt-0.5 truncate text-[9px] font-medium capitalize text-zinc-600 sm:text-[10px]">
+                          {work.displayRole}
+                        </p>
                       </div>
-                    </div>
-                    <div className="px-1 pt-2">
-                      <p className="line-clamp-2 text-sm font-semibold leading-tight tracking-tight text-zinc-100 transition-colors group-hover:text-white sm:text-[15px]">
-                        {work.title || work.name}
-                      </p>
-                      <div className="mt-1.5 flex items-center gap-1.5 text-[9px] font-medium text-zinc-500 sm:text-[10px]">
-                        <span>{workYear}</span>
-                        <span className="text-white/20">•</span>
-                        <span>{mediaType === 'tv' ? 'Series' : 'Movie'}</span>
-                      </div>
-                      <p className="mt-1 flex items-center gap-1 truncate text-[9px] font-medium text-zinc-500 sm:text-[10px]">
-                        <CalendarCheck className="h-3 w-3 shrink-0 text-emerald-500" />
-                        <span className="truncate">{watchedLabel}</span>
-                      </p>
-                      <p className="mt-0.5 truncate text-[9px] font-medium capitalize text-zinc-600 sm:text-[10px]">
-                        {work.displayRole}
-                      </p>
-                    </div>
-                  </Link>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => openQuickActions(event, work)}
+                      className="absolute left-2 top-2 z-40 flex h-7 w-7 items-center justify-center rounded-xl border border-white/20 bg-black/40 text-zinc-200 shadow-lg backdrop-blur-md backdrop-saturate-150 transition hover:bg-black/70 hover:text-white active:scale-90 sm:left-2.5 sm:top-2.5 sm:h-8 sm:w-8 sm:bg-black/60"
+                      aria-label={`Quick actions for ${work.title || work.name || 'title'}`}
+                      title="Quick actions"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -1441,47 +1783,60 @@ const Talentsdetails = () => {
                 const isWatched = watchedHistory.has(statusKey);
                 const isInMyList = myListKeys.has(statusKey);
                 const isInWatchlist = watchlistKeys.has(statusKey);
+                const isFavoriteMedia = favoriteMediaKeys.has(statusKey);
                 const userRating = userRatings.get(statusKey);
 
                 return (
-                  <Link key={work.id} to={`/${mediaType}/${work.id}`} className="group relative block shrink-0 w-[140px] sm:w-[160px] md:w-[180px] snap-start">
-                    <div className="relative aspect-[2/3] rounded-3xl overflow-hidden bg-gradient-to-b from-white/20 via-white/5 to-transparent p-[1px] shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
-                      <div className="relative w-full h-full rounded-[23px] overflow-hidden bg-zinc-950">
-                        <img
-                          src={work.poster_path ? `https://image.tmdb.org/t/p/w342${work.poster_path}` : noImageSvg}
-                          alt={work.title || work.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                          draggable={false}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/25 via-transparent to-transparent pointer-events-none z-10" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
-                        {rating && (
-                          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
-                            <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 fill-amber-400" />
-                            <span className="text-[10px] sm:text-[11px] font-semibold text-white leading-none tracking-tight">{rating}</span>
+                  <div key={`${mediaType}-${work.id}`} className="group relative shrink-0 w-[140px] sm:w-[160px] md:w-[180px] snap-start">
+                    <Link to={`/${mediaType}/${work.id}`} className="block">
+                      <div className="relative aspect-[2/3] rounded-3xl overflow-hidden bg-gradient-to-b from-white/20 via-white/5 to-transparent p-[1px] shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
+                        <div className="relative w-full h-full rounded-[23px] overflow-hidden bg-zinc-950">
+                          <img
+                            src={work.poster_path ? `https://image.tmdb.org/t/p/w342${work.poster_path}` : noImageSvg}
+                            alt={work.title || work.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            draggable={false}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/25 via-transparent to-transparent pointer-events-none z-10" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent z-10" />
+                          {rating && (
+                            <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
+                              <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 fill-amber-400" />
+                              <span className="text-[10px] sm:text-[11px] font-semibold text-white leading-none tracking-tight">{rating}</span>
+                            </div>
+                          )}
+                          <div className="absolute top-2.5 right-2.5 z-20 flex items-center justify-center px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
+                            <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-200 leading-none tracking-tight">{workYear}</span>
                           </div>
-                        )}
-                        <div className="absolute top-2.5 right-2.5 z-20 flex items-center justify-center px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-none md:backdrop-blur-sm border border-white/15 shadow-md">
-                          <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-200 leading-none tracking-tight">{workYear}</span>
-                        </div>
 
-                        <div className="absolute bottom-0 inset-x-0 p-3 z-20 flex flex-col justify-end">
-                          <span className="text-xs font-bold text-white line-clamp-1 tracking-tight">{work.title || work.name}</span>
-                          <span className="text-[10px] text-zinc-300 line-clamp-1 font-medium">{work.displayRole}</span>
+                          <div className="absolute bottom-0 inset-x-0 p-3 z-20 flex flex-col justify-end">
+                            <span className="text-xs font-bold text-white line-clamp-1 tracking-tight">{work.title || work.name}</span>
+                            <span className="text-[10px] text-zinc-300 line-clamp-1 font-medium">{work.displayRole}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(event) => openQuickActions(event, work)}
+                            className="absolute left-2 bottom-12 sm:bottom-14 z-40 flex h-8 w-8 items-center justify-center rounded-xl border border-white/15 bg-black/70 text-zinc-200 shadow-lg backdrop-blur-md transition hover:bg-black/90 hover:text-white active:scale-90"
+                            aria-label={`Quick actions for ${work.title || work.name || 'title'}`}
+                            title="Quick actions"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
-                    </div>
-                    <div className="absolute -bottom-2 inset-x-0 z-30 px-2">
-                      <MediaStatusIcons
-                        watched={isWatched}
-                        inMyList={isInMyList}
-                        inWatchlist={isInWatchlist}
-                        userRating={userRating}
-                      />
-                    </div>
-                  </Link>
+                      <div className="absolute -bottom-2 inset-x-0 z-30 px-2">
+                        <MediaStatusIcons
+                          favorite={isFavoriteMedia}
+                          watched={isWatched}
+                          inMyList={isInMyList}
+                          inWatchlist={isInWatchlist}
+                          userRating={userRating}
+                        />
+                      </div>
+                    </Link>
+                  </div>
                 );
               })}
             </div>
@@ -1652,6 +2007,7 @@ const Talentsdetails = () => {
                 const isWatched = watchedHistory.has(statusKey);
                 const isInMyList = myListKeys.has(statusKey);
                 const isInWatchlist = watchlistKeys.has(statusKey);
+                const isFavoriteMedia = favoriteMediaKeys.has(statusKey);
                 const userRating = userRatings.get(statusKey);
 
                 return (
@@ -1659,7 +2015,7 @@ const Talentsdetails = () => {
                     key={work.uniqueKey || work.id}
                     variants={cardVariants}
                     layout={isMobileViewport ? false : "position"}
-                    className="filmography-card-static"
+                    className="filmography-card-static relative"
                   >
                     <Link to={`/${mediaType}/${work.id}`} className="relative block h-full group">
                       <div className="h-full relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/25 via-white/10 to-transparent shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-colors duration-300 group-hover:from-white/40 group-hover:via-white/20 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]">
@@ -1705,6 +2061,7 @@ const Talentsdetails = () => {
                       </div>
                       <div className="absolute -bottom-2 inset-x-0 z-40 px-2">
                         <MediaStatusIcons
+                          favorite={isFavoriteMedia}
                           watched={isWatched}
                           inMyList={isInMyList}
                           inWatchlist={isInWatchlist}
@@ -1712,6 +2069,15 @@ const Talentsdetails = () => {
                         />
                       </div>
                     </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => openQuickActions(event, work)}
+                      className="absolute left-2 bottom-20 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/15 bg-black/70 text-zinc-200 shadow-lg backdrop-blur-md transition hover:bg-black/90 hover:text-white active:scale-90 md:left-3 md:bottom-24"
+                      aria-label={`Quick actions for ${workTitle}`}
+                      title="Quick actions"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
                   </motion.div>
                 );
               })}
@@ -1896,6 +2262,150 @@ const Talentsdetails = () => {
               </button>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {quickActionWork && (
+          <div className="fixed inset-0 z-[10020] flex items-end justify-center sm:items-center sm:p-5">
+            <motion.button
+              type="button"
+              aria-label="Close quick actions"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeQuickActions}
+              className="absolute inset-0 h-full w-full border-0 bg-black/70 p-0 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 36, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 28, scale: 0.985 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="relative z-10 w-full rounded-t-[30px] border border-white/10 bg-zinc-950/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_70px_rgba(0,0,0,0.62)] backdrop-blur-3xl sm:max-w-md sm:rounded-[28px] sm:p-4"
+            >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+              <div className="mb-4 flex items-center gap-3">
+                <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
+                  <img
+                    src={quickActionWork.poster_path ? `https://image.tmdb.org/t/p/w185${quickActionWork.poster_path}` : noImageSvg}
+                    alt={quickActionWork.title || quickActionWork.name || ''}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Quick actions</p>
+                  <p className="mt-1 truncate text-sm font-black tracking-tight text-white">{quickActionWork.title || quickActionWork.name || 'Untitled'}</p>
+                  <p className="mt-1 text-[10px] font-medium text-zinc-500">{quickActionMediaType === 'tv' ? 'Series' : 'Movie'} · {quickActionYear}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeQuickActions}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white active:scale-90"
+                  aria-label="Close quick actions"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleWorkWatchlist(quickActionWork)}
+                  className={`group/action flex min-h-[50px] items-center gap-2.5 rounded-2xl border px-3 py-3 text-left text-[11px] font-bold transition-all duration-200 active:scale-[0.98] ${quickActionWatchlisted ? 'border-blue-400/30 bg-blue-500/[0.11] text-blue-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]' : 'border-blue-500/15 bg-blue-500/[0.035] text-zinc-200 hover:border-blue-400/25 hover:bg-blue-500/[0.08]'}`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md shadow-blue-500/30 ring-1 ring-white/10 transition-transform duration-200 group-hover/action:scale-105"><Bookmark className="h-4 w-4 fill-current stroke-[2.4]" /></span>
+                  <span>{quickActionWatchlisted ? 'Remove Watchlist' : 'Add Watchlist'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleWorkHistory(quickActionWork)}
+                  className={`group/action flex min-h-[50px] items-center gap-2.5 rounded-2xl border px-3 py-3 text-left text-[11px] font-bold transition-all duration-200 active:scale-[0.98] ${quickActionWatched ? 'border-emerald-400/30 bg-emerald-500/[0.11] text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]' : 'border-emerald-500/15 bg-emerald-500/[0.035] text-zinc-200 hover:border-emerald-400/25 hover:bg-emerald-500/[0.08]'}`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md shadow-emerald-500/30 ring-1 ring-white/10 transition-transform duration-200 group-hover/action:scale-105"><History className="h-4 w-4 stroke-[2.5]" /></span>
+                  <span>{quickActionWatched ? 'Remove History' : 'Mark Watched'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleQuickMyList}
+                  className={`group/action flex min-h-[50px] items-center gap-2.5 rounded-2xl border px-3 py-3 text-left text-[11px] font-bold transition-all duration-200 active:scale-[0.98] ${showQuickMyListFolders || quickActionInMyList ? 'border-violet-400/30 bg-violet-500/[0.11] text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]' : 'border-violet-500/15 bg-violet-500/[0.035] text-zinc-200 hover:border-violet-400/25 hover:bg-violet-500/[0.08]'}`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white shadow-md shadow-purple-500/30 ring-1 ring-white/10 transition-transform duration-200 group-hover/action:scale-105"><ListChecks className="h-4 w-4 stroke-[2.6]" /></span>
+                  <span className="min-w-0">
+                    <span className="block">Manage Lists</span>
+                    {quickActionListCount > 0 && <span className="mt-0.5 block text-[9px] font-semibold text-violet-300/70">{quickActionListCount} selected</span>}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleWorkFavorite(quickActionWork)}
+                  className={`group/action flex min-h-[50px] items-center gap-2.5 rounded-2xl border px-3 py-3 text-left text-[11px] font-bold transition-all duration-200 active:scale-[0.98] ${quickActionFavorite ? 'border-red-400/30 bg-red-500/[0.11] text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]' : 'border-red-500/15 bg-red-500/[0.035] text-zinc-200 hover:border-red-400/25 hover:bg-red-500/[0.08]'}`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/30 ring-1 ring-white/10 transition-transform duration-200 group-hover/action:scale-105"><Heart className="h-4 w-4 fill-current stroke-[2.4]" /></span>
+                  <span>{quickActionFavorite ? 'Unfavorite' : 'Favorite'}</span>
+                </button>
+              </div>
+
+              <AnimatePresence initial={false}>
+                {showQuickMyListFolders && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 border-t border-white/[0.06] pt-3">
+                      <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">Manage Lists</p>
+                          <p className="mt-0.5 text-[9px] font-medium text-zinc-600">Tap a list to add or remove this title.</p>
+                        </div>
+                        {quickActionListCount > 0 && (
+                          <span className="shrink-0 rounded-full border border-violet-400/15 bg-violet-500/10 px-2 py-1 text-[9px] font-bold text-violet-300">
+                            {quickActionListCount}/{myListFolders.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {myListFolders.length > 0 ? (
+                        <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1 no-scrollbar">
+                          {myListFolders.map((folder) => {
+                            const isInFolder = Boolean(quickActionKey && myListFolderKeys.get(folder.id)?.has(quickActionKey));
+                            return (
+                              <button
+                                key={folder.id}
+                                type="button"
+                                onClick={() => toggleWorkMyListFolder(quickActionWork, folder.id)}
+                                className={`flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99] ${isInFolder ? 'border-violet-400/20 bg-violet-500/10 text-white' : 'border-white/[0.06] bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06] hover:text-white'}`}
+                              >
+                                <div className="min-w-0">
+                                  <span className="block truncate text-[11px] font-bold">{folder.name}</span>
+                                  <span className={`mt-0.5 block text-[9px] font-medium ${isInFolder ? 'text-violet-300/80' : 'text-zinc-600'}`}>
+                                    {isInFolder ? 'In this list' : 'Not in this list'}
+                                  </span>
+                                </div>
+                                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${isInFolder ? 'border-violet-300/30 bg-violet-400 text-zinc-950 shadow-[0_4px_14px_rgba(167,139,250,0.24)]' : 'border-white/10 bg-white/[0.04] text-violet-300'}`}>
+                                  {isInFolder ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : <Plus className="h-3.5 w-3.5 stroke-[2.5]" />}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.025] px-3 py-4 text-center">
+                          <p className="text-[10px] font-semibold text-zinc-400">No My List folders yet</p>
+                          <p className="mt-1 text-[9px] text-zinc-600">Create a list first, then manage membership here.</p>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
