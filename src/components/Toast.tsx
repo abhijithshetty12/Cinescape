@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, AlertCircle, Info, Trash2, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, Trash2, X, ArrowUpRight } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'delete';
 
@@ -9,18 +9,30 @@ export interface ToastItem {
   message: string;
   type?: ToastType;
   duration?: number;
+  viewTo?: string;
+  viewLabel?: string;
 }
 
 interface ToastContextType {
-  addToast: (message: string, type?: ToastType, duration?: number) => void;
+  addToast: (message: string, type?: ToastType, duration?: number, viewTo?: string, viewLabel?: string) => void;
   removeToast: (id: string) => void;
   toast: {
-    success: (message: string, duration?: number) => void;
-    error: (message: string, duration?: number) => void;
-    info: (message: string, duration?: number) => void;
-    delete: (message: string, duration?: number) => void;
+    success: (message: string, duration?: number, viewTo?: string, viewLabel?: string) => void;
+    error: (message: string, duration?: number, viewTo?: string, viewLabel?: string) => void;
+    info: (message: string, duration?: number, viewTo?: string, viewLabel?: string) => void;
+    delete: (message: string, duration?: number, viewTo?: string, viewLabel?: string) => void;
   };
 }
+
+
+const inferToastViewPath = (message: string) => {
+  const value = message.toLowerCase();
+  if (value.includes('my list') || value.includes('mylist')) return '/mylist';
+  if (value.includes('watchlist')) return '/watchlist';
+  if (value.includes('favorite') || value.includes('favourite')) return '/fav-talents';
+  if (value.includes('history') || value.includes('watched')) return '/history';
+  return undefined;
+};
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
@@ -38,7 +50,8 @@ interface SingleToastProps {
 }
 
 const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
-  const { id, message, type = 'success', duration = 3200 } = toast;
+  const { id, message, type = 'success', duration = 3200, viewTo, viewLabel = 'View' } = toast;
+  const resolvedViewTo = viewTo || inferToastViewPath(message);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -87,6 +100,18 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
 
   const theme = getTheme();
 
+  const handleView = () => {
+    if (!resolvedViewTo || typeof window === 'undefined') return;
+    onClose(id);
+    if (window.location.pathname === resolvedViewTo) return;
+    try {
+      window.history.pushState({}, '', resolvedViewTo);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    } catch {
+      window.location.assign(resolvedViewTo);
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -99,7 +124,7 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
         damping: 30,
         mass: 0.8,
       }}
-      className="group relative w-full sm:w-[340px] rounded-[22px] p-[1px] overflow-hidden select-none bg-gradient-to-b from-white/20 via-white/5 to-white/0"
+      className="group relative w-full sm:w-[380px] rounded-[22px] p-[1px] overflow-hidden select-none bg-gradient-to-b from-white/20 via-white/5 to-white/0"
       style={{
         boxShadow: `0 20px 48px -12px rgba(0,0,0,0.6), 0 0 24px -4px ${theme.glow}`,
       }}
@@ -139,6 +164,18 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
           </p>
         </div>
 
+        {resolvedViewTo && (
+          <button
+            type="button"
+            onClick={handleView}
+            className="relative flex-shrink-0 inline-flex h-7 items-center gap-1 rounded-full border border-white/10 bg-white/[0.07] px-2.5 text-[10px] font-bold tracking-wide text-zinc-200 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.12] hover:text-white active:scale-95"
+            aria-label={`${viewLabel} destination`}
+          >
+            <span>{viewLabel}</span>
+            <ArrowUpRight className="h-3 w-3 stroke-[2.4]" />
+          </button>
+        )}
+
         <button
           onClick={() => onClose(id)}
           className="relative flex-shrink-0 w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 active:scale-90 border border-white/10 text-zinc-400 hover:text-zinc-100 transition-all duration-200 flex items-center justify-center backdrop-blur-md"
@@ -163,9 +200,9 @@ const SingleToast: React.FC<SingleToastProps> = ({ toast, onClose }) => {
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = useCallback((message: string, type: ToastType = 'success', duration = 3200) => {
+  const addToast = useCallback((message: string, type: ToastType = 'success', duration = 3200, viewTo?: string, viewLabel = 'View') => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
+    setToasts((prev) => [...prev, { id, message, type, duration, viewTo, viewLabel }]);
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -173,10 +210,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const toast = {
-    success: useCallback((msg: string, dur?: number) => addToast(msg, 'success', dur), [addToast]),
-    error: useCallback((msg: string, dur?: number) => addToast(msg, 'error', dur), [addToast]),
-    info: useCallback((msg: string, dur?: number) => addToast(msg, 'info', dur), [addToast]),
-    delete: useCallback((msg: string, dur?: number) => addToast(msg, 'delete', dur), [addToast]),
+    success: useCallback((msg: string, dur?: number, viewTo?: string, viewLabel?: string) => addToast(msg, 'success', dur, viewTo, viewLabel), [addToast]),
+    error: useCallback((msg: string, dur?: number, viewTo?: string, viewLabel?: string) => addToast(msg, 'error', dur, viewTo, viewLabel), [addToast]),
+    info: useCallback((msg: string, dur?: number, viewTo?: string, viewLabel?: string) => addToast(msg, 'info', dur, viewTo, viewLabel), [addToast]),
+    delete: useCallback((msg: string, dur?: number, viewTo?: string, viewLabel?: string) => addToast(msg, 'delete', dur, viewTo, viewLabel), [addToast]),
   };
 
   return (
@@ -201,6 +238,8 @@ interface LegacyToastProps {
   isVisible: boolean;
   onClose: () => void;
   duration?: number;
+  viewTo?: string;
+  viewLabel?: string;
 }
 
 const Toast: React.FC<LegacyToastProps> = ({
@@ -209,6 +248,8 @@ const Toast: React.FC<LegacyToastProps> = ({
   isVisible,
   onClose,
   duration = 3200,
+  viewTo,
+  viewLabel = 'View',
 }) => {
   if (!isVisible) return null;
 
@@ -217,7 +258,7 @@ const Toast: React.FC<LegacyToastProps> = ({
       <AnimatePresence>
         <div className="pointer-events-auto w-full sm:w-auto">
           <SingleToast
-            toast={{ id: 'legacy-toast', message, type, duration }}
+            toast={{ id: 'legacy-toast', message, type, duration, viewTo, viewLabel }}
             onClose={onClose}
           />
         </div>

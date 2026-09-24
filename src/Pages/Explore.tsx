@@ -1,29 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Star,
-  Clapperboard,
-  Tv,
-  TrendingUp,
-  Calendar,
-  Filter,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  X,
-  Play,
-  Loader2,
-  ImageOff,
-} from "lucide-react";
-import {
-  fetchMediaByType,
-  searchTMDB,
-  fetchGenres,
-  MediaItem,
-} from "../api.ts";
-
+import { Star, Clapperboard, Tv, TrendingUp, Calendar, Filter, ChevronDown, ChevronLeft, ChevronRight, Search, X, Play, Loader2, ImageOff, CheckCheck, BookmarkCheck, Heart, ListChecks } from "lucide-react";
+import { fetchMediaByType, searchTMDB, fetchGenres, MediaItem, } from "../api.ts";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase.ts";
+import { useAuth } from "../context/AuthContext.tsx";
 const CircularRating = ({ rating }: { rating: number }) => {
   const percentage = Math.round((rating / 10) * 100);
   const radius = 18;
@@ -31,10 +13,9 @@ const CircularRating = ({ rating }: { rating: number }) => {
   const offset = circumference - (percentage / 100) * circumference;
   const color =
     percentage >= 70 ? "#22c55e" : percentage >= 50 ? "#eab308" : "#ef4444";
-
   return (
-    <div className="relative w-12 h-12 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full border border-white/10">
-      <svg className="w-10 h-10 -rotate-90" viewBox="0 0 44 44">
+    <div className="relative w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center bg-black/65 backdrop-blur-md rounded-full border border-white/10">
+      <svg className="w-8 h-8 sm:w-10 sm:h-10 -rotate-90" viewBox="0 0 44 44">
         <circle
           cx="22"
           cy="22"
@@ -56,13 +37,12 @@ const CircularRating = ({ rating }: { rating: number }) => {
           className="transition-all duration-700 ease-out"
         />
       </svg>
-      <span className="absolute text-[10px] font-bold text-white">
+      <span className="absolute text-[8px] sm:text-[10px] font-bold text-white">
         {percentage}%
       </span>
     </div>
   );
 };
-
 const SkeletonCard = () => (
   <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900/80 border border-white/5">
     <div className="absolute inset-0 skeleton-shimmer" />
@@ -73,15 +53,16 @@ const SkeletonCard = () => (
     </div>
   </div>
 );
-
 const MovieCard = ({
   movie,
   mediaType,
   index,
+  status,
 }: {
   movie: MediaItem;
   mediaType: "movie" | "tv";
   index: number;
+  status: { watched: boolean; watchlist: boolean; favorite: boolean; myList: boolean };
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imageErrors, setImageErrors] = useState<{ poster?: boolean; backdrop?: boolean }>({});
@@ -95,7 +76,7 @@ const MovieCard = ({
     >
       <Link to={mediaType === "movie" ? `/movie/${movie.id}` : `/tv/${movie.id}`}>
         <div
-          className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900 border border-white/5 shadow-lg transition-all duration-500 hover:shadow-2xl hover:shadow-red-900/20 hover:border-white/20 hover:-translate-y-1"
+          className="relative aspect-[2/3] overflow-hidden rounded-[18px] bg-zinc-900 border border-white/[0.07] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-all duration-500 sm:rounded-[22px] hover:shadow-2xl hover:shadow-red-900/20 hover:border-white/20 sm:hover:-translate-y-1"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
@@ -105,9 +86,8 @@ const MovieCard = ({
               alt={movie.title}
               loading="lazy"
               onError={() => setImageErrors((prev) => ({ ...prev, poster: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
-                isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
-              }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
+                }`}
             />
           ) : (
             <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-zinc-900 to-zinc-950 text-zinc-500 px-4 text-center">
@@ -121,16 +101,15 @@ const MovieCard = ({
               src={movie.backdrop}
               alt=""
               onError={() => setImageErrors((prev) => ({ ...prev, backdrop: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
-                isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
-              }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
+                }`}
             />
           )}
 
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
           <div className="absolute inset-0 bg-gradient-to-br from-red-900/0 to-red-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-          <div className="absolute top-3 right-3 z-10">
+          <div className="absolute top-2 right-2 z-10 sm:top-3 sm:right-3">
             <CircularRating rating={movie.rating} />
           </div>
 
@@ -142,9 +121,9 @@ const MovieCard = ({
             </div>
           )}
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+          <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10">
             <div className="transform transition-all duration-500 translate-y-2 group-hover:translate-y-0">
-              <h3 className="text-white font-bold text-base md:text-lg leading-tight mb-2 line-clamp-2 drop-shadow-lg">
+              <h3 className="text-white font-bold text-[13px] sm:text-base md:text-lg leading-tight mb-1.5 sm:mb-2 line-clamp-2 drop-shadow-lg">
                 {movie.title}
               </h3>
 
@@ -169,10 +148,17 @@ const MovieCard = ({
           </div>
         </div>
       </Link>
+      {(status.watched || status.watchlist || status.favorite || status.myList) && (
+        <div className="pointer-events-none absolute bottom-0 right-2 z-20 flex translate-y-1/2 items-center -space-x-1.5 sm:right-3 sm:-space-x-1">
+          {status.watched && <span title="Watched" className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-zinc-950 bg-emerald-500 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] sm:h-6 sm:w-6"><CheckCheck className="h-3 w-3 stroke-[2.7]" /></span>}
+          {status.myList && <span title="In My List" className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-zinc-950 bg-violet-500 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] sm:h-6 sm:w-6"><ListChecks className="h-3 w-3 stroke-[2.5]" /></span>}
+          {status.watchlist && <span title="In Watchlist" className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-zinc-950 bg-blue-500 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] sm:h-6 sm:w-6"><BookmarkCheck className="h-3 w-3 stroke-[2.5]" /></span>}
+          {status.favorite && <span title="Favourite" className="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-zinc-950 bg-rose-500 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] sm:h-6 sm:w-6"><Heart className="h-3 w-3 fill-current stroke-[2.2]" /></span>}
+        </div>
+      )}
     </motion.div>
   );
 };
-
 const HeroBanner = ({
   featured,
   mediaType,
@@ -223,7 +209,7 @@ const HeroBanner = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="relative w-full h-[45vh] md:h-[55vh] lg:h-[70vh] overflow-hidden rounded-3xl mb-8 group bg-zinc-950 border border-white/5"
+      className="relative w-full h-[40vh] min-h-[360px] max-h-[500px] md:h-[55vh] lg:h-[68vh] lg:max-h-[720px] overflow-hidden rounded-[24px] md:rounded-[30px] mb-5 md:mb-8 group bg-zinc-950 border border-white/[0.07] shadow-[0_24px_80px_rgba(0,0,0,0.35)]"
       onMouseEnter={() => setIsAutoPlaying(false)}
       onMouseLeave={() => setIsAutoPlaying(true)}
     >
@@ -344,11 +330,10 @@ const HeroBanner = ({
             <button
               key={index}
               onClick={() => setCurrentIndex(index)}
-              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${
-                currentIndex === index
-                  ? "w-6 md:w-8 bg-red-600"
-                  : "w-2 bg-white/40 hover:bg-white/60"
-              }`}
+              className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${currentIndex === index
+                ? "w-6 md:w-8 bg-red-600"
+                : "w-2 bg-white/40 hover:bg-white/60"
+                }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
@@ -371,6 +356,7 @@ const HeroBanner = ({
 };
 
 const Explore = () => {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get("search");
 
@@ -384,6 +370,44 @@ const Explore = () => {
   const [sortBy, setSortBy] = useState("popularity.desc");
   const [sortOpen, setSortOpen] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [watchedIds, setWatchedIds] = useState<Set<number>>(new Set());
+  const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [myListIds, setMyListIds] = useState<Set<number>>(new Set());
+
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setWatchedIds(new Set()); setWatchlistIds(new Set()); setFavoriteIds(new Set()); setMyListIds(new Set());
+      return;
+    }
+    const normalizeId = (data: any, fallback = "") => Number(data?.movieId ?? data?.mediaId ?? data?.id ?? fallback.replace(/^(movie|tv)-/, ""));
+    const normalizeType = (data: any, fallback = "") => data?.mediaType ?? data?.type ?? (fallback.startsWith("tv-") ? "tv" : "movie");
+    const wanted = (data: any, fallback = "") => normalizeType(data, fallback) === mediaType;
+    const stops: Array<() => void> = [];
+    stops.push(onSnapshot(collection(db, `users/${user.uid}/history`), snap => setWatchedIds(new Set(snap.docs.filter(d => wanted(d.data(), d.id)).map(d => normalizeId(d.data(), d.id)).filter(Boolean)))));
+    stops.push(onSnapshot(collection(db, `users/${user.uid}/watchlist`), snap => setWatchlistIds(new Set(snap.docs.filter(d => wanted(d.data(), d.id)).map(d => normalizeId(d.data(), d.id)).filter(Boolean)))));
+    stops.push(onSnapshot(collection(db, `users/${user.uid}/favouriteMedia`), snap => setFavoriteIds(new Set(snap.docs.filter(d => wanted(d.data(), d.id)).map(d => normalizeId(d.data(), d.id)).filter(Boolean)))));
+    const itemStops = new Map<string, () => void>();
+    stops.push(onSnapshot(collection(db, `users/${user.uid}/customWatchlists`), snap => {
+      const ids = new Set<number>();
+      snap.docs.forEach(folder => {
+        const legacy = Array.isArray(folder.data().items) ? folder.data().items : [];
+        legacy.filter((item: any) => wanted(item)).forEach((item: any) => { const id = normalizeId(item); if (id) ids.add(id); });
+        if (!itemStops.has(folder.id)) {
+          itemStops.set(folder.id, onSnapshot(collection(db, `users/${user.uid}/customWatchlists/${folder.id}/items`), items => {
+            setMyListIds(prev => {
+              const next = new Set(prev);
+              items.docs.filter(d => wanted(d.data(), d.id)).forEach(d => { const id = normalizeId(d.data(), d.id); if (id) next.add(id); });
+              return next;
+            });
+          }));
+        }
+      });
+      setMyListIds(prev => new Set([...prev, ...ids]));
+    }));
+    return () => { stops.forEach(stop => stop()); itemStops.forEach(stop => stop()); };
+  }, [user?.uid, mediaType]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -521,10 +545,9 @@ const Explore = () => {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 pb-20">
-      <div className="container mx-auto px-4 py-6 md:py-8">
+    <div className="min-h-screen bg-[#09090b] pb-20">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         {!searchQuery && <HeroBanner featured={featured} mediaType={mediaType} />}
-
         {searchQuery && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -543,34 +566,33 @@ const Explore = () => {
             </p>
           </motion.div>
         )}
-
-        <div className="sticky top-[72px] z-30 mb-8 -mx-4 px-4 py-3 bg-zinc-950/80 backdrop-blur-xl border-y border-white/5">
-          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6">
+        <div className="sticky top-[64px] sm:top-[72px] z-30 mb-5 md:mb-8 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#09090b]/88 backdrop-blur-2xl border-y border-white/[0.06] shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
             <div className="flex items-center justify-between gap-3 shrink-0">
               <div className="relative flex items-center p-1 bg-neutral-900/40 backdrop-blur-xl rounded-xl border border-white/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.5)] w-fit">
                 <div className="relative flex items-center">
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange("movie")}
-                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${
-                      mediaType === "movie" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
-                    }`}
+                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "movie"
+                      ? "text-neutral-950"
+                      : "text-zinc-400 hover:text-zinc-200"
+                      }`}
                   >
                     <Clapperboard className="w-3.5 h-3.5 stroke-[2]" />
                     <span>Movies</span>
                   </button>
-
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange("tv")}
-                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${
-                      mediaType === "tv" ? "text-neutral-950" : "text-zinc-400 hover:text-zinc-200"
-                    }`}
+                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "tv"
+                      ? "text-neutral-950"
+                      : "text-zinc-400 hover:text-zinc-200"
+                      }`}
                   >
                     <Tv className="w-3.5 h-3.5 stroke-[2]" />
                     <span>Series</span>
                   </button>
-
                   <motion.div
                     className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-[0_4px_15px_rgba(239,68,68,0.3)] pointer-events-none"
                     animate={{
@@ -584,7 +606,6 @@ const Explore = () => {
                   />
                 </div>
               </div>
-
               {!searchQuery && (
                 <div className="relative lg:hidden" ref={sortRef}>
                   <button
@@ -594,12 +615,10 @@ const Explore = () => {
                     <Filter className="w-3.5 h-3.5" />
                     <span>{activeSortLabel}</span>
                     <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform duration-300 ${
-                        sortOpen ? "rotate-180" : ""
-                      }`}
+                      className={`w-3.5 h-3.5 transition-transform duration-300 ${sortOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
-
                   <AnimatePresence>
                     {sortOpen && (
                       <motion.div
@@ -616,11 +635,10 @@ const Explore = () => {
                               setSortBy(option.value);
                               setSortOpen(false);
                             }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
-                              sortBy === option.value
-                                ? "bg-red-600/10 text-red-400"
-                                : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                            }`}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${sortBy === option.value
+                              ? "bg-red-600/10 text-red-400"
+                              : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                              }`}
                           >
                             <option.icon className="w-4 h-4" />
                             {option.label}
@@ -632,17 +650,15 @@ const Explore = () => {
                 </div>
               )}
             </div>
-
             {!searchQuery && genres.length > 0 && (
-              <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar py-1">
+              <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar py-0.5">
                 <div className="inline-flex items-center gap-2 pr-4">
                   <button
                     onClick={() => setSelectedGenre(null)}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
-                      selectedGenre === null
-                        ? "bg-red-600/20 border-red-500/40 text-red-400"
-                        : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
-                    }`}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === null
+                      ? "bg-red-600/20 border-red-500/40 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+                      : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
+                      }`}
                   >
                     All
                   </button>
@@ -650,15 +666,12 @@ const Explore = () => {
                     <button
                       key={g.id}
                       onClick={() =>
-                        setSelectedGenre(
-                          selectedGenre === g.id ? null : g.id
-                        )
+                        setSelectedGenre(selectedGenre === g.id ? null : g.id)
                       }
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${
-                        selectedGenre === g.id
-                          ? "bg-red-600/20 border-red-500/40 text-red-400"
-                          : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
-                      }`}
+                      className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === g.id
+                        ? "bg-red-600/20 border-red-500/40 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+                        : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
+                        }`}
                     >
                       {g.name}
                     </button>
@@ -666,7 +679,6 @@ const Explore = () => {
                 </div>
               </div>
             )}
-
             {!searchQuery && (
               <div className="relative hidden lg:block shrink-0" ref={sortRef}>
                 <button
@@ -676,12 +688,10 @@ const Explore = () => {
                   <Filter className="w-3.5 h-3.5" />
                   {activeSortLabel}
                   <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform duration-300 ${
-                      sortOpen ? "rotate-180" : ""
-                    }`}
+                    className={`w-3.5 h-3.5 transition-transform duration-300 ${sortOpen ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
-
                 <AnimatePresence>
                   {sortOpen && (
                     <motion.div
@@ -698,11 +708,10 @@ const Explore = () => {
                             setSortBy(option.value);
                             setSortOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${
-                            sortBy === option.value
-                              ? "bg-red-600/10 text-red-400"
-                              : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                          }`}
+                          className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors duration-200 ${sortBy === option.value
+                            ? "bg-red-600/10 text-red-400"
+                            : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            }`}
                         >
                           <option.icon className="w-4 h-4" />
                           {option.label}
@@ -715,7 +724,6 @@ const Explore = () => {
             )}
           </div>
         </div>
-
         {!searchQuery && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -731,8 +739,8 @@ const Explore = () => {
               {selectedGenre
                 ? genres.find((g) => g.id === selectedGenre)?.name
                 : mediaType === "movie"
-                ? "Popular Movies"
-                : "Popular Series"}
+                  ? "Popular Movies"
+                  : "Popular Series"}
             </h2>
             {selectedGenre && (
               <button
@@ -745,8 +753,7 @@ const Explore = () => {
             )}
           </motion.div>
         )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-2.5 gap-y-4 sm:gap-4 md:gap-6">
           <AnimatePresence mode="popLayout">
             {movies.map((movie, index) => (
               <MovieCard
@@ -754,17 +761,16 @@ const Explore = () => {
                 movie={movie}
                 mediaType={mediaType}
                 index={index}
+                status={{ watched: watchedIds.has(movie.id), watchlist: watchlistIds.has(movie.id), favorite: favoriteIds.has(movie.id), myList: myListIds.has(movie.id) }}
               />
             ))}
           </AnimatePresence>
         </div>
-
         {loading && movies.length > 0 && (
           <div className="flex justify-center mt-10">
             <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
           </div>
         )}
-
         {!loading && movies.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -781,10 +787,8 @@ const Explore = () => {
             </p>
           </motion.div>
         )}
-
         <div ref={sentinelRef} className="h-10 mt-8" />
       </div>
-
       <style>{`
         .skeleton-shimmer {
           background: linear-gradient(
@@ -811,5 +815,4 @@ const Explore = () => {
     </div>
   );
 };
-
 export default Explore;
