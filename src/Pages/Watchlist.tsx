@@ -8,7 +8,7 @@ import { AlertCircle, ArrowDown, ArrowUpDown, Bookmark, BookmarkMinus, CalendarC
 import { AnimatePresence, motion } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
 import axios from 'axios';
-import WatchlistRoulette from '../components/WatchlistRoulette.tsx';
+import Roulette from '../components/Roulette.tsx';
 import { IoDiceOutline } from 'react-icons/io5';
 
 type Priority = 'high' | 'medium' | 'low';
@@ -1289,7 +1289,7 @@ const WatchlistPage = () => {
         document.body,
       )}
 
-      <AnimatePresence>{showRoulette && <WatchlistRoulette isOpen={showRoulette} onClose={() => setShowRoulette(false)} items={filteredAndSortedWatchlist as any} />}</AnimatePresence>
+      <AnimatePresence>{showRoulette && <Roulette source="watchlist" isOpen={showRoulette} onClose={() => setShowRoulette(false)} items={filteredAndSortedWatchlist as any} />}</AnimatePresence>
       <style>{`@keyframes watchlistShimmer{100%{transform:translateX(200%)}}`}</style>
     </div>
   );

@@ -60,11 +60,14 @@ interface Movie{
   keywords?:Array<string|Keyword>;
 }
 
-interface WatchlistRouletteProps{
+export type RouletteSource='watchlist'|'my-list';
+
+export interface RouletteProps{
   isOpen:boolean;
   onClose:()=>void;
   items:Movie[];
   watchedIds?:Array<string|number>;
+  source?:RouletteSource;
 }
 
 type MediaFilter='all'|'movie'|'tv';
@@ -171,8 +174,22 @@ const matchesEra=(item:Movie,era:EraFilter)=>{
 const getKeywordNames=(item:Movie)=>
   (item.keywords||[]).map(keyword=>typeof keyword==='string'?keyword:keyword.name||'').filter(Boolean).map(value=>value.toLowerCase());
 
-const WatchlistRoulette:React.FC<WatchlistRouletteProps>=({isOpen,onClose,items,watchedIds=[]})=>{
+const Roulette:React.FC<RouletteProps>=({isOpen,onClose,items,watchedIds=[],source='watchlist'})=>{
   const navigate=useNavigate();
+
+  const rouletteContext=useMemo(()=>source==='my-list'?{
+    label:'My List',
+    title:'My List Roulette',
+    subtitle:'Spin this collection',
+    setupBadge:'My List Roulette',
+    setupDescription:'Choose only what matters from this list. Everything else stays random.',
+  }:{
+    label:'Watchlist',
+    title:'Watchlist Roulette',
+    subtitle:'Spin your saved watchlist',
+    setupBadge:'Watchlist Roulette',
+    setupDescription:'Choose only what matters from your watchlist. Everything else stays random.',
+  },[source]);
 
   const[isSpinning,setIsSpinning]=useState(false);
   const[winner,setWinner]=useState<Movie|null>(null);
@@ -881,8 +898,8 @@ const WatchlistRoulette:React.FC<WatchlistRouletteProps>=({isOpen,onClose,items,
 
       <header className="relative z-30 flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-[max(14px,env(safe-area-inset-top))] sm:px-6 sm:pt-6">
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-extrabold uppercase tracking-tight sm:text-4xl">Watchlist <span className="bg-gradient-to-b from-amber-200 via-amber-400 to-amber-500 bg-clip-text text-transparent">Roulette</span></h2>
-          <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-white/35 sm:text-[10px]">Make the choice fun</p>
+          <h2 className="truncate text-xl font-extrabold uppercase tracking-tight sm:text-4xl"><span>{rouletteContext.label}</span> <span className="bg-gradient-to-b from-amber-200 via-amber-400 to-amber-500 bg-clip-text text-transparent">Roulette</span></h2>
+          <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.2em] text-white/35 sm:text-[10px]">{rouletteContext.subtitle}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button type="button" onClick={()=>setShowHistory(true)} className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 text-zinc-300 shadow-lg shadow-black/35 transition hover:from-zinc-800 hover:via-zinc-700 hover:to-zinc-800 hover:text-white active:scale-90" aria-label="Recent spins">
@@ -898,9 +915,9 @@ const WatchlistRoulette:React.FC<WatchlistRouletteProps>=({isOpen,onClose,items,
           <motion.div initial={{opacity:0,y:14}} animate={{opacity:1,y:0}} className="mx-auto w-full max-w-4xl rounded-[26px] border border-white/[0.1] bg-white/[0.05] p-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.48)] backdrop-blur-3xl sm:rounded-[34px] sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-amber-300"><Dices className="h-3 w-3"/>Smart Roulette</div>
+                <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-amber-300"><Dices className="h-3 w-3"/>{rouletteContext.setupBadge}</div>
                 <h3 className="text-lg font-black tracking-tight sm:text-2xl">Set the vibe. Keep the surprise.</h3>
-                <p className="mt-1 max-w-2xl text-[10px] leading-relaxed text-zinc-500 sm:text-xs">Choose only what matters. Everything else stays random.</p>
+                <p className="mt-1 max-w-2xl text-[10px] leading-relaxed text-zinc-500 sm:text-xs">{rouletteContext.setupDescription}</p>
               </div>
               {filterCriteriaCount>0&&<button type="button" onClick={resetSmartFilters} className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 px-2.5 py-2 text-[9px] font-bold text-zinc-300 shadow-md shadow-black/30 transition hover:from-zinc-800 hover:via-zinc-700 hover:to-zinc-800 hover:text-white"><RefreshCw className="h-3 w-3"/>Reset</button>}
             </div>
@@ -1103,4 +1120,4 @@ const WatchlistRoulette:React.FC<WatchlistRouletteProps>=({isOpen,onClose,items,
   );
 };
 
-export default WatchlistRoulette;
+export default Roulette;
