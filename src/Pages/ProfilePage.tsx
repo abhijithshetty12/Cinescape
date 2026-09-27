@@ -52,6 +52,14 @@ const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
 const MAX_PHOTO_PX = 256;
 const PHOTO_QUALITY = 0.72;
 
+interface FavouriteMediaItem {
+  id: string;
+  title: string;
+  posterPath: string;
+  mediaType: "movie" | "tv";
+  addedAt?: number;
+}
+
 const compressImageToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -88,7 +96,7 @@ type TabId =
   | "overview"
   | "watchlist"
   | "history"
-  | "talents"
+  | "favourites"
   | "reviews"
   | "ratings";
 
@@ -104,7 +112,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     label: "History",
     icon: <History className="w-3.5 h-3.5" />,
   },
-  { id: "talents", label: "Talents", icon: <Heart className="w-3.5 h-3.5" /> },
+  { id: "favourites", label: "Favourites", icon: <Heart className="w-3.5 h-3.5" /> },
   {
     id: "reviews",
     label: "Reviews",
@@ -218,7 +226,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [username, setUsername] = useState(user?.username ?? "");
+  const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -229,7 +237,9 @@ const ProfilePage = () => {
   const [ratedMovies, setRatedMovies] = useState<RatedMovie[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [favouriteMedia, setFavouriteMedia] = useState<FavouriteMediaItem[]>([]);
   const [favouriteTalents, setFavouriteTalents] = useState<FavouriteTalent[]>([]);
+  const [favouritesFilter, setFavouritesFilter] = useState<"movie" | "tv" | "talent">("movie");
   const [historyFilter, setHistoryFilter] = useState<"movie" | "tv">("movie");
   const [watchlistFilter, setWatchlistFilter] = useState<"movie" | "tv">(
     "movie",
@@ -348,6 +358,44 @@ const ProfilePage = () => {
               };
             }),
           );
+        },
+      ),
+
+      onSnapshot(
+        collection(db, `users/${user.uid}/favouriteMedia`),
+        (snap) => {
+          const seen = new Map<string, FavouriteMediaItem>();
+          snap.docs.forEach((d) => {
+            const data = d.data();
+            const rawType = data.mediaType ?? data.type ?? (d.id.startsWith("tv-") ? "tv" : "movie");
+            const mediaType: "movie" | "tv" = rawType === "tv" ? "tv" : "movie";
+            const rawId = data.movieId ?? data.mediaId ?? data.id ?? d.id.replace(/^(movie|tv)-/, "");
+            const id = String(rawId ?? "");
+            if (!id) return;
+
+            const key = `${mediaType}-${id}`;
+            if (seen.has(key)) return;
+
+            const rawPoster = String(data.posterPath ?? data.poster_path ?? data.poster ?? "");
+            const posterPath = rawPoster
+              ? /^https?:\/\//i.test(rawPoster)
+                ? rawPoster
+                : `${BASE_POSTER_URL}${rawPoster}`
+              : "";
+
+            seen.set(key, {
+              id,
+              title: String(data.title ?? data.name ?? "Untitled"),
+              posterPath,
+              mediaType,
+              addedAt: data.addedAt?.toMillis
+                ? data.addedAt.toMillis()
+                : data.createdAt?.toMillis
+                  ? data.createdAt.toMillis()
+                  : Number(data.addedAt ?? data.createdAt ?? data.timestamp ?? 0) || 0,
+            });
+          });
+          setFavouriteMedia(Array.from(seen.values()));
         },
       ),
 
@@ -508,6 +556,19 @@ const ProfilePage = () => {
     () => watchlist.filter((w) => w.mediaType === watchlistFilter),
     [watchlist, watchlistFilter],
   );
+
+  const favouriteMovies = useMemo(
+    () => favouriteMedia.filter((item) => item.mediaType === "movie"),
+    [favouriteMedia],
+  );
+
+  const favouriteSeries = useMemo(
+    () => favouriteMedia.filter((item) => item.mediaType === "tv"),
+    [favouriteMedia],
+  );
+
+  const totalFavourites = favouriteMedia.length + favouriteTalents.length;
+
   const displayPhoto = photoPreview ?? photoDataUrl;
 
   const isEditing = isEditingUsername || isEditingBio || isEditingLocation;
@@ -910,7 +971,7 @@ const ProfilePage = () => {
                     return "[&>svg]:text-blue-500 [&>svg]:fill-blue-500 drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]";
                   case "history":
                     return "[&>svg]:text-emerald-500 [&>svg]:fill-emerald-500/20 drop-shadow-[0_0_8px_rgba(16,185,129,0.6)]";
-                  case "talents":
+                  case "favourites":
                     return "[&>svg]:text-rose-500 [&>svg]:fill-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]";
                   case "reviews":
                     return "[&>svg]:text-purple-400 [&>svg]:fill-purple-400/20 drop-shadow-[0_0_8px_rgba(192,132,252,0.6)]";
@@ -1158,9 +1219,9 @@ const ProfilePage = () => {
             </motion.div>
           )}
 
-          {activeTab === "talents" && (
+          {activeTab === "favourites" && (
             <motion.div
-              key="talents"
+              key="favourites"
               variants={tabVariants}
               initial="initial"
               animate="animate"
@@ -1172,92 +1233,196 @@ const ProfilePage = () => {
                 <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-white/[0.02] rounded-full blur-[60px] pointer-events-none" />
                 <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
 
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/30">
+                <div className="relative flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-1.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md shadow-red-500/30 shrink-0">
                       <Heart className="w-4 h-4 fill-current" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h2 className="text-base sm:text-lg font-bold text-white">
-                        Favourite Talents
+                        Favourites
                       </h2>
                       <p className="text-xs text-zinc-500">
-                        {favouriteTalents.length} talent
-                        {favouriteTalents.length !== 1 ? "s" : ""} saved
+                        {totalFavourites} item{totalFavourites !== 1 ? "s" : ""} saved
                       </p>
                     </div>
                   </div>
+
                   <Link
-                    to="/fav-talents"
-                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 font-semibold transition-colors duration-200"
+                    to="/favourites"
+                    className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 font-semibold transition-colors duration-200 shrink-0"
                   >
                     View all <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
-                {favouriteTalents.length === 0 ? (
-                  <div className="relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-950/30 p-8 text-center shadow-inner">
-                    <div className="relative z-10 flex flex-col items-center max-w-xs mx-auto">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-600 mb-4 shadow-xl">
-                        <Heart className="w-5 h-5" />
-                      </div>
-                      <h3 className="text-xs font-black tracking-[0.2em] text-zinc-400 uppercase">Roster Empty</h3>
-                      <p className="text-xs text-zinc-500 mt-2 leading-relaxed">
-                        Bookmark talent and artist profiles to automatically generate your interactive visual matrix here.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 w-full">
-                    {favouriteTalents.map((talent, idx) => (
-                      <Link
-                        key={talent.id}
-                        to={`/talent/${talent.id}`}
-                        className="group relative flex flex-col justify-between bg-zinc-950/30 border border-zinc-900 rounded-2xl p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-red-500/20 hover:shadow-[0_12px_30px_rgba(239,68,68,0.04)] active:scale-[0.98]"
+                <div className="relative grid grid-cols-3 gap-1 rounded-2xl border border-white/[0.06] bg-black/30 p-1 mb-5 backdrop-blur-2xl">
+                  {[
+                    { key: "movie" as const, label: "Movies", count: favouriteMovies.length, icon: Film },
+                    { key: "tv" as const, label: "Series", count: favouriteSeries.length, icon: Tv },
+                    { key: "talent" as const, label: "Talent", count: favouriteTalents.length, icon: User },
+                  ].map((option) => {
+                    const active = favouritesFilter === option.key;
+                    const Icon = option.icon;
+
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => setFavouritesFilter(option.key)}
+                        className={`relative flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-[10px] sm:text-xs font-bold transition-all duration-300 ${
+                          active ? "text-white" : "text-zinc-500 hover:text-zinc-300"
+                        }`}
                       >
-                        <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-red-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+                        {active && (
+                          <motion.span
+                            layoutId="profile-favourites-filter"
+                            className="absolute inset-0 rounded-xl border border-white/[0.1] bg-white/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_5px_16px_rgba(0,0,0,0.25)]"
+                            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                        <Icon
+                          className={`relative z-10 w-3.5 h-3.5 ${
+                            active
+                              ? option.key === "movie"
+                                ? "text-red-400"
+                                : option.key === "tv"
+                                  ? "text-cyan-400"
+                                  : "text-violet-400"
+                              : "text-zinc-600"
+                          }`}
+                        />
+                        <span className="relative z-10 hidden xs:inline">{option.label}</span>
+                        <span
+                          className={`relative z-10 min-w-5 rounded-md px-1.5 py-0.5 text-[8px] tabular-nums ${
+                            active ? "bg-white/[0.08] text-zinc-300" : "bg-white/[0.03] text-zinc-600"
+                          }`}
+                        >
+                          {option.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                        <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
-                          <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm">
-                            <span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">
-                              #{idx + 1}
-                            </span>
-                          </div>
-
-                          <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20">
-                            <Heart className="w-2 h-2 text-white fill-current" />
-                          </div>
-
-                          {talent.profilePath ? (
-                            <img
-                              src={talent.profilePath}
-                              alt={talent.name}
-                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                              loading="lazy"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-                              <User className="w-5 h-5 text-zinc-700" />
+                {favouritesFilter === "movie" && (
+                  favouriteMovies.length === 0 ? (
+                    <div className="relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-950/30 p-8 text-center shadow-inner">
+                      <div className="relative z-10 flex flex-col items-center max-w-xs mx-auto">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-600 mb-4 shadow-xl">
+                          <Film className="w-5 h-5" />
+                        </div>
+                        <h3 className="text-xs font-black tracking-[0.2em] text-zinc-400 uppercase">No Favourite Movies</h3>
+                        <p className="text-xs text-zinc-500 mt-2 leading-relaxed">Favourite movies you love and they will appear here.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 w-full">
+                      {favouriteMovies.map((item, idx) => (
+                        <Link
+                          key={`movie-${item.id}`}
+                          to={`/movie/${item.id}`}
+                          className="group relative flex flex-col justify-between bg-zinc-950/30 border border-zinc-900 rounded-2xl p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-red-500/20 hover:shadow-[0_12px_30px_rgba(239,68,68,0.04)] active:scale-[0.98]"
+                        >
+                          <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-red-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+                          <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
+                            <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm">
+                              <span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">#{idx + 1}</span>
                             </div>
-                          )}
+                            <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20">
+                              <Heart className="w-2 h-2 text-white fill-current" />
+                            </div>
+                            {item.posterPath ? (
+                              <img src={item.posterPath} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-zinc-900"><Film className="w-5 h-5 text-zinc-700" /></div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent pointer-events-none" />
+                          </div>
+                          <div className="pt-2 px-0.5">
+                            <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-red-400 tracking-tight transition-colors truncate">{item.title}</p>
+                            <span className="text-[8px] font-semibold uppercase tracking-widest text-zinc-600 block mt-0.5">Movie</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )
+                )}
 
-                          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent pointer-events-none" />
-                        </div>
+                {favouritesFilter === "tv" && (
+                  favouriteSeries.length === 0 ? (
+                    <div className="relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-950/30 p-8 text-center shadow-inner">
+                      <div className="relative z-10 flex flex-col items-center max-w-xs mx-auto">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-600 mb-4 shadow-xl"><Tv className="w-5 h-5" /></div>
+                        <h3 className="text-xs font-black tracking-[0.2em] text-zinc-400 uppercase">No Favourite Series</h3>
+                        <p className="text-xs text-zinc-500 mt-2 leading-relaxed">Favourite series you love and they will appear here.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 w-full">
+                      {favouriteSeries.map((item, idx) => (
+                        <Link
+                          key={`tv-${item.id}`}
+                          to={`/tv/${item.id}`}
+                          className="group relative flex flex-col justify-between bg-zinc-950/30 border border-zinc-900 rounded-2xl p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-red-500/20 hover:shadow-[0_12px_30px_rgba(239,68,68,0.04)] active:scale-[0.98]"
+                        >
+                          <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-red-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+                          <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
+                            <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm"><span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">#{idx + 1}</span></div>
+                            <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20"><Heart className="w-2 h-2 text-white fill-current" /></div>
+                            {item.posterPath ? (
+                              <img src={item.posterPath} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-zinc-900"><Tv className="w-5 h-5 text-zinc-700" /></div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent pointer-events-none" />
+                          </div>
+                          <div className="pt-2 px-0.5">
+                            <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-red-400 tracking-tight transition-colors truncate">{item.title}</p>
+                            <span className="text-[8px] font-semibold uppercase tracking-widest text-zinc-600 block mt-0.5">Series</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )
+                )}
 
-                        <div className="pt-2 px-0.5">
-                          <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-red-400 tracking-tight transition-colors truncate">
-                            {talent.name}
-                          </p>
-                          <span className="text-[8px] font-semibold uppercase tracking-widest text-zinc-600 block mt-0.5">
-                            Talent
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
+                {favouritesFilter === "talent" && (
+                  favouriteTalents.length === 0 ? (
+                    <div className="relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-950/30 p-8 text-center shadow-inner">
+                      <div className="relative z-10 flex flex-col items-center max-w-xs mx-auto">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-600 mb-4 shadow-xl"><User className="w-5 h-5" /></div>
+                        <h3 className="text-xs font-black tracking-[0.2em] text-zinc-400 uppercase">No Favourite Talent</h3>
+                        <p className="text-xs text-zinc-500 mt-2 leading-relaxed">Favourite actors, directors and artists to keep them together here.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4 w-full">
+                      {favouriteTalents.map((talent, idx) => (
+                        <Link
+                          key={talent.id}
+                          to={`/talent/${talent.id}`}
+                          className="group relative flex flex-col justify-between bg-zinc-950/30 border border-zinc-900 rounded-2xl p-2 transition-all duration-500 hover:bg-zinc-950/80 hover:border-red-500/20 hover:shadow-[0_12px_30px_rgba(239,68,68,0.04)] active:scale-[0.98]"
+                        >
+                          <div className="absolute -inset-px rounded-2xl border border-transparent group-hover:border-red-500/10 bg-gradient-to-b from-white/[0.04] to-transparent [mask-image:linear-gradient(to_bottom,white,transparent)] group-hover:[mask-image:none] pointer-events-none transition-all duration-500" />
+                          <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-zinc-900 border border-white/[0.02] shadow-md">
+                            <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm"><span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">#{idx + 1}</span></div>
+                            <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20"><Heart className="w-2 h-2 text-white fill-current" /></div>
+                            {talent.profilePath ? (
+                              <img src={talent.profilePath} alt={talent.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-zinc-900"><User className="w-5 h-5 text-zinc-700" /></div>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent pointer-events-none" />
+                          </div>
+                          <div className="pt-2 px-0.5">
+                            <p className="text-[10px] sm:text-xs font-bold text-zinc-400 group-hover:text-red-400 tracking-tight transition-colors truncate">{talent.name}</p>
+                            <span className="text-[8px] font-semibold uppercase tracking-widest text-zinc-600 block mt-0.5">Talent</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )
                 )}
               </div>
             </motion.div>

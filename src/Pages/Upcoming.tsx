@@ -12,6 +12,7 @@ import {
   Clock
 } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import Loading from '../components/Loading.tsx';
 
 const genreMap: Record<number, string> = {
   28: 'Action',
@@ -124,6 +125,7 @@ const UpcomingMovies = () => {
 
   const handleMediaTypeChange = (type: 'movie' | 'tv') => {
     if (type !== mediaType) {
+      setLoading(true);
       setMediaType(type);
       setUpcomingMovies([]);
       setPage(1);
@@ -256,32 +258,7 @@ const UpcomingMovies = () => {
         <div className="container mx-auto px-4 max-w-7xl pb-20">
           <AnimatePresence mode="wait">
             {loading && page === 1 ? (
-              <motion.div
-                key="skeleton"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-8"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="aspect-[16/9] bg-zinc-900/80 rounded-2xl animate-pulse border border-white/5"
-                    />
-                  ))}
-                </div>
-                {/* Grid skeleton */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-5">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className="space-y-3">
-                      <div className="aspect-[2/3] bg-zinc-900/80 rounded-xl animate-pulse border border-white/5" />
-                      <div className="h-4 bg-zinc-900/80 rounded animate-pulse w-3/4" />
-                      <div className="h-3 bg-zinc-900/80 rounded animate-pulse w-1/2" />
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
+              <Loading />
             ) : (
               <motion.div
                 key={mediaType}

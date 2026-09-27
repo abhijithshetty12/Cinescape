@@ -12,6 +12,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup
 } from 'firebase/auth';
+import Loading from '../components/Loading.tsx';
 
 interface AuthContextType {
   user: User | null;
@@ -94,7 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <Loading />;
   }
 
   return (

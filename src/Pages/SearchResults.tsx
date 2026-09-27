@@ -475,11 +475,13 @@ const SearchResults = () => {
 
   const showUndo = useCallback((message: string, action: () => Promise<void>) => {
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-    setUndo({ message, action: async () => {
-      if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-      await action();
-      setUndo(null);
-    } });
+    setUndo({
+      message, action: async () => {
+        if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+        await action();
+        setUndo(null);
+      }
+    });
     undoTimerRef.current = window.setTimeout(() => setUndo(null), 5000);
   }, []);
 
@@ -883,13 +885,10 @@ const SearchResults = () => {
     if (!statusFilters.length) return true;
 
     if (item.media_type === 'person') {
-      // Talent only has one applicable library state: Favorite. In the dedicated
-      // Talent tab, unrelated movie/TV filters are ignored rather than hiding people.
       if (activeTab === 'talents') {
         const talentFilters = statusFilters.filter((filter) => filter === 'favorites');
         return talentFilters.length ? favoriteTalentIds.has(String(item.id)) : true;
       }
-      // In All results, a person cannot satisfy movie/TV-only filters.
       return statusFilters.every((filter) => filter === 'favorites' && favoriteTalentIds.has(String(item.id)));
     }
 

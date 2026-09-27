@@ -177,9 +177,9 @@ const Navbar: React.FC = () => {
       icon: Users
     },
     {
-      label: 'Fav Talents',
-      path: '/fav-talents',
-      sectionId: 'fav-talents',
+      label: 'Favorites',
+      path: '/favourites',
+      sectionId: 'favourites',
       icon: Heart
     }
   ];

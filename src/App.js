@@ -17,7 +17,7 @@ const LoginPage = lazy(() => import("./Pages/LoginPage.tsx"));
 const ProfilePage = lazy(() => import("./Pages/ProfilePage.tsx"));
 const TalentsProfilePage = lazy(() => import("./Pages/TalentsProfilePage.tsx"));
 const Tvdetails = lazy(() => import("./Pages/Tvdetails.tsx"));
-const FavTalents = lazy(() => import("./Pages/FavTalents.tsx"));
+const Favourites = lazy(() => import("./Pages/Favourites.tsx"));
 const Trending = lazy(() => import("./Pages/Trending.tsx"));
 const Watchlist = lazy(() => import("./Pages/Watchlist.tsx"));
 const Upcoming = lazy(() => import("./Pages/Upcoming.tsx"));
@@ -53,7 +53,7 @@ const AppRoutes = ({ isCmdMenuOpen, setIsCmdMenuOpen, isDark, toggleDark }) => {
             <Route path="/talent/:id/connections" element={<TalentsConnections />} />
             <Route path="tv/:id" element={<Tvdetails />} />
             <Route path="/top-rated" element={<Toprated />} />
-            <Route path="/fav-talents" element={<FavTalents />} />
+            <Route path="/favourites" element={<Favourites />} />
             <Route path="/trending" element={<Trending />} />
             <Route path="/watchlist" element={<Watchlist />} />
             <Route path="/upcoming" element={<Upcoming />} />

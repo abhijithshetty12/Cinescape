@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
+import Loading from './Loading.tsx';
 
 const ProtectedRoute = () => {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ const ProtectedRoute = () => {
     }
   }, [didInit, user]);
 
-  if (!didInit) return <div>Loading...</div>;
+  if (!didInit) return <Loading />;
 
   if (!user) {
     if (shouldRedirect) {
@@ -82,6 +83,3 @@ const ProtectedRoute = () => {
 };
 
 export default ProtectedRoute;
-
-
-

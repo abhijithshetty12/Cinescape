@@ -2272,15 +2272,19 @@ const MovieDetails = () => {
           className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-4 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_24px_64px_rgba(0,0,0,0.7)] overflow-hidden group"
         >
           <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
-          <div className="flex items-center gap-3 mb-5 relative z-10">
-            <div className="p-2.5 bg-gradient-to-b from-red-500/10 to-red-500/20 border border-red-500/20 rounded-xl">
-              <TvMinimalPlay className="w-5 h-5 text-red-500 animate-pulse" />
+          <div className="relative z-10 mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="shrink-0 p-2.5 bg-gradient-to-b from-red-500/10 to-red-500/20 border border-red-500/20 rounded-xl">
+                <TvMinimalPlay className="w-5 h-5 text-red-500 animate-pulse" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Watch Now</h2>
+                <span className="block truncate text-[10px] text-zinc-500 font-medium tracking-wide uppercase">Adaptive Player Stream</span>
+              </div>
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Watch Now</h2>
-              <span className="text-[10px] text-zinc-500 font-medium tracking-wide uppercase">Adaptive Player Stream</span>
+            <div id="media" className="min-w-0 w-full [&>*]:w-full [&>*]:max-w-full sm:ml-auto sm:w-auto sm:shrink-0 sm:[&>*]:w-auto">
+              <PlayerControl source={playerSource} onChange={setPlayerSource} />
             </div>
-            <div id="media"><PlayerControl source={playerSource} onChange={setPlayerSource} /></div>
           </div>
 
           <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-500/5 border border-red-500/10 mb-5 shadow-[inset_0_1px_1px_rgba(239,68,68,0.1)] relative z-10">
