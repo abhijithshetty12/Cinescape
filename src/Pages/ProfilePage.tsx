@@ -41,6 +41,13 @@ import {
   MapPin,
   CalendarDays,
   Clock,
+  ImagePlus,
+  Upload,
+  Search,
+  CheckCircle2,
+  Clapperboard,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -91,6 +98,31 @@ const compressImageToBase64 = (file: File): Promise<string> =>
     };
     reader.readAsDataURL(file);
   });
+
+const compressBanner = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = reject;
+  reader.onload = () => {
+    const image = new Image();
+    image.onerror = reject;
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const width = 1280;
+      const height = 440;
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) return reject(new Error("Canvas unavailable"));
+      const scale = Math.max(width / image.width, height / image.height);
+      const w = image.width * scale;
+      const h = image.height * scale;
+      context.drawImage(image, (width - w) / 2, (height - h) / 2, w, h);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    image.src = String(reader.result);
+  };
+  reader.readAsDataURL(file);
+});
 
 type TabId =
   | "overview"
@@ -229,6 +261,18 @@ const ProfilePage = () => {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
+  const [handle, setHandle] = useState("");
+  const [profileLinks, setProfileLinks] = useState<Array<{ label: string; url: string }>>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [portraitCreditsOpen, setPortraitCreditsOpen] = useState(false);
+  const [photoMode, setPhotoMode] = useState<"favourites" | "search">("favourites");
+  const [talentSearch, setTalentSearch] = useState("");
+  const [talentResults, setTalentResults] = useState<Array<{ id: number; name: string; profile_path: string | null }>>([]);
+  const [talentGallery, setTalentGallery] = useState<Array<{ file_path: string }>>([]);
+  const [talentGalleryName, setTalentGalleryName] = useState("");
+  const [talentLoading, setTalentLoading] = useState(false);
+  const [editDraft, setEditDraft] = useState({ username: "", bio: "", handle: "", location: "", links: [] as Array<{ label: string; url: string }> });
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
@@ -259,6 +303,23 @@ const ProfilePage = () => {
   const [loadingRuntimes, setLoadingRuntimes] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [bannerOpen, setBannerOpen] = useState(false);
+  const [bannerSearch, setBannerSearch] = useState("");
+  const [bannerChoices, setBannerChoices] = useState<Record<string, string>>({});
+  const [bannerLoading, setBannerLoading] = useState(false);
+  const [bannerSaving, setBannerSaving] = useState(false);
+  const [bannerSelected, setBannerSelected] = useState("");
+  const [scenePosition, setScenePosition] = useState<"top" | "center" | "bottom">("center");
+  const [sceneSource, setSceneSource] = useState<"discover" | "history">("discover");
+  const [sceneResults, setSceneResults] = useState<Array<{ id: number; title: string; mediaType: "movie" | "tv"; backdrop: string }>>([]);
+  const [sceneResultLoading, setSceneResultLoading] = useState(false);
+  const [sceneImages, setSceneImages] = useState<Array<{ url: string; title: string }>>([]);
+  const [sceneImagesLoading, setSceneImagesLoading] = useState(false);
+  const [sceneTitle, setSceneTitle] = useState("");
+  const [sceneChosenUrl, setSceneChosenUrl] = useState("");
 
   const showToast = (
     message: string,
@@ -305,6 +366,11 @@ const ProfilePage = () => {
         setUsername(data.username ?? "");
         setBio(data.bio ?? "");
         setLocation(data.location ?? "");
+        setHandle(data.handle ?? "");
+        setProfileLinks(Array.isArray(data.profileLinks) ? data.profileLinks : []);
+        setBannerUrl(data.profileBannerUrl ?? "");
+        setBannerTitle(data.profileBannerTitle ?? "");
+        setScenePosition(data.profileScenePosition === "top" || data.profileScenePosition === "bottom" ? data.profileScenePosition : "center");
         if (data.photoDataUrl) setPhotoDataUrl(data.photoDataUrl);
       }
     };
@@ -462,6 +528,122 @@ const ProfilePage = () => {
     }
   }, [history]);
 
+  const bannerCandidates = useMemo(() => {
+    const seen = new Set<string>();
+    return history.filter((item) => {
+      const key = `${item.mediaType}-${item.id}`;
+      if (!item.id || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 60);
+  }, [history]);
+
+  useEffect(() => {
+    if (!bannerOpen || !bannerCandidates.length) return;
+    let cancelled = false;
+    const load = async () => {
+      setBannerLoading(true);
+      const results: Record<string, string> = {};
+      await Promise.all(bannerCandidates.map(async (item) => {
+        const key = `${item.mediaType}-${item.id}`;
+        if (bannerChoices[key]) return;
+        try {
+          const response = await axios.get(`https://api.themoviedb.org/3/${item.mediaType}/${item.id}?api_key=${TMDB_API_KEY}`);
+          if (response.data.backdrop_path) results[key] = `https://image.tmdb.org/t/p/original${response.data.backdrop_path}`;
+        } catch {}
+      }));
+      if (!cancelled) {
+        setBannerChoices((previous) => ({ ...previous, ...results }));
+        setBannerLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [bannerOpen, bannerCandidates]);
+
+  useEffect(() => {
+    if (!bannerOpen || sceneSource !== "discover") return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setSceneResultLoading(true);
+      try {
+        const term = bannerSearch.trim();
+        const requests = term
+          ? [axios.get("https://api.themoviedb.org/3/search/multi", { params: { api_key: TMDB_API_KEY, query: term, include_adult: false, page: 1 } })]
+          : [axios.get("https://api.themoviedb.org/3/trending/all/week", { params: { api_key: TMDB_API_KEY } })];
+        const responses = await Promise.all(requests);
+        if (cancelled) return;
+        setSceneResults(responses.flatMap((response) => (response.data.results ?? []).filter((item: any) => (item.media_type === "movie" || item.media_type === "tv") && item.backdrop_path).map((item: any) => ({ id: item.id, title: item.title || item.name || "Untitled", mediaType: item.media_type, backdrop: `https://image.tmdb.org/t/p/w780${item.backdrop_path}` }))));
+      } catch {
+        if (!cancelled) showToast("Couldn't load titles from TMDB", "error");
+      } finally {
+        if (!cancelled) setSceneResultLoading(false);
+      }
+    }, bannerSearch.trim() ? 350 : 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [bannerOpen, sceneSource, bannerSearch]);
+
+  const openSceneTitle = async (mediaType: "movie" | "tv", id: number, title: string) => {
+    setSceneTitle(title);
+    setSceneImages([]);
+    setSceneChosenUrl("");
+    setSceneImagesLoading(true);
+    try {
+      const response = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}/images`, { params: { api_key: TMDB_API_KEY, include_image_language: "en,null" } });
+      const backdrops = (response.data.backdrops ?? []).filter((item: any) => item.file_path && item.width >= 780).slice(0, 36);
+      setSceneImages(backdrops.map((item: any) => ({ url: `https://image.tmdb.org/t/p/original${item.file_path}`, title })));
+      if (!backdrops.length) showToast("No backdrops available for this title", "info");
+    } catch {
+      showToast("Couldn't load this title's scenes", "error");
+    } finally {
+      setSceneImagesLoading(false);
+    }
+  };
+
+  const saveBanner = async (url: string, title: string, position: "top" | "center" | "bottom" = scenePosition) => {
+    if (!user?.uid) return;
+    setBannerSaving(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), { profileBannerUrl: url, profileBannerTitle: title, profileScenePosition: position }, { merge: true });
+      setBannerUrl(url);
+      setBannerTitle(title);
+      setScenePosition(position);
+      setBannerOpen(false);
+      showToast(url ? "Profile banner updated" : "Profile banner removed", "success");
+    } catch {
+      showToast("Could not update your banner", "error");
+    } finally {
+      setBannerSaving(false);
+    }
+  };
+
+  const uploadBanner = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Choose a valid image", "error");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      showToast("Choose an image smaller than 15 MB", "error");
+      return;
+    }
+    setBannerSaving(true);
+    try {
+      const data = await compressBanner(file);
+      if (data.length > 850000) {
+        showToast("Image is too large after compression", "error");
+        return;
+      }
+      await saveBanner(data, "Custom banner");
+    } catch {
+      showToast("Could not process the image", "error");
+    } finally {
+      setBannerSaving(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = "";
+    }
+  };
+
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.uid) return;
@@ -494,6 +676,22 @@ const ProfilePage = () => {
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const useAccountPhoto = async () => {
+    if (!user?.uid || !accountPhoto) return;
+    setIsUploadingPhoto(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), { photoDataUrl: accountPhoto }, { merge: true });
+      setPhotoDataUrl(accountPhoto);
+      setPhotoPreview(null);
+      setPhotoOpen(false);
+      showToast("Account photo applied", "success");
+    } catch {
+      showToast("Could not apply account photo", "error");
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -539,6 +737,91 @@ const ProfilePage = () => {
     }
   };
 
+  const openEdit = () => {
+    setEditDraft({ username, bio, handle, location, links: profileLinks.map((item) => ({ ...item })) });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!user?.uid) return;
+    const nextHandle = editDraft.handle.trim().replace(/^@/, "");
+    if (nextHandle && !/^[a-zA-Z0-9_]{3,15}$/.test(nextHandle)) {
+      showToast("Handle must contain 3–15 letters, numbers or underscores", "error");
+      return;
+    }
+    const nextLinks = editDraft.links.filter((item) => item.label.trim() && item.url.trim());
+    if (nextLinks.some((item) => !/^https?:\/\//i.test(item.url.trim()))) {
+      showToast("Links must start with https:// or http://", "error");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), { username: editDraft.username.trim(), bio: editDraft.bio.trim(), handle: nextHandle, location: editDraft.location.trim(), profileLinks: nextLinks }, { merge: true });
+      setUsername(editDraft.username.trim());
+      setBio(editDraft.bio.trim());
+      setHandle(nextHandle);
+      setLocation(editDraft.location.trim());
+      setProfileLinks(nextLinks);
+      setEditOpen(false);
+      showToast("Profile updated", "success");
+    } catch {
+      showToast("Couldn't save your profile", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveTalentPhoto = async (path: string) => {
+    if (!user?.uid) return;
+    setIsUploadingPhoto(true);
+    try {
+      const response = await fetch(`https://image.tmdb.org/t/p/w500${path}`);
+      if (!response.ok) throw new Error("Image unavailable");
+      const blob = await response.blob();
+      const dataUrl = await compressImageToBase64(new File([blob], "talent.jpg", { type: blob.type || "image/jpeg" }));
+      await setDoc(doc(db, "users", user.uid), { photoDataUrl: dataUrl }, { merge: true });
+      setPhotoDataUrl(dataUrl);
+      setPhotoOpen(false);
+      showToast("Profile photo updated", "success");
+    } catch {
+      showToast("Could not use this talent image", "error");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const openTalentGallery = async (id: number, name: string) => {
+    setTalentGalleryName(name);
+    setTalentGallery([]);
+    setTalentLoading(true);
+    try {
+      const response = await axios.get(`https://api.themoviedb.org/3/person/${id}/images`, { params: { api_key: TMDB_API_KEY } });
+      setTalentGallery((response.data.profiles ?? []).filter((item: any) => item.file_path).slice(0, 48));
+    } catch {
+      showToast("Couldn't load talent images", "error");
+    } finally {
+      setTalentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!photoOpen || photoMode !== "search") return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      if (!talentSearch.trim()) { setTalentResults([]); return; }
+      setTalentLoading(true);
+      try {
+        const response = await axios.get("https://api.themoviedb.org/3/search/person", { params: { api_key: TMDB_API_KEY, query: talentSearch, include_adult: false } });
+        if (!cancelled) setTalentResults((response.data.results ?? []).slice(0, 24));
+      } catch {
+        if (!cancelled) showToast("Talent search failed", "error");
+      } finally {
+        if (!cancelled) setTalentLoading(false);
+      }
+    }, 300);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [photoOpen, photoMode, talentSearch]);
+
   const handleLogout = () => {
     signOut(getAuth())
       .then(() => navigate("/login"))
@@ -569,12 +852,17 @@ const ProfilePage = () => {
 
   const totalFavourites = favouriteMedia.length + favouriteTalents.length;
 
+  const accountPhoto = getAuth().currentUser?.photoURL || null;
   const displayPhoto = photoPreview ?? photoDataUrl;
 
   const isEditing = isEditingUsername || isEditingBio || isEditingLocation;
 
   return (
-    <div className="bg-black text-white min-h-screen">
+    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[270px] overflow-hidden sm:h-[390px] lg:h-[460px]">
+        {bannerUrl ? <div className="absolute inset-0 bg-cover bg-no-repeat" style={{ backgroundImage: `url(${bannerUrl})`, backgroundPosition: `center ${scenePosition}` }} /> : <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_60%_10%,rgba(220,38,38,0.8),transparent_65%),linear-gradient(130deg,#7f1d1d,#170507)]" />}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/20 to-black" />
+      </div>
       <Toast
         message={toast.message}
         type={toast.type}
@@ -582,381 +870,78 @@ const ProfilePage = () => {
         onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
       />
 
-      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-5xl">
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="flex items-center justify-between mb-6"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <img
-                src="cd.jpg"
-                alt="Cinescape"
-                className="w-full h-full object-contain rounded-2xl"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                Profile
-              </h1>
-              <p className="text-zinc-500 text-xs font-medium">
-                Manage your account
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="relative flex items-center justify-center gap-2 px-4 py-2 rounded-2xl text-xs font-semibold tracking-tight text-white bg-gradient-to-r from-red-500 via-red-600 to-orange-600 hover:from-red-400 hover:via-red-500 hover:to-orange-500 active:from-red-600 active:to-orange-700 border border-white/25 backdrop-blur-2xl transition-all duration-300 active:scale-95 shadow-[0_6px_20px_rgba(239,68,68,0.35),inset_0_1px_1px_rgba(255,255,255,0.5),inset_0_-2px_4px_rgba(0,0,0,0.3)] overflow-hidden group font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','SF_Pro_Display','Helvetica_Neue',sans-serif]"
-          >
-            <div className="absolute top-0 inset-x-0 h-[45%] bg-gradient-to-b from-white/35 via-white/10 to-transparent rounded-t-2xl pointer-events-none" />
-            <LogOut className="w-3.5 h-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)] relative z-10 transition-transform duration-300 group-hover:-translate-x-0.5" />
-            <span className="hidden sm:inline relative z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-              Logout
-            </span>
-          </button>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.06 }}
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl mb-6"
-        >
-          <div className="absolute inset-0 bg-black/50 pointer-events-none" />
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
-
-          <div className="relative z-10 p-5 sm:p-8">
-            <div className="flex flex-col items-center text-center sm:flex-row sm:items-start sm:text-left gap-6 sm:gap-8">
-              <div className="flex flex-col items-center gap-3 flex-shrink-0">
-                <div className="relative group">
-                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full border-2 border-white/80 overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 shadow-2xl">
-                    <AnimatePresence mode="wait">
-                      {displayPhoto ? (
-                        <motion.img
-                          key="photo"
-                          src={displayPhoto}
-                          alt={username}
-                          className="w-full h-full object-cover"
-                          initial={{ opacity: 0, scale: 1.08 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          transition={{ duration: 0.3 }}
-                        />
-                      ) : (
-                        <motion.img
-                          key="default"
-                          src="/user-icon.jpg"
-                          alt="Default Profile"
-                          className="w-full h-full object-cover"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        />
-                      )}
-                    </AnimatePresence>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploadingPhoto}
-                      className="absolute inset-0 flex flex-col items-center justify-center bg-black/0 hover:bg-black/70 transition-all duration-300 opacity-0 group-hover:opacity-100 rounded-full cursor-pointer"
-                      aria-label="Change profile picture"
-                    >
-                      {isUploadingPhoto ? (
-                        <Loader2 className="w-5 h-5 text-white animate-spin" />
-                      ) : (
-                        <>
-                          <Camera className="w-5 h-5 text-white mb-0.5" />
-                          <span className="text-[10px] font-bold text-white/90 uppercase tracking-wider">
-                            Change
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingPhoto}
-                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-red-600 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-600/30 border-2 border-zinc-950 transition-all duration-200 hover:scale-110 active:scale-95 z-10"
-                    aria-label="Upload photo"
-                  >
-                    {isUploadingPhoto ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Camera className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoChange}
-                />
-                {displayPhoto && (
-                  <button
-                    onClick={handleRemovePhoto}
-                    disabled={isUploadingPhoto}
-                    className="flex items-center gap-1 text-zinc-400 hover:text-white text-[11px] font-medium transition-colors duration-200"
-                  >
-                    <X className="w-3 h-3" />
-                    Remove photo
-                  </button>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0 w-full">
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-2">
-                  <div className="group/edit flex items-center gap-1.5">
-                    {isEditingUsername ? (
-                      <input
-                        type="text"
-                        autoFocus
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSave()}
-                        className="text-2xl sm:text-3xl font-black tracking-tight bg-transparent border-b-2 border-red-500/70 text-white focus:outline-none focus:border-amber-400 w-auto min-w-[120px] max-w-[240px]"
-                      />
-                    ) : (
-                      <h2
-                        onClick={() => setIsEditingUsername(true)}
-                        className="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-white via-white to-zinc-300 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
-                      >
-                        {username || "Anonymous"}
-                      </h2>
-                    )}
-                    <button
-                      onClick={() => setIsEditingUsername(true)}
-                      className="opacity-0 group-hover/edit:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-lg"
-                    >
-                      <SquarePen className="w-3.5 h-3.5 text-zinc-500 hover:text-white transition-colors" />
-                    </button>
-                  </div>
-                  <span className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-amber-200 bg-zinc-950/90 border border-amber-500/40 shadow-[0_2px_12px_-2px_rgba(245,158,11,0.3)] backdrop-blur-md overflow-hidden group">
-                    <span className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-amber-400/20 to-amber-500/10 opacity-70 group-hover:opacity-100 transition-opacity" />
-                    <span className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_infinite] bg-gradient-to-r from-transparent via-amber-200/20 to-transparent" />
-                    <Star className="w-3 h-3 text-amber-400 fill-amber-400 relative z-10 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
-                    <span className="relative z-10 text-transparent bg-clip-text bg-gradient-to-r from-amber-100 via-amber-300 to-amber-100 font-extrabold tracking-widest">
-                      Cinephile
-                    </span>
-                  </span>
-                </div>
-
-                <div className="group/edit flex items-start justify-center sm:justify-start gap-1.5 mb-4">
-                  {isEditingBio ? (
-                    <textarea
-                      autoFocus
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      placeholder="Tell us about yourself…"
-                      rows={2}
-                      className="flex-1 bg-zinc-900/60 border border-zinc-700 text-zinc-300 text-sm px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500/50 placeholder:text-zinc-600 resize-none leading-relaxed"
-                    />
-                  ) : (
-                    <p
-                      onClick={() => setIsEditingBio(true)}
-                      className="text-sm text-zinc-400 leading-relaxed cursor-pointer hover:text-zinc-300 transition-colors flex-1 max-w-md"
-                    >
-                      {bio || "Add a bio…"}
-                    </p>
-                  )}
-                  <button
-                    onClick={() => setIsEditingBio(true)}
-                    className="opacity-0 group-hover/edit:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded-lg shrink-0 mt-0.5"
-                  >
-                    <SquarePen className="w-3 h-3 text-zinc-500 hover:text-white transition-colors" />
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1.5 mb-5">
-                  <div className="group/loc flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-green-600 shrink-0" />
-                    {isEditingLocation ? (
-                      <input
-                        type="text"
-                        autoFocus
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSave()}
-                        placeholder="Your location"
-                        className="text-xs bg-transparent border-b border-zinc-600 text-zinc-300 focus:outline-none focus:border-zinc-400 min-w-[80px] max-w-[140px]"
-                      />
-                    ) : (
-                      <span
-                        onClick={() => setIsEditingLocation(true)}
-                        className="text-xs text-zinc-400 hover:text-zinc-200 cursor-pointer transition-colors"
-                      >
-                        {location || "Add location"}
-                      </span>
-                    )}
-                    <button
-                      onClick={() => setIsEditingLocation(true)}
-                      className="opacity-0 group-hover/loc:opacity-100 transition-opacity p-0.5 hover:bg-white/10 rounded"
-                    >
-                      <SquarePen className="w-3 h-3 text-zinc-600 hover:text-white transition-colors" />
-                    </button>
-                  </div>
-
-                  {memberSince && (
-                    <div className="flex items-center gap-1.5">
-                      <CalendarDays className="w-3.5 h-3.5 text-amber-400/70 shrink-0" />
-                      <span className="text-xs text-zinc-400">
-                        Member since {memberSince}
-                      </span>
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-3 pb-14 pt-4 sm:px-6 sm:pt-7">
+        <section className="relative mb-6 pt-24 sm:pt-32 lg:pt-40">
+          <div className="relative grid rounded-[22px] border border-white/10 bg-[#050505]/90 shadow-[0_25px_90px_rgba(0,0,0,.5)] backdrop-blur-2xl lg:grid-cols-[260px_minmax(0,1fr)]">
+            <aside className="relative min-w-0 border-b border-white/10 lg:border-b-0 lg:border-r">
+              <div className="flex items-end gap-4 px-4 pt-5 sm:px-6 lg:block lg:px-5 lg:pt-0">
+                <div className="relative z-10 w-28 shrink-0 sm:w-32 lg:mx-auto lg:-mt-16 lg:w-[174px]">
+                  <motion.div whileHover={{ y: -4, rotate: -1 }} transition={{ type: "spring", stiffness: 260, damping: 24 }} className="group relative">
+                    <div className="pointer-events-none absolute -inset-2 rounded-[22px] bg-gradient-to-br from-amber-300/20 via-red-500/10 to-transparent blur-xl" />
+                    <div className="relative overflow-hidden bg-[#17100c] shadow-[0_20px_50px_rgba(0,0,0,.7)]" style={{ clipPath: "polygon(0 0,100% 0,100% 42%,94% 46%,94% 54%,100% 58%,100% 100%,0 100%,0 58%,6% 54%,6% 46%,0 42%)" }}>
+                      <div className="absolute inset-0 border-[3px] border-amber-200/60 pointer-events-none" />
+                      <button type="button" onClick={() => setPortraitCreditsOpen(value => !value)} aria-expanded={portraitCreditsOpen} aria-label="Reveal ticket holder" className="relative block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+                        <div className="flex items-center justify-between border-b border-dashed border-amber-200/35 bg-[#20140e] px-2 py-2 font-mono text-[7px] font-bold tracking-[.12em] text-amber-100 sm:text-[8px]"><span>CINESCAPE</span><span>ADMIT ONE</span></div>
+                        <div className="relative aspect-[2/3] w-full overflow-hidden bg-zinc-950"><img src={displayPhoto || accountPhoto || "/user-icon.jpg"} alt="Profile portrait" className="h-full w-full object-contain" /><div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#170e09]/45 via-transparent to-transparent" /><span className="absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-amber-200/30 bg-black/70 px-2 py-1 font-mono text-[7px] tracking-wider text-amber-100">{portraitCreditsOpen ? "TICKET OPEN" : "TAP TICKET"}</span></div>
+                        <div className="flex items-center justify-between border-t border-dashed border-amber-200/35 bg-[#20140e] px-2 py-2 font-mono text-[7px] tracking-wider text-amber-200/80"><span>PREMIERE PASS</span><span>01 / 01</span></div>
+                      </button>
+                      <button type="button" onClick={() => { setPhotoMode("favourites"); setTalentGallery([]); setPhotoOpen(true); }} disabled={isUploadingPhoto} aria-label="Change profile picture" className="absolute right-2 top-9 z-20 rounded-full border border-amber-200/40 bg-black/80 p-2 text-amber-100 backdrop-blur-md hover:bg-red-700">{isUploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}</button>
                     </div>
-                  )}
+                    <AnimatePresence initial={false}>{portraitCreditsOpen && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden"><div className="mt-1 border-x border-b border-dashed border-amber-200/40 bg-[#21160f] px-2 py-3 text-center"><p className="font-mono text-[8px] tracking-[.2em] text-amber-300">TICKET HOLDER</p><p className="mt-1 break-words text-xs font-bold text-white">{username || "Cinescape member"}</p>{handle && <p className="mt-1 truncate text-[9px] text-amber-100/60">@{handle}</p>}</div></motion.div>}</AnimatePresence>
+                  </motion.div>
                 </div>
-
-                <div className="flex items-center justify-center sm:justify-start gap-3">
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl font-bold text-xs transition-all duration-300 active:scale-[0.97] bg-white text-black hover:bg-zinc-100 hover:shadow-[0_0_24px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Saving…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                  {isEditing && (
-                    <button
-                      onClick={() => {
-                        setIsEditingUsername(false);
-                        setIsEditingBio(false);
-                        setIsEditingLocation(false);
-                      }}
-                      className="px-6 py-2.5 rounded-xl font-bold text-xs transition-all duration-300 active:scale-[0.97] bg-zinc-900 text-zinc-400 hover:text-white border border-white/10 hover:bg-zinc-800"
-                    >
-                      Cancel
-                    </button>
-                  )}
+                <div className="min-w-0 flex-1 pb-1 lg:hidden">
+                  <h2 className="break-words text-xl font-extrabold tracking-tight">{username || "Cinescape member"}</h2>
+                  {handle && <p className="mt-1 text-xs text-zinc-400">@{handle}</p>}
+                  <p className="mt-2 text-xs text-zinc-500">{memberSince ? `Member since ${memberSince}` : "Cinescape member"}</p>
+                  {location && <p className="mt-1 text-xs text-zinc-400">{location}</p>}
                 </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mt-5 pt-4 border-t border-white/[0.08]">
-              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-red-500/20 hover:-translate-y-0.5">
-                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-red-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-red-500/[0.18]" />
-
-                <div className="relative flex items-center justify-between mb-3">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-red-500/90 to-rose-700/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(239,68,68,0.25)]">
-                    <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                  </div>
-
-                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-red-300/80">
-                    Films
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
-                    {filmsWatched}
-                  </p>
-
-                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
-                    Films Watched
-                  </p>
-                </div>
+              <div className="space-y-4 px-4 pb-5 pt-4 sm:px-6 lg:pt-5">
+                <div className="hidden lg:block"><h2 className="break-words text-2xl font-extrabold tracking-tight">{username || "Cinescape member"}</h2>{handle && <p className="mt-1 text-xs text-zinc-400">@{handle}</p>}<div className="mt-3 space-y-1 text-xs text-zinc-500">{memberSince && <p className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5 text-green-600" /> Member since {memberSince}</p>}{location && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-blue-600" /> {location}</p>}</div></div>
+                <div className="grid grid-cols-2 gap-2 lg:hidden">{[{ label: "SEEN", value: filmsWatched + seriesWatched }, { label: "VERDICTS", value: ratedMovies.length }, { label: "QUEUED", value: watchlist.length }, { label: "AVG VERDICT", value: avgRating ?? "N/A" }].map((item) => <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.025] p-3"><p className="text-xl font-extrabold tabular-nums">{item.value}</p><p className="mt-1 text-[10px] font-semibold tracking-wider text-zinc-500">{item.label}</p></div>)}</div>
+                {bio && <p className="whitespace-pre-wrap text-xs leading-relaxed text-zinc-400">{bio}</p>}
+                {profileLinks.length > 0 && <div className="flex flex-wrap gap-2">{profileLinks.map((item, index) => <a key={`${item.url}-${index}`} href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><span className="truncate">{item.label}</span><ExternalLink className="h-3 w-3 shrink-0" /></a>)}</div>}
+                <div className="flex flex-wrap items-center gap-2 lg:hidden"><button onClick={openEdit} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300"><SquarePen className="h-4 w-4" /> Edit profile</button><button onClick={() => setBannerOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300"><ImagePlus className="h-4 w-4" /> Change scene</button></div>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
-
-              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-blue-500/20 hover:-translate-y-0.5">
-                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-blue-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-blue-500/[0.18]" />
-
-                <div className="relative flex items-center justify-between mb-3">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-500/90 to-cyan-700/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(59,130,246,0.25)]">
-                    <Tv className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                  </div>
-
-                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-blue-300/80">
-                    Series
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
-                    {seriesWatched}
-                  </p>
-
-                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
-                    Series Watched
-                  </p>
-                </div>
-              </div>
-
-              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-emerald-500/20 hover:-translate-y-0.5">
-                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-emerald-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-emerald-500/[0.18]" />
-
-                <div className="relative flex items-center justify-between mb-3">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-emerald-400/90 to-green-700/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(16,185,129,0.25)]">
-                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                  </div>
-
-                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-300/80">
-                    Time
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
-                    {loadingRuntimes &&
-                      history.length > 0 &&
-                      Object.keys(runtimeDetails).length < history.length ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-emerald-400" />
-                        <span className="text-xs sm:text-sm font-bold text-emerald-400">
-                          ...
-                        </span>
-                      </span>
-                    ) : (
-                      <>
-                        {totalBingeHours}
-                        <span className="text-xs sm:text-sm font-bold text-zinc-500 ml-1">
-                          h
-                        </span>
-                      </>
-                    )}
-                  </p>
-
-                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
-                    Total Binge Time
-                  </p>
-                </div>
-              </div>
-
-              <div className="group relative overflow-hidden rounded-2xl p-3.5 sm:p-4 bg-white/[0.035] backdrop-blur-2xl border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:bg-white/[0.055] hover:border-amber-500/20 hover:-translate-y-0.5">
-                <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-amber-500/[0.12] blur-3xl pointer-events-none transition-all duration-500 group-hover:bg-amber-500/[0.18]" />
-
-                <div className="relative flex items-center justify-between mb-3">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-yellow-400/90 to-amber-600/90 flex items-center justify-center border border-white/10 shadow-[0_5px_15px_rgba(245,158,11,0.25)]">
-                    <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white fill-white" />
-                  </div>
-
-                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-amber-300/80">
-                    Rating
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white tabular-nums leading-none">
-                    {avgRating ?? '—'}
-                  </p>
-
-                  <p className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-1.5">
-                    Avg. Rating
-                  </p>
-                </div>
-              </div>
+            </aside>
+            <div className="hidden min-w-0 lg:block">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-6 py-4"><div className="grid grid-cols-4 gap-2">{[{ label: "SEEN", value: filmsWatched + seriesWatched }, { label: "VERDICTS", value: ratedMovies.length }, { label: "QUEUED", value: watchlist.length }, { label: "AVG VERDICT", value: avgRating ?? "N/A" }].map((item) => <div key={item.label} className="min-w-[100px] rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2"><p className="text-lg font-extrabold tabular-nums">{item.value}</p><p className="text-[9px] font-semibold tracking-wider text-zinc-500">{item.label}</p></div>)}</div><div className="flex gap-2"><button onClick={openEdit} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><SquarePen className="h-4 w-4" /> Edit profile</button><button onClick={() => setBannerOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><ImagePlus className="h-4 w-4" /> Change scene</button></div></div>
+              <div className="border-b border-white/10 px-5 py-6 sm:px-7"><h3 className="text-sm font-bold tracking-tight">The Top Five</h3><p className="mt-4 text-xs text-zinc-500">Your cinematic favorites, all in one place.</p><div className="mt-4 flex gap-2 overflow-x-auto pb-1">{favouriteMedia.slice(0, 5).map((item) => <Link key={`${item.mediaType}-${item.id}`} to={`/${item.mediaType}/${item.id}`} className="w-20 shrink-0 overflow-hidden rounded-lg border border-white/10 sm:w-24"><img src={item.posterPath} alt={item.title} className="aspect-[2/3] w-full object-cover" /><p className="truncate px-1 py-1 text-[10px] text-zinc-400">{item.title}</p></Link>)}{favouriteMedia.length === 0 && <p className="py-3 text-xs text-zinc-600">Empty. Five slots await your favorite titles.</p>}</div></div>
+              <div className="grid min-h-[180px] grid-cols-2"><div className="border-r border-white/10 p-6"><h3 className="text-sm font-bold">Favorite Actors</h3><div className="mt-5 flex flex-wrap gap-2">{favouriteTalents.slice(0, 4).map((item) => <Link key={item.id} to={`/talent/${item.id}`} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-zinc-300">{item.profilePath && <img src={item.profilePath} alt="" className="h-7 w-7 rounded-full object-cover" />}{item.name}</Link>)}{favouriteTalents.length === 0 && <p className="text-xs text-zinc-500">No faces enshrined yet.</p>}</div></div><div className="p-6"><h3 className="text-sm font-bold">Highest Rated</h3><div className="mt-5 space-y-2">{ratedMovies.slice().sort((a,b) => b.rating - a.rating).slice(0,3).map((item) => <Link key={item.id} to={`/${item.mediaType || "movie"}/${item.id}`} className="flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-white"><span className="truncate">{item.title}</span><span className="shrink-0 text-amber-400">★ {item.rating}</span></Link>)}{ratedMovies.length === 0 && <p className="text-xs leading-relaxed text-zinc-500">Rate a few films or shows and the best of them stand here.</p>}</div></div></div>
             </div>
           </div>
-        </motion.div>
+        </section>
+        <AnimatePresence>
+           {editOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 px-3 pb-3 pt-20 backdrop-blur-lg sm:px-5 sm:pb-5 sm:pt-24" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditOpen(false); }}><motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Edit profile" className="max-h-[calc(100dvh-6.5rem)] w-full max-w-lg overflow-y-auto rounded-[22px] border border-white/10 bg-[#0b0b0d] p-5 shadow-[0_25px_90px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.08)] sm:p-7"><h3 className="mb-6 text-base font-bold">Edit profile</h3><div className="space-y-5"><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Name</span><input value={editDraft.username} onChange={(e) => setEditDraft((d) => ({ ...d, username: e.target.value }))} className="w-full rounded-lg border border-white/10 bg-black px-3 py-2.5 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Bio</span><textarea rows={4} value={editDraft.bio} onChange={(e) => setEditDraft((d) => ({ ...d, bio: e.target.value }))} placeholder="Your cinematic thesis, e.g. Practical effects or nothing." className="w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Location</span><input value={editDraft.location} onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))} placeholder="City, country" className="w-full rounded-lg border border-white/10 bg-black px-3 py-2.5 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Handle</span><div className="flex items-center rounded-lg border border-white/10 bg-black"><span className="pl-3 text-zinc-500">@</span><input value={editDraft.handle} onChange={(e) => setEditDraft((d) => ({ ...d, handle: e.target.value.replace(/^@/, "") }))} maxLength={15} placeholder="username" className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm outline-none" /></div><p className="mt-1 text-[10px] text-zinc-500">3–15 characters; letters, numbers, underscores.</p></label><div><p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Links</p><div className="space-y-2">{editDraft.links.map((item, index) => <div key={index} className="flex gap-2"><input aria-label="Link label" placeholder="Label" value={item.label} onChange={(e) => setEditDraft((d) => ({ ...d, links: d.links.map((link, i) => i === index ? { ...link, label: e.target.value } : link) }))} className="w-[35%] min-w-0 rounded-lg border border-white/10 bg-black px-2 py-2 text-xs outline-none" /><input aria-label="Link URL" placeholder="https://..." value={item.url} onChange={(e) => setEditDraft((d) => ({ ...d, links: d.links.map((link, i) => i === index ? { ...link, url: e.target.value } : link) }))} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black px-2 py-2 text-xs outline-none" /><button aria-label="Remove link" onClick={() => setEditDraft((d) => ({ ...d, links: d.links.filter((_, i) => i !== index) }))} className="p-1 text-zinc-500 hover:text-white"><X className="h-4 w-4" /></button></div>)}</div><button onClick={() => setEditDraft((d) => ({ ...d, links: [...d.links, { label: "", url: "" }] }))} className="mt-2 text-xs text-zinc-400 hover:text-white">+ Add link</button></div></div><div className="mt-7 flex items-center gap-4"><button disabled={isSaving} onClick={saveEdit} className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black disabled:opacity-50">{isSaving ? "Saving..." : "Save"}</button><button onClick={() => setEditOpen(false)} className="text-xs text-zinc-400 hover:text-white">Cancel</button></div></motion.div></motion.div>}
+           {photoOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 px-3 pb-3 pt-20 backdrop-blur-lg sm:px-5 sm:pb-5 sm:pt-24" onMouseDown={(event) => { if (event.target === event.currentTarget) setPhotoOpen(false); }}><motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Profile photo" className="flex max-h-[calc(100dvh-6.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0b0b0d] shadow-[0_25px_90px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.08)]"><div className="flex items-center justify-between border-b border-white/10 p-5"><h3 className="font-bold">Profile photo</h3><button onClick={() => setPhotoOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button></div><div className="min-h-0 overflow-y-auto p-5"><div className="mb-5 flex items-start gap-4"><img src={displayPhoto || "/user-icon.jpg"} alt="Current profile" className="h-28 w-24 rounded-lg bg-zinc-900 object-contain" /><div className="space-y-3"><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs"><Upload className="h-4 w-4" /> Upload from device</button>{accountPhoto && <button onClick={useAccountPhoto} disabled={isUploadingPhoto} className="flex items-center gap-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100 transition hover:bg-red-500/20 disabled:opacity-50"><img src={accountPhoto} alt="Account" className="h-5 w-5 rounded-full object-cover" /> Use account photo</button>}<button onClick={async () => { await handleRemovePhoto(); setPhotoOpen(false); }} disabled={!displayPhoto || isUploadingPhoto} className="flex items-center gap-2 text-xs text-zinc-400 disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /> Remove photo</button><p className="max-w-[240px] text-[11px] leading-relaxed text-zinc-500">Choose your own photo or use an image from a talent's gallery.</p></div></div><div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/50 p-1">{([{ id: "favourites", label: "Favourite talents" }, { id: "search", label: "Search talents" }] as const).map((item) => <button key={item.id} onClick={() => { setPhotoMode(item.id); setTalentGallery([]); setTalentGalleryName(""); }} className={`rounded-lg px-2 py-2.5 text-xs font-semibold ${photoMode === item.id ? "border border-white/15 bg-white/10 text-white shadow-inner" : "text-zinc-500"}`}>{item.label}</button>)}</div>{photoMode === "search" && <div className="relative mb-4"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={talentSearch} onChange={(e) => { setTalentSearch(e.target.value); setTalentGallery([]); }} placeholder="Search actors, directors, talents..." className="w-full rounded-xl border border-white/10 bg-black/50 py-3 pl-10 pr-3 text-sm outline-none" /></div>}{talentGalleryName && <button onClick={() => { setTalentGalleryName(""); setTalentGallery([]); }} className="mb-3 flex items-center gap-1 text-xs text-zinc-400"><ChevronRight className="h-4 w-4 rotate-180" /> {talentGalleryName} · Back</button>}{talentLoading && <div className="flex items-center gap-2 py-3 text-xs text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>}{talentGalleryName ? <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{talentGallery.map((item) => <button key={item.file_path} disabled={isUploadingPhoto} onClick={() => saveTalentPhoto(item.file_path)} className="overflow-hidden rounded-xl border border-white/10 hover:border-red-400/50 disabled:opacity-50"><img src={`https://image.tmdb.org/t/p/w185${item.file_path}`} alt={`${talentGalleryName} portrait`} loading="lazy" className="aspect-[3/4] w-full object-contain bg-zinc-900" /></button>)}{!talentLoading && !talentGallery.length && <p className="col-span-full py-6 text-center text-xs text-zinc-500">No gallery images available.</p>}</div> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{(photoMode === "favourites" ? favouriteTalents.map((item) => ({ id: Number(item.id), name: item.name, profile_path: item.profilePath ? item.profilePath.replace(/^.*?image\.tmdb\.org\/t\/p\/[^/]+/, "") : null })) : talentResults).map((item) => <button key={item.id} onClick={() => openTalentGallery(item.id, item.name)} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] text-left hover:border-white/30">{item.profile_path ? <img src={item.profile_path.startsWith("http") ? item.profile_path : `https://image.tmdb.org/t/p/w185${item.profile_path}`} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-contain bg-zinc-900" /> : <div className="flex aspect-[3/4] items-center justify-center"><User className="h-6 w-6 text-zinc-600" /></div>}<p className="truncate p-2 text-[11px]">{item.name}</p></button>)}{photoMode === "favourites" && !favouriteTalents.length && <p className="col-span-full py-6 text-center text-xs text-zinc-500">No favourite talents yet. Try searching instead.</p>}</div>}</div><div className="border-t border-white/10 p-4 text-right"><button onClick={() => setPhotoOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-xs text-zinc-300">Close</button></div></motion.div></motion.div>}
+         </AnimatePresence>
+        <AnimatePresence>
+{bannerOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-end justify-center bg-black/80 px-0 pb-0 pt-20 backdrop-blur-lg sm:items-center sm:px-5 sm:pb-5 sm:pt-24" onMouseDown={(event) => { if (event.target === event.currentTarget) setBannerOpen(false); }}>
+            <motion.div initial={{ y: 36, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 36, opacity: 0 }} className="flex max-h-[calc(100dvh-6.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-[#141417] shadow-2xl sm:max-h-[85vh] sm:rounded-[28px]">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6"><div><h3 className="text-lg font-bold tracking-tight">Set the scene</h3><p className="mt-0.5 text-xs text-zinc-500">Make your profile feel like your favorite film</p></div><button onClick={() => setBannerOpen(false)} aria-label="Close banner selector" className="rounded-full bg-white/10 p-2 text-zinc-300 hover:bg-white/20"><X className="h-4 w-4" /></button></div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6">
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <div className="flex rounded-full border border-white/10 bg-black/40 p-1">
+                    {([{ id: "discover", label: "Explore TMDB" }, { id: "history", label: "Watch history" }] as const).map((item) => <button key={item.id} onClick={() => { setSceneSource(item.id); setSceneImages([]); setSceneTitle(""); setBannerSearch(""); }} className={`rounded-full px-3.5 py-2 text-xs font-semibold transition ${sceneSource === item.id ? "bg-red-600 text-white" : "text-zinc-400 hover:text-white"}`}>{item.label}</button>)}
+                  </div>
+                  <button onClick={() => bannerInputRef.current?.click()} className="ml-auto flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-200 hover:bg-red-500/20"><Upload className="h-3.5 w-3.5" /> Upload image</button>
+                  <input ref={bannerInputRef} type="file" accept="image/*" onChange={uploadBanner} className="hidden" />
+                </div>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={bannerSearch} onChange={(event) => setBannerSearch(event.target.value)} placeholder={sceneSource === "discover" ? "Search movies and series..." : "Filter watched titles..."} className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-red-500/50" /></div>
+                </div>
+                <div className="mb-4 flex items-center gap-2"><span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Scene position</span>{(["top", "center", "bottom"] as const).map((position) => <button key={position} onClick={() => setScenePosition(position)} className={`rounded-full px-3 py-1.5 text-xs capitalize transition ${scenePosition === position ? "bg-white text-black" : "bg-white/5 text-zinc-400 hover:bg-white/10"}`}>{position}</button>)}</div>
+                {sceneTitle && <button onClick={() => { setSceneTitle(""); setSceneImages([]); setSceneChosenUrl(""); }} className="mb-3 flex items-center gap-2 self-start text-xs font-medium text-zinc-300 hover:text-white"><ChevronRight className="h-4 w-4 rotate-180" /> Back to titles <span className="text-zinc-500">/ {sceneTitle}</span></button>}
+                {(sceneResultLoading || sceneImagesLoading || (sceneSource === "history" && bannerLoading)) && <div className="flex items-center gap-2 py-3 text-xs text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading scenes...</div>}
+                {sceneTitle ? <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{sceneImages.map((item, index) => <button key={`${item.url}-${index}`} onClick={() => setSceneChosenUrl(item.url)} className={`group relative overflow-hidden rounded-xl border transition ${sceneChosenUrl === item.url ? "border-red-500 ring-2 ring-red-500/30" : "border-white/10 hover:border-white/30"}`}><img src={item.url.replace('/original','/w500')} alt={`${item.title} scene ${index + 1}`} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" />{sceneChosenUrl === item.url && <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-black/60 text-red-400" />}</button>)}</div> : <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{sceneSource === "discover" ? sceneResults.map((item) => <button key={`${item.mediaType}-${item.id}`} onClick={() => openSceneTitle(item.mediaType, item.id, item.title)} className="group relative overflow-hidden rounded-xl border border-white/10 text-left hover:border-red-500/40"><img src={item.backdrop} alt={item.title} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/65 to-transparent px-2.5 pb-2 pt-8"><p className="truncate text-xs font-semibold">{item.title}</p><p className="text-[10px] uppercase text-zinc-400">{item.mediaType === "tv" ? "Series" : "Movie"}</p></div></button>) : bannerCandidates.filter((item) => item.title.toLowerCase().includes(bannerSearch.toLowerCase()) && bannerChoices[`${item.mediaType}-${item.id}`]).map((item) => { const key = `${item.mediaType}-${item.id}`; return <button key={key} onClick={() => openSceneTitle(item.mediaType as "movie" | "tv", Number(item.id), item.title)} className="group relative overflow-hidden rounded-xl border border-white/10 text-left hover:border-red-500/40"><img src={bannerChoices[key]} alt={item.title} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent px-2.5 pb-2 pt-8"><p className="truncate text-xs font-semibold">{item.title}</p></div></button>; })}</div>}
+                {sceneTitle && !sceneImagesLoading && !sceneImages.length && <p className="py-8 text-center text-sm text-zinc-500">No scenes available for this title.</p>}
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-[#141417] px-4 py-4 sm:px-6"><button disabled={bannerSaving || !bannerUrl} onClick={() => saveBanner("", "")} className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white disabled:opacity-30"><Trash2 className="h-4 w-4" /> Reset scene</button><button disabled={bannerSaving || (!sceneChosenUrl && !bannerUrl)} onClick={() => saveBanner(sceneChosenUrl || bannerUrl, sceneChosenUrl ? sceneTitle : bannerTitle)} className="rounded-full bg-gradient-to-r from-red-500 to-rose-600 px-5 py-2.5 text-xs font-bold text-white transition hover:from-red-400 hover:to-rose-500 disabled:opacity-40">{bannerSaving ? "Saving…" : "Apply scene"}</button></div>
+            </motion.div>
+          </motion.div>}
+        </AnimatePresence>
 
         <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 mb-6">
           <div className="relative flex items-center p-1 rounded-2xl bg-white/[0.02] border border-white/10 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] min-w-max sm:min-w-0">

@@ -20,7 +20,7 @@ const LoginModal: React.FC = () => {
       setError('');
       navigate('/home');
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password.');
+      setError(err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password' || err?.code === 'auth/user-not-found' ? 'Invalid email or password.' : err?.code === 'auth/too-many-requests' ? 'Too many attempts. Please try again later.' : err?.message || 'Unable to sign in.');
     } finally {
       setLoading(false);
     }
