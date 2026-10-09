@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Menu, X, Compass, Users, Heart, Award, Clapperboard, Tv, User, Loader2, AlertCircle, SearchX, ListPlus, LogOut, Settings, ChevronRight, Film, Clock3, Star, Eye, Bookmark, Sparkles } from 'lucide-react';
+import { Search, Menu, X, Compass, Users, Heart, Award, Clapperboard, Tv, User, Loader2, AlertCircle, SearchX, ListPlus, LogOut, Settings, ChevronRight, Film, Eye, Bookmark, } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
@@ -166,8 +166,8 @@ const Navbar: React.FC = () => {
 
   const quickLinks = [
     { label: 'My List', detail: 'Saved for later', icon: ListPlus, path: '/mylist' },
-    { label: 'Watched', detail: 'Your viewing history', icon: Eye, path: '/watchlist' },
-    { label: 'Top Rated', detail: 'Critically acclaimed', icon: Star, path: '/top-rated' },
+    { label: 'Watched', detail: 'Your viewing history', icon: Eye, path: '/history' },
+    { label: 'Watchlist', detail: 'Your watchlist', icon: Bookmark, path: '/watchlist' },
     { label: 'Favorites', detail: 'Loved it', icon: Heart, path: '/favourites' }
   ];
 
@@ -182,7 +182,7 @@ const Navbar: React.FC = () => {
           <div className="absolute left-[62px] top-0 flex h-[53px] items-center rounded-b-[23px] border border-t-0 border-white/[0.12] bg-black/90 px-2 shadow-[0_10px_28px_rgba(0,0,0,0.35),inset_0_-1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl sm:left-[78px] lg:hidden">
             <button type="button" onClick={() => searchOpen ? setSearchOpen(false) : openSearch()} aria-label="Search" className="flex h-8 w-9 items-center justify-center rounded-xl text-zinc-300 transition hover:bg-white/10 hover:text-white"><Search className="h-[18px] w-[18px]" /></button>
           </div>
-          <div className="hidden lg:flex absolute left-1/2 top-0 -translate-x-1/2 items-center gap-1 rounded-b-[34px] border border-t-0 border-white/[0.08] bg-black/95 px-4 pb-3 pt-3 shadow-[0_16px_35px_rgba(0,0,0,0.35)] before:pointer-events-none before:absolute before:-left-8 before:top-0 before:h-8 before:w-8 before:bg-[radial-gradient(circle_at_0_100%,transparent_32px,#000_33px)] after:pointer-events-none after:absolute after:-right-8 after:top-0 after:h-8 after:w-8 after:bg-[radial-gradient(circle_at_100%_100%,transparent_32px,#000_33px)]">
+          <div className="hidden lg:flex absolute left-1/2 top-0 z-10 -translate-x-1/2 items-center gap-1 rounded-b-[34px] border border-t-0 border-white/[0.08] bg-black px-4 pb-3 pt-3 shadow-[0_16px_35px_rgba(0,0,0,0.35)] before:pointer-events-none before:absolute before:-left-8 before:top-0 before:h-8 before:w-8 before:bg-[radial-gradient(circle_at_0_100%,transparent_32px,#000_33px)] after:pointer-events-none after:absolute after:-right-8 after:top-0 after:h-8 after:w-8 after:bg-[radial-gradient(circle_at_100%_100%,transparent_32px,#000_33px)]">
             <button type="button" onClick={() => searchOpen ? setSearchOpen(false) : openSearch()} aria-label="Search" className="relative flex items-center justify-center rounded-xl p-3 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"><Search className="h-[17px] w-[17px]" /></button>
             {navItems.map(item => {
               const active = location.pathname === item.path || activeSection === item.sectionId;
