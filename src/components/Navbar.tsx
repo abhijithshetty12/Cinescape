@@ -15,6 +15,7 @@ interface SearchResult {
   release_date?: string;
   first_air_date?: string;
   media_type: string;
+  known_for_department?: string;
 }
 
 const Navbar: React.FC = () => {
@@ -153,11 +154,12 @@ const Navbar: React.FC = () => {
         {loading ? <div className="flex items-center justify-center gap-2 py-10 text-sm text-zinc-400"><Loader2 className="h-4 w-4 animate-spin text-red-400" />Searching...</div> : error ? <div className="flex items-center gap-2 px-3 py-8 text-sm text-rose-300"><AlertCircle className="h-4 w-4" />{error}</div> : activeGroup.items.length === 0 ? <div className="flex flex-col items-center gap-2 py-10 text-sm text-zinc-500"><SearchX className="h-6 w-6" />No {activeGroup.label.toLowerCase()} found</div> : activeGroup.items.map(result => {
           const imagePath = result.media_type === 'person' ? result.profile_path : result.poster_path;
           const year = (result.release_date || result.first_air_date || '').slice(0, 4);
+          const department = result.known_for_department?.trim() || 'Talent';
           return <button type="button" key={`${result.media_type}-${result.id}`} onClick={() => handleResultClick(result.id, result.media_type)} className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition hover:bg-white/[0.075] focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500/60">
             <div className="h-12 w-9 shrink-0 overflow-hidden rounded-md border border-white/10 bg-zinc-900">{imagePath ? <img src={`https://image.tmdb.org/t/p/w92${imagePath}`} alt="" loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-zinc-600"><Film className="h-4 w-4" /></div>}</div>
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-200 transition group-hover:text-white">{result.title || result.name}</span>
             <span className={`flex shrink-0 items-center gap-1.5 ${activeGroup.tone} opacity-65`}><ListPlus className="h-3.5 w-3.5" /><Eye className="h-3.5 w-3.5" /><Heart className="h-3.5 w-3.5" /></span>
-            <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">{year || '—'}</span>
+            <span className="max-w-[88px] shrink-0 text-right text-[10px] leading-tight text-zinc-400 sm:max-w-[110px] sm:text-[11px]">{result.media_type === 'person' ? department : (year || '—')}</span>
           </button>;
         })}
       </div>

@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  AlertCircle, ArrowUpRight, Bookmark, BookmarkMinus, Camera, Check, ChevronRight,
+  AlertCircle, ArrowUpRight, Bookmark, BookmarkMinus, CalendarDays, Camera, Check, ChevronRight,
   Clapperboard, Film, Grid3X3, Heart, ImageOff, Info, List, ListChecks, Loader2,
   MoreHorizontal, Music, PenTool, Play, RefreshCw, RotateCcw, Search,
-  SlidersHorizontal, Star, Tv, User, X,
+  SlidersHorizontal, Star, Trash2, Tv, User, X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
+import Toast from '../components/Toast.tsx';
 
 interface SearchResult {
   id: number;
@@ -58,8 +59,9 @@ interface QuickPeekDetails {
 type TabType = 'all' | 'movies' | 'tv' | 'talents';
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'unwatched' | 'watchlist' | 'mylist' | 'favorites' | 'rated';
-type ToastState = { message: string; tone: 'success' | 'info' | 'error' } | null;
-type UndoState = { message: string; action: () => Promise<void> } | null;
+type ToastState = { message: string; tone: 'success' | 'info' | 'error' | 'delete' } | null;
+type HistoryEntry = { docId: string; watchedDate?: any; watchedDates?: any[]; data: any };
+type WatchEditorState = { item: SearchResult; mode: 'mark' | 'rewatch' | 'edit'; dateIndex?: number } | null;
 
 type StoredPrefs = {
   activeTab?: TabType;
@@ -95,9 +97,9 @@ const EXPLORE_GENRES = [
 
 const TAB_CONFIG: { key: TabType; label: string; shortLabel: string; icon: React.ElementType }[] = [
   { key: 'all', label: 'All', shortLabel: 'All', icon: Film },
-  { key: 'movies', label: 'Movies', shortLabel: 'Movies', icon: Clapperboard },
-  { key: 'tv', label: 'TV Shows', shortLabel: 'TV', icon: Tv },
-  { key: 'talents', label: 'Talent', shortLabel: 'Talent', icon: User },
+  { key: 'movies', label: 'Films', shortLabel: 'Films', icon: Clapperboard },
+  { key: 'tv', label: 'Shows', shortLabel: 'Shows', icon: Tv },
+  { key: 'talents', label: 'Talents', shortLabel: 'Talents', icon: User },
 ];
 
 const STATUS_FILTERS: { key: StatusFilter; label: string; hint: string; icon: React.ElementType; activeClass: string }[] = [
@@ -194,6 +196,34 @@ const backdropUrl = (path?: string | null, size = 'w1280') => {
 
 const providerLogoUrl = (path: string) => `https://image.tmdb.org/t/p/w92${path.startsWith('/') ? path : `/${path}`}`;
 
+const valueToDate = (value: any): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value?.toDate === 'function') { const date = value.toDate(); return Number.isNaN(date.getTime()) ? null : date; }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const normalizeWatchedDates = (values: any[] = [], fallback?: any) => {
+  const dates = values.map(valueToDate).filter((value): value is Date => Boolean(value)).map((value) => value.toISOString());
+  const fallbackDate = valueToDate(fallback);
+  if (fallbackDate) dates.push(fallbackDate.toISOString());
+  return [...new Set(dates)].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+};
+
+const toDateInputValue = (value?: any) => {
+  const date = valueToDate(value) || new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const dateInputToIso = (value: string) => {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
+};
+
 const dedupeResults = (items: SearchResult[]) => {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -255,7 +285,7 @@ const ResultImage = ({ item, className = '' }: { item: SearchResult; className?:
 
   return (
     <div className={`absolute inset-0 overflow-hidden bg-zinc-900 ${className}`}>
-      {!loaded && !failed && <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-950" />}
+      {!loaded && !failed && <div className="absolute inset-0 animate-[pulse_2.8s_ease-in-out_infinite] bg-gradient-to-r from-zinc-950 via-zinc-800/70 to-zinc-950" />}
       {src && !failed ? (
         <img
           src={src}
@@ -277,16 +307,16 @@ const ResultImage = ({ item, className = '' }: { item: SearchResult; className?:
 };
 
 const MediaTypeBadge = ({ type }: { type: string }) => (
-  <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-white/[0.10] bg-zinc-950/45 text-white shadow-[0_5px_16px_rgba(0,0,0,.36),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl backdrop-saturate-150 sm:border-white/[0.12] sm:bg-black/65 sm:shadow-lg sm:backdrop-blur-xl" aria-label={type === 'tv' ? 'Series' : 'Movie'}>
-    {type === 'tv' ? <Tv className="h-3.5 w-3.5 text-cyan-300" /> : <Clapperboard className="h-3.5 w-3.5 text-red-400" />}
+  <span className="inline-flex h-5 w-5 items-center justify-center rounded-md sm:h-6 sm:w-6 sm:rounded-lg border border-white/[0.10] bg-zinc-950/45 text-white shadow-[0_5px_16px_rgba(0,0,0,.36),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl backdrop-saturate-150 sm:border-white/[0.12] sm:bg-black/65 sm:shadow-lg sm:backdrop-blur-xl" aria-label={type === 'tv' ? 'Series' : 'Movie'}>
+    {type === 'tv' ? <Tv className="h-3 w-3 text-cyan-300 sm:h-3.5 sm:w-3.5" /> : <Clapperboard className="h-3 w-3 text-red-400 sm:h-3.5 sm:w-3.5" />}
   </span>
 );
 
 const TmdbRatingBadge = ({ rating }: { rating?: number }) => {
   if (!rating || rating <= 0) return null;
   return (
-    <span className="inline-flex h-6 items-center gap-1 rounded-lg border border-white/[0.10] bg-zinc-950/45 px-2 text-[9px] font-black text-white shadow-[0_5px_16px_rgba(0,0,0,.36),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl backdrop-saturate-150 sm:border-white/[0.12] sm:bg-black/65 sm:shadow-lg sm:backdrop-blur-xl" aria-label={`TMDB rating ${rating.toFixed(1)}`}>
-      <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+    <span className="inline-flex h-5 items-center gap-0.5 rounded-md sm:h-6 sm:gap-1 sm:rounded-lg border border-white/[0.10] bg-zinc-950/45 px-1.5 text-[8px] font-black sm:px-2 sm:text-[9px] text-white shadow-[0_5px_16px_rgba(0,0,0,.36),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl backdrop-saturate-150 sm:border-white/[0.12] sm:bg-black/65 sm:shadow-lg sm:backdrop-blur-xl" aria-label={`TMDB rating ${rating.toFixed(1)}`}>
+      <Star className="h-2.5 w-2.5 fill-amber-300 text-amber-300 sm:h-3 sm:w-3" />
       {rating.toFixed(1)}
     </span>
   );
@@ -349,47 +379,38 @@ const ProviderStrip = ({ providers, compact = false }: { providers: ProviderInfo
 
 const SkeletonResults = ({ viewMode, activeTab }: { viewMode: ViewMode; activeTab: TabType }) => {
   const grid = activeTab === 'talents' || activeTab === 'all' || viewMode === 'grid';
-  if (!grid) {
-    return (
-      <div className="space-y-2.5 sm:space-y-3">
-        {Array.from({ length: 7 }).map((_, index) => (
-          <div key={index} className="flex min-h-[116px] items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-2.5">
-            <div className="h-[96px] w-16 shrink-0 animate-pulse rounded-[15px] bg-white/[0.055]" />
-            <div className="min-w-0 flex-1 space-y-2.5">
-              <div className="h-3 w-1/2 animate-pulse rounded-full bg-white/[0.055]" />
-              <div className="h-2.5 w-2/5 animate-pulse rounded-full bg-white/[0.04]" />
-              <div className="h-2.5 w-4/5 animate-pulse rounded-full bg-white/[0.03]" />
-            </div>
-            <div className="flex gap-1">
-              <div className="h-5 w-5 animate-pulse rounded-full bg-white/[0.05]" />
-              <div className="h-5 w-5 animate-pulse rounded-full bg-white/[0.05]" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
+  const shimmer = 'relative overflow-hidden bg-gradient-to-br from-white/[0.075] via-white/[0.035] to-white/[0.015] after:pointer-events-none after:absolute after:inset-0 after:-translate-x-full after:bg-gradient-to-r after:from-transparent after:via-white/[0.065] after:to-transparent after:animate-[cinescapeShimmer_2.4s_ease-in-out_infinite] motion-reduce:after:animate-none';
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-      {Array.from({ length: 10 }).map((_, index) => (
-        <div key={index} className="overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-2.5">
-          <div className="relative aspect-[2/3] animate-pulse rounded-[17px] bg-white/[0.055]">
-            <div className="absolute left-2 top-2 h-6 w-6 rounded-lg bg-black/25" />
-            <div className="absolute right-2 top-2 h-6 w-12 rounded-lg bg-black/25" />
-            <div className="absolute bottom-[-9px] right-2 flex gap-[-2px]">
-              <div className="h-5 w-5 rounded-full bg-zinc-800" />
-              <div className="-ml-1.5 h-5 w-5 rounded-full bg-zinc-800" />
+    <div role="status" aria-live="polite" aria-label="Loading search results" className="space-y-5">
+      <style>{`@keyframes cinescapeShimmer { 0% { transform: translateX(-100%); } 65%, 100% { transform: translateX(100%); } } @media (prefers-reduced-motion: reduce) { .cinescape-loading-card { animation: none !important; } }`}</style>
+      <div className="flex items-center gap-3 px-1">
+        <div className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-red-400/15 bg-red-500/[0.07] text-red-300"><Film className="h-4 w-4" /></div>
+        <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold tracking-wide text-zinc-300">Finding your next watch</p><p className="mt-0.5 text-[10px] text-zinc-600">Curating matching titles and talents</p></div>
+        <div className="flex items-center gap-1.5" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} style={{ animationDelay: `${i * 180}ms` }} className="h-1.5 w-1.5 animate-[pulse_1.8s_ease-in-out_infinite] rounded-full bg-red-400/50 motion-reduce:animate-none" />)}</div>
+      </div>
+      {grid ? (
+        <div className={activeTab === 'all' ? 'flex gap-3 overflow-hidden sm:gap-4' : 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5'}>
+          {Array.from({ length: activeTab === 'all' ? 5 : 8 }).map((_, index) => (
+            <div key={index} style={{ animationDelay: `${index * 65}ms` }} className={`cinescape-loading-card min-w-0 rounded-[22px] border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-white/[0.012] p-2.5 ${activeTab === 'all' ? 'w-[43vw] max-w-[190px] shrink-0 sm:w-[180px]' : ''}`}>
+              <div className={`aspect-[2/3] rounded-[16px] border border-white/[0.04] ${shimmer}`}>
+                <div className="absolute left-2 top-2 h-6 w-6 rounded-lg border border-white/[0.05] bg-black/15" />
+                <div className="absolute right-2 top-2 h-6 w-12 rounded-lg border border-white/[0.05] bg-black/15" />
+              </div>
+              <div className="space-y-2.5 px-1 pb-1 pt-3.5"><div className={`h-3 w-4/5 rounded-full ${shimmer}`} /><div className={`h-2.5 w-2/5 rounded-full ${shimmer}`} /></div>
             </div>
-          </div>
-          <div className="space-y-2 px-1 pb-1 pt-4">
-            <div className="h-3 w-4/5 animate-pulse rounded-full bg-white/[0.055]" />
-            <div className="flex items-center justify-between">
-              <div className="h-2.5 w-1/2 animate-pulse rounded-full bg-white/[0.04]" />
-              <div className="flex gap-1"><div className="h-5 w-5 rounded-md bg-white/[0.04]" /><div className="h-5 w-5 rounded-md bg-white/[0.04]" /></div>
-            </div>
-          </div>
+          ))}
         </div>
-      ))}
+      ) : (
+        <div className="space-y-2.5">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="flex min-h-[112px] items-center gap-3 rounded-[20px] border border-white/[0.07] bg-gradient-to-r from-white/[0.035] to-transparent p-2.5">
+              <div className={`h-[92px] w-[64px] shrink-0 rounded-[13px] ${shimmer}`} />
+              <div className="min-w-0 flex-1 space-y-3"><div className={`h-3 w-3/5 rounded-full ${shimmer}`} /><div className={`h-2.5 w-2/5 rounded-full ${shimmer}`} /><div className={`h-2.5 w-4/5 rounded-full ${shimmer}`} /></div>
+            </div>
+          ))}
+        </div>
+      )}
+      <span className="sr-only">Loading results</span>
     </div>
   );
 };
@@ -440,6 +461,7 @@ const SearchResults = () => {
   const [watchlistDocIds, setWatchlistDocIds] = useState<Map<string, string>>(new Map());
   const [historyKeys, setHistoryKeys] = useState<Set<string>>(new Set());
   const [historyDocIds, setHistoryDocIds] = useState<Map<string, string>>(new Map());
+  const [historyEntries, setHistoryEntries] = useState<Map<string, HistoryEntry>>(new Map());
   const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
   const [favoriteDocIds, setFavoriteDocIds] = useState<Map<string, string>>(new Map());
   const [favoriteTalentIds, setFavoriteTalentIds] = useState<Set<string>>(new Set());
@@ -453,41 +475,23 @@ const SearchResults = () => {
   const [folderPickerItem, setFolderPickerItem] = useState<SearchResult | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
-  const [undo, setUndo] = useState<UndoState>(null);
+  const [toastState, setToastState] = useState<ToastState>(null);
+  const [watchEditor, setWatchEditor] = useState<WatchEditorState>(null);
+  const [watchDateValue, setWatchDateValue] = useState('');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const providerFetchedRef = useRef<Set<string>>(new Set());
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTriggeredRef = useRef(false);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionMenuOpenedAtRef = useRef(0);
+
 
   const haptic = useCallback((duration = 8) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(duration);
   }, []);
 
-  const flash = useCallback((message: string, tone: 'success' | 'info' | 'error' = 'success') => {
-    setToast({ message, tone });
-    window.setTimeout(() => setToast(null), 2600);
-  }, []);
-
-  const showUndo = useCallback((message: string, action: () => Promise<void>) => {
-    if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-    setUndo({
-      message, action: async () => {
-        if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-        await action();
-        setUndo(null);
-      }
-    });
-    undoTimerRef.current = window.setTimeout(() => setUndo(null), 5000);
-  }, []);
-
-  useEffect(() => () => {
-    if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
+  const flash = useCallback((message: string, tone: 'success' | 'info' | 'error' | 'delete' = 'success') => {
+    setToastState({ message, tone });
   }, []);
 
   useEffect(() => {
@@ -661,7 +665,7 @@ const SearchResults = () => {
     if (!node || page >= totalPages || loading || loadingMore || (!query && !genreParam)) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) void fetchPage(page + 1, true);
-    }, { rootMargin: '500px 0px' });
+    }, { rootMargin: '700px 0px' });
     observer.observe(node);
     return () => observer.disconnect();
   }, [page, totalPages, loading, loadingMore, query, genreParam, fetchPage]);
@@ -722,20 +726,25 @@ const SearchResults = () => {
     if (!user?.uid) {
       setHistoryKeys(new Set());
       setHistoryDocIds(new Map());
+      setHistoryEntries(new Map());
       return;
     }
     return onSnapshot(collection(db, `users/${user.uid}/history`), (snapshot) => {
       const keys = new Set<string>();
       const ids = new Map<string, string>();
+      const entries = new Map<string, HistoryEntry>();
       snapshot.docs.forEach((entry) => {
-        const key = storedMediaKey(entry.data(), entry.id);
+        const data = entry.data();
+        const key = storedMediaKey(data, entry.id);
         if (key) {
           keys.add(key);
           ids.set(key, entry.id);
+          entries.set(key, { docId: entry.id, watchedDate: data.watchedDate, watchedDates: data.watchedDates, data });
         }
       });
       setHistoryKeys(keys);
       setHistoryDocIds(ids);
+      setHistoryEntries(entries);
     });
   }, [user?.uid]);
 
@@ -992,11 +1001,7 @@ const SearchResults = () => {
     try {
       if (exists) {
         await deleteDoc(doc(db, `users/${user!.uid}/watchlist/${existingDocId}`));
-        showUndo(`Removed ${getTitle(item)} from Watchlist`, async () => {
-          setWatchlistKeys((current) => new Set(current).add(key));
-          await setDoc(doc(db, `users/${user!.uid}/watchlist/${existingDocId}`), { ...payloadFor(item), addedAt: serverTimestamp() }, { merge: true });
-          haptic(12);
-        });
+        flash(`Removed ${getTitle(item)} from Watchlist`, 'delete');
       } else {
         await setDoc(doc(db, `users/${user!.uid}/watchlist/${key}`), { ...payloadFor(item), addedAt: serverTimestamp() }, { merge: true });
         flash('Added to Watchlist.');
@@ -1028,11 +1033,7 @@ const SearchResults = () => {
     try {
       if (exists) {
         await deleteDoc(doc(db, `users/${user!.uid}/favouriteMedia/${existingDocId}`));
-        showUndo(`Removed ${getTitle(item)} from Favorites`, async () => {
-          setFavoriteKeys((current) => new Set(current).add(key));
-          await setDoc(doc(db, `users/${user!.uid}/favouriteMedia/${existingDocId}`), { ...payloadFor(item), addedAt: serverTimestamp() }, { merge: true });
-          haptic(12);
-        });
+        flash(`Removed ${getTitle(item)} from Favorites`, 'delete');
       } else {
         await setDoc(doc(db, `users/${user!.uid}/favouriteMedia/${key}`), { ...payloadFor(item), addedAt: serverTimestamp() }, { merge: true });
         flash('Added to Favorites.');
@@ -1073,11 +1074,7 @@ const SearchResults = () => {
     try {
       if (exists) {
         await deleteDoc(doc(db, `users/${user!.uid}/favouriteTalents/${existingDocId}`));
-        showUndo(`Unfavorited ${getTitle(item)}`, async () => {
-          setFavoriteTalentIds((current) => new Set(current).add(talentId));
-          await setDoc(doc(db, `users/${user!.uid}/favouriteTalents/${existingDocId}`), payload, { merge: true });
-          haptic(12);
-        });
+        flash(`Unfavorited ${getTitle(item)}`, 'delete');
       } else {
         await setDoc(doc(db, `users/${user!.uid}/favouriteTalents/talent-${talentId}`), payload, { merge: true });
         flash('Added to Favorite Talents.');
@@ -1109,7 +1106,7 @@ const SearchResults = () => {
     try {
       if (exists) {
         await deleteDoc(doc(db, `users/${user!.uid}/history/${existingDocId}`));
-        flash('Removed from History.', 'info');
+        flash('Removed from History.', 'delete');
       } else {
         await setDoc(doc(db, `users/${user!.uid}/history/${key}`), {
           ...payloadFor(item),
@@ -1154,26 +1151,7 @@ const SearchResults = () => {
           if (storedMediaKey(entry.data(), entry.id) === key) tasks.push(deleteDoc(entry.ref));
         });
         await Promise.all(tasks);
-        showUndo(`Removed ${getTitle(item)} from ${folder.name}`, async () => {
-          setMembershipOptimistic(folder.id, key, true);
-          await setDoc(doc(db, `users/${user!.uid}/customWatchlists/${folder.id}/items/${key}`), {
-            id: item.id,
-            movieId: item.id,
-            mediaId: item.id,
-            type: item.media_type === 'tv' ? 'tv' : 'movie',
-            mediaType: item.media_type === 'tv' ? 'tv' : 'movie',
-            title: getTitle(item),
-            poster: item.poster_path || '',
-            posterPath: item.poster_path || '',
-            releaseYear: getYear(item),
-            releaseDate: getDate(item),
-            overview: item.overview || '',
-            voteAverage: Number(item.vote_average) || 0,
-            genres: getGenres(item, 6),
-            addedAt: serverTimestamp(),
-          }, { merge: true });
-          haptic(12);
-        });
+        flash(`Removed ${getTitle(item)} from ${folder.name}`, 'delete');
       } else {
         await setDoc(doc(db, `users/${user!.uid}/customWatchlists/${folder.id}/items/${key}`), {
           id: item.id,
@@ -1196,6 +1174,77 @@ const SearchResults = () => {
     } catch {
       setMembershipOptimistic(folder.id, key, inFolder);
       flash('Could not update My List.', 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const getItemWatchedDates = useCallback((item: SearchResult) => {
+    const entry = historyEntries.get(mediaKey(item));
+    return normalizeWatchedDates(entry?.watchedDates || [], entry?.watchedDate);
+  }, [historyEntries]);
+
+  const openWatchEditor = useCallback((item: SearchResult, mode: 'mark' | 'rewatch' | 'edit', dateIndex?: number) => {
+    if (!ensureSignedIn()) return;
+    const dates = getItemWatchedDates(item);
+    const initial = mode === 'edit' && dateIndex !== undefined ? dates[dateIndex] : new Date().toISOString();
+    setActionItem(null);
+    setWatchEditor({ item, mode, dateIndex });
+    setWatchDateValue(toDateInputValue(initial));
+  }, [getItemWatchedDates]);
+
+  const saveWatchDate = async () => {
+    if (!user?.uid || !watchEditor || !watchDateValue) return;
+    const item = watchEditor.item;
+    const key = mediaKey(item);
+    const entry = historyEntries.get(key);
+    const dates = getItemWatchedDates(item);
+    const nextIso = dateInputToIso(watchDateValue);
+    if (watchEditor.mode === 'edit' && watchEditor.dateIndex !== undefined && dates[watchEditor.dateIndex]) dates[watchEditor.dateIndex] = nextIso;
+    else if (watchEditor.mode === 'rewatch') dates.push(nextIso);
+    else if (!dates.length) dates.push(nextIso);
+    else dates[dates.length - 1] = nextIso;
+    const normalized = normalizeWatchedDates(dates);
+    const latest = normalized[normalized.length - 1];
+    setBusyAction(`watchdate:${key}`);
+    try {
+      const payload = { ...payloadFor(item), watchedDate: latest, watchedDates: normalized, timestamp: serverTimestamp() };
+      if (entry?.docId) await updateDoc(doc(db, `users/${user.uid}/history/${entry.docId}`), payload);
+      else await setDoc(doc(db, `users/${user.uid}/history/${key}`), payload, { merge: true });
+      if (watchEditor.mode === 'mark' || watchEditor.mode === 'rewatch') {
+        const watchlistDocId = watchlistDocIds.get(key);
+        if (watchlistDocId) await deleteDoc(doc(db, `users/${user.uid}/watchlist/${watchlistDocId}`));
+      }
+      flash(watchEditor.mode === 'rewatch' ? `Rewatch added for ${getTitle(item)}` : watchEditor.mode === 'edit' ? `Watch date updated for ${getTitle(item)}` : `${getTitle(item)} marked as watched`);
+      setWatchEditor(null);
+    } catch {
+      flash('Could not update watch history.', 'error');
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const deleteWatchDate = async (item: SearchResult, dateIndex: number) => {
+    if (!user?.uid) return;
+    const key = mediaKey(item);
+    const entry = historyEntries.get(key);
+    if (!entry?.docId) return;
+    const dates = getItemWatchedDates(item);
+    if (dateIndex < 0 || dateIndex >= dates.length) return;
+    dates.splice(dateIndex, 1);
+    setBusyAction(`watchdate:${key}`);
+    try {
+      if (!dates.length) {
+        await deleteDoc(doc(db, `users/${user.uid}/history/${entry.docId}`));
+        setActionItem(null);
+        flash(`${getTitle(item)} removed from history`, 'delete');
+      } else {
+        const normalized = normalizeWatchedDates(dates);
+        await updateDoc(doc(db, `users/${user.uid}/history/${entry.docId}`), { watchedDates: normalized, watchedDate: normalized[normalized.length - 1], timestamp: serverTimestamp() });
+        flash('Watch date deleted.', 'delete');
+      }
+    } catch {
+      flash('Could not delete watch date.', 'error');
     } finally {
       setBusyAction(null);
     }
@@ -1254,28 +1303,23 @@ const SearchResults = () => {
     }
   }, [haptic, providers]);
 
-  const startLongPress = useCallback((item: SearchResult, event: React.PointerEvent) => {
-    if (event.pointerType === 'mouse') return;
-    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
-    longPressTriggeredRef.current = false;
-    longPressTimerRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      setActionItem(item);
-      haptic(12);
-    }, 430);
+  const openActionMenu = useCallback((item: SearchResult) => {
+    actionMenuOpenedAtRef.current = Date.now();
+    setQuickPeekItem(null);
+    setActionItem(item);
+    haptic(6);
   }, [haptic]);
 
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimerRef.current) window.clearTimeout(longPressTimerRef.current);
-    longPressTimerRef.current = null;
+  const closeActionMenuFromBackdrop = useCallback(() => {
+    if (Date.now() - actionMenuOpenedAtRef.current < 350) return;
+    setActionItem(null);
   }, []);
 
-  const guardLongPressNavigation = useCallback((event: React.MouseEvent) => {
-    if (!longPressTriggeredRef.current) return;
+  const triggerActionMenu = useCallback((event: React.SyntheticEvent, item: SearchResult) => {
     event.preventDefault();
     event.stopPropagation();
-    longPressTriggeredRef.current = false;
-  }, []);
+    openActionMenu(item);
+  }, [openActionMenu]);
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -1293,8 +1337,19 @@ const SearchResults = () => {
         <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleFavorite(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${favorite ? 'text-rose-400' : 'text-white/80 hover:text-rose-300'} ${FOCUS_RING}`} title={favorite ? 'Remove Favorite' : 'Favorite'} aria-label={favorite ? `Remove ${getTitle(item)} from Favorites` : `Favorite ${getTitle(item)}`}>
           <Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} />
         </button>
-        <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleHistory(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${watched ? 'text-emerald-400' : 'text-white/80 hover:text-emerald-300'} ${FOCUS_RING}`} title={watched ? 'Remove from History' : 'Mark Watched'} aria-label={watched ? `Remove ${getTitle(item)} from History` : `Mark ${getTitle(item)} watched`}>
-          <Check className="h-3.5 w-3.5" />
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (watched) openActionMenu(item);
+            else openWatchEditor(item, 'mark');
+          }}
+          className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${watched ? 'text-emerald-400' : 'text-white/80 hover:text-emerald-300'} ${FOCUS_RING}`}
+          title={watched ? 'Watch history, rewatch & dates' : 'Mark Watched'}
+          aria-label={watched ? `Manage watch history for ${getTitle(item)}` : `Mark ${getTitle(item)} watched`}
+        >
+          {watched ? <CalendarDays className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
         </button>
         <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openMyListPicker(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${inMyList ? 'text-violet-400' : 'text-white/80 hover:text-violet-300'} ${FOCUS_RING}`} title="Manage List" aria-label={`Manage lists for ${getTitle(item)}`}>
           <ListChecks className="h-3.5 w-3.5" />
@@ -1323,10 +1378,6 @@ const SearchResults = () => {
       <motion.article
         key={`${item.media_type}-${item.id}`}
         variants={CARD_VARIANTS}
-        onPointerDown={(event) => startLongPress(item, event)}
-        onPointerUp={cancelLongPress}
-        onPointerCancel={cancelLongPress}
-        onPointerLeave={cancelLongPress}
         onContextMenu={(event) => { if (window.innerWidth < 1024) event.preventDefault(); }}
         className="group relative h-full min-w-0"
       >
@@ -1334,23 +1385,12 @@ const SearchResults = () => {
           <div className="relative aspect-[2/3] overflow-visible">
             <div className="relative h-full overflow-hidden rounded-[17px] border border-white/[0.08] bg-zinc-900 sm:rounded-[20px]">
               <ResultImage item={item} />
-              <Link to={getRoute(item)} onClick={guardLongPressNavigation} aria-label={`Open ${getTitle(item)}`} className={`absolute inset-0 z-10 lg:hidden ${FOCUS_RING}`} />
               <button type="button" onClick={() => void openQuickPeek(item)} aria-label={`Quick Peek ${getTitle(item)}`} className={`absolute inset-0 z-10 hidden cursor-zoom-in lg:block ${FOCUS_RING}`} />
               <div className="pointer-events-none absolute inset-0 z-[11] bg-gradient-to-b from-black/18 via-transparent to-black/38" />
               <div className="pointer-events-none absolute inset-x-2 top-2 z-20 flex items-start justify-between gap-2">
                 <MediaTypeBadge type={item.media_type} />
                 <TmdbRatingBadge rating={item.vote_average} />
               </div>
-              <button
-                type="button"
-                aria-label={`Actions for ${getTitle(item)}`}
-                onClick={(event) => { event.stopPropagation(); setActionItem(item); }}
-                className={`absolute bottom-1.5 left-1.5 z-30 flex h-11 w-11 items-center justify-center rounded-[14px] text-white/90 transition active:scale-95 lg:hidden ${FOCUS_RING}`}
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-[11px] border border-white/[0.10] bg-zinc-950/45 shadow-[0_5px_16px_rgba(0,0,0,.36),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl backdrop-saturate-150">
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </span>
-              </button>
               {renderDesktopDock(item)}
             </div>
             <div className="pointer-events-none absolute bottom-0 right-2 z-40 translate-y-1/2">
@@ -1360,15 +1400,28 @@ const SearchResults = () => {
 
           <div className="flex flex-1 flex-col px-1 pb-1 pt-4">
             <div className="flex min-w-0 items-start justify-between gap-2">
-              <Link to={getRoute(item)} onClick={guardLongPressNavigation} className={`min-w-0 flex-1 rounded-sm ${FOCUS_RING}`}>
-                <h2 className="line-clamp-1 text-[12px] font-bold tracking-[-.01em] text-zinc-100 transition-colors group-hover:text-white sm:text-sm">{getTitle(item)}</h2>
+              <Link to={getRoute(item)} className={`min-w-0 flex-1 rounded-sm ${FOCUS_RING}`}>
+                <h2 className="break-words text-[12px] font-bold leading-snug tracking-[-.01em] text-zinc-100 transition-colors group-hover:text-white sm:text-sm">{getTitle(item)}</h2>
               </Link>
-              <UserRatingBadge rating={rating} />
+              <div className="flex shrink-0 items-center gap-1">
+                <UserRatingBadge rating={rating} />
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
+                  onClick={(event) => triggerActionMenu(event, item)}
+                  style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  className={`touch-manipulation flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-400 active:scale-95 lg:hidden ${FOCUS_RING}`}
+                  aria-label={`More actions for ${getTitle(item)}`}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div className="mt-1.5 flex min-h-4 items-center gap-1.5 text-[9px] font-semibold text-zinc-500 sm:text-[10px]">
               <span>{getYear(item) || 'TBA'}</span>
               {genres.length > 0 && <span className="text-zinc-700">•</span>}
-              <span className="min-w-0 truncate">{genres.join(' · ')}</span>
+              <span className="min-w-0 break-words">{genres.join(' · ')}</span>
             </div>
             <div className={`mt-auto min-h-[31px] border-t pt-2.5 ${itemProviders.length > 0 ? 'border-white/[0.055]' : 'border-transparent'}`}>
               {itemProviders.length > 0 ? (
@@ -1397,23 +1450,19 @@ const SearchResults = () => {
       <motion.article
         key={`${item.media_type}-${item.id}`}
         variants={CARD_VARIANTS}
-        onPointerDown={(event) => startLongPress(item, event)}
-        onPointerUp={cancelLongPress}
-        onPointerCancel={cancelLongPress}
-        onPointerLeave={cancelLongPress}
         className="group flex min-h-[116px] items-center gap-3 rounded-[22px] border border-white/[0.075] bg-white/[0.025] p-2.5 shadow-[0_14px_35px_rgba(0,0,0,.2)] backdrop-blur-2xl transition hover:border-white/[0.14] hover:bg-white/[0.04] sm:gap-4 sm:p-3"
       >
-        <button type="button" onClick={() => void openQuickPeek(item)} className={`relative h-[96px] w-16 shrink-0 overflow-hidden rounded-[15px] border border-white/[0.08] bg-zinc-900 sm:h-[112px] sm:w-[75px] ${FOCUS_RING}`} aria-label={`Quick Peek ${getTitle(item)}`}>
+        <div className="relative h-[96px] w-16 shrink-0 overflow-hidden rounded-[15px] border border-white/[0.08] bg-zinc-900 sm:h-[112px] sm:w-[75px]">
           <ResultImage item={item} />
           <div className="absolute left-1.5 top-1.5"><TmdbRatingBadge rating={item.vote_average} /></div>
-        </button>
-        <Link to={getRoute(item)} onClick={guardLongPressNavigation} className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl sm:gap-4 ${FOCUS_RING}`}>
+        </div>
+        <Link to={getRoute(item)} className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl sm:gap-4 ${FOCUS_RING}`}>
           <div className="min-w-0 flex-1 py-1">
             <div className="flex items-center gap-2">
               <MediaTypeBadge type={item.media_type} />
               <span className="text-[9px] font-semibold text-zinc-600">{getYear(item) || 'TBA'}</span>
             </div>
-            <h2 className="mt-2 line-clamp-1 text-sm font-black tracking-tight text-zinc-100 sm:text-base">{getTitle(item)}</h2>
+            <h2 className="mt-2 break-words text-sm font-black leading-snug tracking-tight text-zinc-100 sm:text-base">{getTitle(item)}</h2>
             {genres.length > 0 && <p className="mt-1 text-[10px] font-semibold text-zinc-500">{genres.join(' · ')}</p>}
             {item.overview && <p className="mt-2 hidden line-clamp-2 max-w-3xl text-[11px] leading-relaxed text-zinc-600 sm:block">{item.overview}</p>}
           </div>
@@ -1425,7 +1474,15 @@ const SearchResults = () => {
           </div>
           <div className="flex items-center gap-2">
             {itemProviders.length > 0 && <ProviderStrip providers={itemProviders} compact />}
-            <button type="button" onClick={() => setActionItem(item)} className={`flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.035] text-zinc-400 transition hover:bg-white/[0.07] hover:text-white active:scale-95 ${FOCUS_RING}`} aria-label={`More actions for ${getTitle(item)}`}>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onClick={(event) => triggerActionMenu(event, item)}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+              className={`touch-manipulation flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.07] hover:text-white active:scale-95 ${FOCUS_RING}`}
+              aria-label={`More actions for ${getTitle(item)}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
@@ -1442,16 +1499,12 @@ const SearchResults = () => {
       <motion.article
         key={`talent-${item.id}`}
         variants={CARD_VARIANTS}
-        onPointerDown={(event) => startLongPress(item, event)}
-        onPointerUp={cancelLongPress}
-        onPointerCancel={cancelLongPress}
-        onPointerLeave={cancelLongPress}
         className="group relative"
       >
         <div className="block overflow-hidden rounded-[24px] border border-white/[0.075] bg-[linear-gradient(145deg,rgba(18,18,20,.9),rgba(7,7,8,.98))] p-2.5 shadow-[0_16px_42px_rgba(0,0,0,.26)] transition duration-300 hover:-translate-y-1 hover:border-white/[0.14]">
           <div className="relative aspect-[3/4] overflow-hidden rounded-[18px] border border-white/[0.08] bg-zinc-900">
             <ResultImage item={item} />
-            <Link to={getRoute(item)} onClick={guardLongPressNavigation} aria-label={`Open ${getTitle(item)}`} className={`absolute inset-0 z-10 ${FOCUS_RING}`} />
+            <Link to={getRoute(item)} aria-label={`Open ${getTitle(item)}`} className={`absolute inset-0 z-10 ${FOCUS_RING}`} />
             <div className="pointer-events-none absolute inset-0 z-[11] bg-gradient-to-t from-black/70 via-transparent to-black/10" />
             <span className="pointer-events-none absolute left-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-xl border border-white/[0.12] bg-black/60 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-white backdrop-blur-xl">
               <Icon className="h-3 w-3 text-violet-300" />
@@ -1462,20 +1515,27 @@ const SearchResults = () => {
                 <Heart className="h-3.5 w-3.5 fill-current stroke-[2.5]" />
               </span>
             )}
-            <button type="button" onClick={(event) => { event.stopPropagation(); setActionItem(item); }} className={`absolute bottom-2 left-2 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/60 text-white/85 backdrop-blur-xl active:scale-95 lg:hidden ${FOCUS_RING}`} aria-label={`Actions for ${getTitle(item)}`}>
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
             <button type="button" onClick={(event) => { event.stopPropagation(); void toggleTalentFavorite(item); }} className={`absolute bottom-2 left-2 z-30 hidden h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-black/65 opacity-0 backdrop-blur-xl transition group-hover:opacity-100 group-focus-within:opacity-100 lg:flex ${isFavouriteTalent ? 'text-rose-400' : 'text-white/80 hover:text-rose-300'} ${FOCUS_RING}`} aria-label={isFavouriteTalent ? `Unfavorite ${getTitle(item)}` : `Favorite ${getTitle(item)}`} title={isFavouriteTalent ? 'Unfavorite talent' : 'Favorite talent'}>
               <Heart className={`h-4 w-4 ${isFavouriteTalent ? 'fill-current' : ''}`} />
             </button>
-            <span className="pointer-events-none absolute bottom-2 right-2 z-20 flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-black/60 text-white/80 backdrop-blur-xl transition group-hover:bg-white group-hover:text-black">
-              <ArrowUpRight className="h-4 w-4" />
-            </span>
           </div>
           <div className="px-1 pb-1 pt-3">
-            <Link to={getRoute(item)} onClick={guardLongPressNavigation} className={`block rounded-sm ${FOCUS_RING}`}>
-              <h2 className="line-clamp-1 text-sm font-black tracking-tight text-white">{getTitle(item)}</h2>
-            </Link>
+            <div className="flex items-start gap-2">
+              <Link to={getRoute(item)} className={`min-w-0 flex-1 rounded-sm ${FOCUS_RING}`}>
+                <h2 className="break-words text-sm font-black leading-snug tracking-tight text-white">{getTitle(item)}</h2>
+              </Link>
+              <button
+                type="button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onClick={(event) => triggerActionMenu(event, item)}
+                style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                className={`touch-manipulation -mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-zinc-400 active:scale-95 lg:hidden ${FOCUS_RING}`}
+                aria-label={`More actions for ${getTitle(item)}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </div>
             <p className="mt-1 text-[10px] font-semibold text-zinc-600">Explore profile & credits</p>
           </div>
         </div>
@@ -1497,8 +1557,8 @@ const SearchResults = () => {
           </div>
           <button type="button" onClick={() => setActiveTab(tab)} className={`flex min-h-11 items-center gap-1 rounded-xl px-3 text-[10px] font-black text-zinc-500 transition hover:bg-white/[0.04] hover:text-white ${FOCUS_RING}`}>See all <ChevronRight className="h-3.5 w-3.5" /></button>
         </div>
-        <motion.div variants={CONTAINER_VARIANTS} initial="hidden" animate="visible" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-          {items.slice(0, 5).map((item) => tab === 'talents' ? renderTalentCard(item) : renderGridCard(item))}
+        <motion.div variants={CONTAINER_VARIANTS} initial="hidden" animate="visible" className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:gap-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
+          {items.map((item) => <div key={`${tab}-${item.id}`} className="w-[min(43vw,195px)] shrink-0 snap-start sm:w-[210px] lg:w-[225px]">{tab === 'talents' ? renderTalentCard(item) : renderGridCard(item)}</div>)}
         </motion.div>
       </section>
     );
@@ -1542,134 +1602,39 @@ const SearchResults = () => {
   }, [activeTab, haptic]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#050506] pb-20 text-zinc-100 selection:bg-red-500/40 selection:text-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+    <div className="min-h-screen overflow-x-hidden bg-[#07080c] pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-24 text-zinc-100 selection:bg-red-500/40 selection:text-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
       <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute left-1/2 top-[-170px] h-[430px] w-[88vw] max-w-5xl -translate-x-1/2 rounded-full bg-white/[0.035] blur-[120px]" />
-        <div className="absolute right-[-120px] top-[30%] h-80 w-80 rounded-full bg-red-500/[0.035] blur-[120px]" />
+        <div className="absolute left-1/2 top-[-170px] h-[430px] w-[88vw] max-w-5xl -translate-x-1/2 rounded-full bg-violet-400/[0.065] blur-[120px]" />
+        <div className="absolute right-[-120px] top-[30%] h-80 w-80 rounded-full bg-rose-500/[0.045] blur-[120px]" />
       </div>
 
-      <AnimatePresence>
-        {stickyMobile && (query || genreParam) && (
-          <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="fixed left-2 right-2 top-[max(8px,env(safe-area-inset-top))] z-[1000] sm:hidden">
-            <div className="flex min-h-12 items-center gap-1.5 rounded-[18px] border border-white/[0.11] bg-zinc-950/78 p-1.5 shadow-[0_14px_45px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.1)] backdrop-blur-[28px] saturate-150">
-              <button type="button" onClick={() => { headerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); window.setTimeout(() => searchInputRef.current?.focus(), 300); }} className={`flex min-w-0 flex-1 items-center gap-2 rounded-[13px] px-2.5 py-2 text-left ${FOCUS_RING}`} aria-label="Focus search">
-                <Search className="h-3.5 w-3.5 shrink-0 text-red-400" />
-                <span className="truncate text-[10px] font-bold text-zinc-300">{searchContext || 'Search'}</span>
-              </button>
-              <span className="flex h-9 shrink-0 items-center gap-1 rounded-[12px] border border-white/[0.07] bg-white/[0.035] px-2 text-[9px] font-black text-zinc-300">
-                <ActiveTabIcon className={`h-3.5 w-3.5 ${activeTab === 'movies' ? 'text-red-400' : activeTab === 'tv' ? 'text-cyan-400' : activeTab === 'talents' ? 'text-violet-400' : 'text-amber-300'}`} />
-                {activeTabConfig.shortLabel}
-              </span>
-              <button type="button" onClick={() => setShowFilterSheet(true)} className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border ${activeFilterCount > 0 ? 'border-amber-400/20 bg-amber-400/10 text-amber-300' : 'border-white/[0.07] bg-white/[0.035] text-zinc-400'} ${FOCUS_RING}`} aria-label="Search filters">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                {activeFilterCount > 0 && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-300" />}
-              </button>
-              {activeTab === 'movies' || activeTab === 'tv' ? (
-                <button type="button" onClick={() => setViewMode((current) => current === 'grid' ? 'list' : 'grid')} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] border border-white/[0.07] bg-white/[0.035] ${viewMode === 'grid' ? 'text-amber-300' : 'text-cyan-300'} ${FOCUS_RING}`} aria-label={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}>
-                  {viewMode === 'grid' ? <Grid3X3 className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
-                </button>
-              ) : null}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <main className="relative z-10 mx-auto max-w-7xl px-3 pb-[max(24px,env(safe-area-inset-bottom))] pt-4 sm:px-5 sm:pt-8 lg:px-7">
-        <section ref={headerRef} className="relative overflow-visible rounded-[26px] border border-white/[0.085] bg-[linear-gradient(145deg,rgba(19,19,21,.92),rgba(7,7,8,.97))] p-3.5 shadow-[0_24px_75px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.055)] backdrop-blur-3xl sm:rounded-[32px] sm:p-5">
+      <main className="relative z-10 mx-auto max-w-7xl px-3 pb-8 pt-5 sm:px-5 sm:pt-9 lg:px-7">
+        <section ref={headerRef} className="relative overflow-hidden rounded-[26px] border border-white/[0.10] bg-[linear-gradient(125deg,rgba(32,29,33,.94),rgba(12,13,18,.94)_58%,rgba(25,24,38,.90))] p-4 shadow-[0_20px_65px_rgba(0,0,0,.30),inset_0_1px_0_rgba(255,255,255,.10)] backdrop-blur-3xl sm:rounded-[32px] sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[15px] border border-red-400/20 bg-gradient-to-br from-red-500 to-red-700 text-white shadow-[0_8px_24px_rgba(239,68,68,.22),inset_0_1px_1px_rgba(255,255,255,.3)] sm:h-11 sm:w-11">
                 <Search className="h-[18px] w-[18px]" />
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-600">Discover Cinescape</p>
-                <h1 className="mt-0.5 truncate text-lg font-black tracking-[-.025em] text-white sm:text-xl">Search</h1>
+                <p className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-600">Cinescape / Discovery</p>
+                <h1 className="mt-0.5 break-words text-lg font-black tracking-[-.025em] text-white sm:text-xl">{query ? `Results for “${query}”` : genreParam ? searchContext : 'Discover'}</h1>
               </div>
             </div>
             {(query || genreParam) && <span className="hidden rounded-full border border-white/[0.07] bg-white/[0.035] px-3 py-1.5 text-[10px] font-semibold text-zinc-500 sm:inline">{results.length} loaded</span>}
           </div>
 
-          <form onSubmit={handleSearchSubmit} className="relative mt-4">
-            <div className="relative flex min-h-12 items-center overflow-hidden rounded-[18px] border bg-black/35 shadow-[inset_0_1px_1px_rgba(255,255,255,.035)] transition sm:min-h-[52px] sm:rounded-[20px]" style={{ borderColor: searchFocused ? 'rgba(239,68,68,.42)' : 'rgba(255,255,255,.085)', boxShadow: searchFocused ? '0 0 0 3px rgba(239,68,68,.07), inset 0 1px 1px rgba(255,255,255,.04)' : undefined }}>
-              <Search className={`ml-3.5 h-4 w-4 shrink-0 transition ${searchFocused ? 'text-red-400' : 'text-zinc-600'}`} />
-              <input
-                ref={searchInputRef}
-                value={inputVal}
-                onChange={(event) => setInputVal(event.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => window.setTimeout(() => setSearchFocused(false), 130)}
-                placeholder="Movies, series or talent"
-                aria-label="Search movies, series or talent"
-                className="min-w-0 flex-1 bg-transparent px-3 py-3 text-[13px] font-semibold text-white outline-none placeholder:text-zinc-700 sm:text-sm"
-              />
-              {inputVal && (
-                <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setInputVal(''); setSuggestions([]); }} className={`mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-zinc-600 transition hover:bg-white/[0.05] hover:text-white ${FOCUS_RING}`} aria-label="Clear search">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-              <span className="mr-1 hidden rounded-lg border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[9px] font-black text-zinc-600 md:inline">/</span>
-              <button type="submit" className={`mr-1.5 flex min-h-10 shrink-0 items-center gap-1.5 rounded-[13px] bg-gradient-to-b from-red-500 to-red-700 px-3.5 text-[10px] font-black text-white shadow-[0_5px_18px_rgba(220,38,38,.24),inset_0_1px_1px_rgba(255,255,255,.28)] transition hover:brightness-110 active:scale-[.98] sm:px-4 sm:text-[11px] ${FOCUS_RING}`}>
-                Search <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            <AnimatePresence>
-              {searchFocused && !inputVal.trim() && recentSearches.length > 0 && (
-                <motion.div initial={{ opacity: 0, y: 7, scale: .99 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} className="absolute inset-x-0 top-[calc(100%+.5rem)] z-[80] overflow-hidden rounded-[20px] border border-white/[0.1] bg-zinc-950/94 p-3 shadow-[0_22px_65px_rgba(0,0,0,.6)] backdrop-blur-3xl">
-                  <div className="flex items-center justify-between gap-3 px-1">
-                    <p className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-600">Recent searches</p>
-                    <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={clearRecentSearches} className={`min-h-10 px-2 text-[9px] font-bold text-zinc-600 hover:text-white ${FOCUS_RING}`}>Clear</button>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {recentSearches.map((entry) => <button key={entry} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => performSearch(entry)} className={`min-h-10 rounded-full border border-white/[0.07] bg-white/[0.035] px-3 text-[10px] font-bold text-zinc-300 transition hover:border-red-400/20 hover:bg-red-500/[0.06] hover:text-white ${FOCUS_RING}`}>{entry}</button>)}
-                  </div>
-                </motion.div>
-              )}
-
-              {searchFocused && inputVal.trim().length >= 2 && inputVal.trim().toLowerCase() !== query.trim().toLowerCase() && (
-                <motion.div initial={{ opacity: 0, y: 7, scale: .99 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 5 }} className="absolute inset-x-0 top-[calc(100%+.5rem)] z-[80] max-h-[68dvh] overflow-y-auto rounded-[20px] border border-white/[0.1] bg-zinc-950/95 p-2 shadow-[0_22px_65px_rgba(0,0,0,.65)] backdrop-blur-3xl">
-                  <div className="flex items-center justify-between px-2 py-2">
-                    <p className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-600">Quick suggestions</p>
-                    <div className="flex items-center gap-1 text-[8px] font-bold text-zinc-600">
-                      <span>{suggestionGroups.movies.length} Movies</span><span>·</span><span>{suggestionGroups.tv.length} TV</span><span>·</span><span>{suggestionGroups.talents.length} Talent</span>
-                    </div>
-                  </div>
-                  {suggestionsLoading ? (
-                    <div className="flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-red-400" /></div>
-                  ) : suggestions.length ? (
-                    <div className="space-y-1">
-                      {[...suggestionGroups.movies, ...suggestionGroups.tv, ...suggestionGroups.talents].map((item) => {
-                        const typeIcon = item.media_type === 'movie' ? Clapperboard : item.media_type === 'tv' ? Tv : User;
-                        const TypeIcon = typeIcon;
-                        return (
-                          <button key={`${item.media_type}-${item.id}`} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => performSearch(getTitle(item))} className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition hover:bg-white/[0.05] ${FOCUS_RING}`}>
-                            <div className="relative h-10 w-8 shrink-0 overflow-hidden rounded-lg border border-white/[0.07] bg-zinc-900"><ResultImage item={item} /></div>
-                            <div className="min-w-0 flex-1"><p className="truncate text-[11px] font-bold text-zinc-200">{getTitle(item)}</p><p className="mt-0.5 flex items-center gap-1 text-[9px] text-zinc-600"><TypeIcon className={`h-3 w-3 ${item.media_type === 'movie' ? 'text-red-400' : item.media_type === 'tv' ? 'text-cyan-400' : 'text-violet-400'}`} />{item.media_type === 'person' ? getDepartment(item).label : getYear(item) || (item.media_type === 'tv' ? 'TV Series' : 'Movie')}</p></div>
-                            <ChevronRight className="h-3.5 w-3.5 text-zinc-700" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="px-3 py-8 text-center text-[10px] text-zinc-600">No instant suggestions yet. Press Search to try the full catalog.</div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </form>
-
-          <div className="mt-3 space-y-2 sm:mt-4 sm:flex sm:items-center sm:gap-2 sm:space-y-0">
-            <div className="grid w-full min-w-0 grid-cols-4 rounded-[16px] border border-white/[0.07] bg-black/30 p-1 backdrop-blur-2xl sm:flex-1 sm:max-w-2xl">
+          <div className="mt-5 space-y-3 sm:mt-6 sm:flex sm:items-center sm:gap-3 sm:space-y-0">
+            <div className="inline-grid w-full min-w-0 grid-cols-4 gap-0.5 rounded-[18px] border border-white/[0.10] bg-white/[0.045] p-1 backdrop-blur-2xl sm:inline-flex sm:w-fit sm:max-w-full sm:flex-none sm:items-center sm:gap-0.5">
               {TAB_CONFIG.map((tab) => {
                 const active = activeTab === tab.key;
                 const Icon = tab.icon;
                 const activeColor = tab.key === 'all' ? 'text-amber-300' : tab.key === 'movies' ? 'text-red-400' : tab.key === 'tv' ? 'text-cyan-400' : 'text-violet-400';
                 return (
-                  <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`relative flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-[12px] px-1.5 text-[10px] font-black transition sm:min-h-10 sm:gap-1.5 sm:px-2 sm:text-[11px] ${FOCUS_RING}`} aria-pressed={active}>
+                  <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`relative flex min-h-11 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-[12px] px-0.5 text-[10px] font-black transition sm:min-h-10 sm:shrink-0 sm:gap-1.5 sm:px-3 sm:text-[11px] ${FOCUS_RING}`} aria-pressed={active}>
                     {active && <motion.span layoutId="search-tab-pill" className="absolute inset-0 rounded-[12px] border border-white/[0.11] bg-gradient-to-b from-white/[0.095] to-white/[0.025] shadow-[inset_0_1px_0_rgba(255,255,255,.14),0_4px_16px_rgba(0,0,0,.18)]" transition={{ type: 'spring', stiffness: 340, damping: 28 }} />}
                     <Icon className={`relative z-10 hidden h-3.5 w-3.5 shrink-0 sm:block ${active ? activeColor : 'text-zinc-600'}`} />
-                    <span className={`relative z-10 min-w-0 truncate ${active ? 'text-white' : 'text-zinc-500'}`}><span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.shortLabel}</span></span>
-                    <span className={`relative z-10 shrink-0 rounded-md px-1.5 py-0.5 text-[8px] leading-none ${active ? 'bg-white/[0.08] text-zinc-300' : 'bg-black/25 text-zinc-700'}`}>{tabCounts[tab.key]}</span>
+                    <span className={`relative z-10 whitespace-nowrap ${active ? 'text-white' : 'text-zinc-500'}`}><span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.shortLabel}</span></span>
+                    <span className={`relative z-10 hidden shrink-0 rounded-md px-1.5 py-0.5 text-[8px] leading-none sm:inline ${active ? 'bg-white/[0.08] text-zinc-300' : 'bg-black/25 text-zinc-700'}`}>{tabCounts[tab.key]}</span>
                   </button>
                 );
               })}
@@ -1696,10 +1661,10 @@ const SearchResults = () => {
           <div className="mb-3 mt-6 flex items-end justify-between gap-3 px-1 sm:mb-4 sm:mt-8">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-700">Results</p>
-              <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-xl">{activeTab === 'all' ? 'All matches' : activeTab === 'movies' ? 'Movies' : activeTab === 'tv' ? 'TV Shows' : 'Talent'} <span className="ml-1 text-zinc-700">{tabCounts[activeTab]}</span></h2>
+              <h2 className="mt-1 text-lg font-black tracking-tight text-white sm:text-xl">{activeTab === 'all' ? 'All matches' : activeTab === 'movies' ? 'Films' : activeTab === 'tv' ? 'TV Shows' : 'Talent'} <span className="ml-1 text-zinc-700">{tabCounts[activeTab]}</span></h2>
             </div>
             <div className="text-right">
-              <p className="max-w-[48vw] truncate text-[10px] font-semibold text-zinc-600 sm:max-w-none">for “{searchContext}”</p>
+              <p className="max-w-[48vw] break-words text-[10px] font-semibold text-zinc-600 sm:max-w-none">for “{searchContext}”</p>
               {activeFilterCount > 0 && <p className="mt-1 text-[8px] font-black uppercase tracking-[.14em] text-amber-400/70">{activeFilterLabel}</p>}
             </div>
           </div>
@@ -1721,7 +1686,7 @@ const SearchResults = () => {
 
           {!loading && !error && (query || genreParam) && activeTab === 'all' && tabCounts.all > 0 && (
             <div className="mt-1">
-              {renderAllSection('Movies', 'movies', movies)}
+              {renderAllSection('Films', 'movies', movies)}
               {renderAllSection('TV Shows', 'tv', tvShows)}
               {renderAllSection('Talent', 'talents', talents)}
             </div>
@@ -1729,7 +1694,7 @@ const SearchResults = () => {
 
           {!loading && !error && (query || genreParam) && activeTab !== 'all' && filteredResults.length > 0 && (
             <AnimatePresence mode="wait">
-              <motion.div key={`${activeTab}-${viewMode}-${statusFilters.join('-')}`} variants={CONTAINER_VARIANTS} initial="hidden" animate="visible" className={activeTab === 'talents' || viewMode === 'grid' ? 'grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5' : 'space-y-2.5 sm:space-y-3'}>
+              <motion.div key={`${activeTab}-${viewMode}-${statusFilters.join('-')}`} variants={CONTAINER_VARIANTS} initial="hidden" animate="visible" className={activeTab === 'talents' || viewMode === 'grid' ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-5' : 'space-y-2.5 sm:space-y-3'}>
                 {filteredResults.map((item) => activeTab === 'talents' ? renderTalentCard(item) : viewMode === 'grid' ? renderGridCard(item) : renderListCard(item))}
               </motion.div>
             </AnimatePresence>
@@ -1760,7 +1725,7 @@ const SearchResults = () => {
 
               <section className="rounded-[26px] border border-white/[0.07] bg-white/[0.02] p-4 backdrop-blur-2xl sm:p-5">
                 <div><p className="text-[9px] font-black uppercase tracking-[.2em] text-zinc-700">Popular right now</p><h3 className="mt-1 text-sm font-black text-white">Trending searches</h3></div>
-                {trendingLoading ? <div className="mt-4 flex h-20 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-red-400" /></div> : (
+                {trendingLoading ? <div className="mt-4 flex h-20 items-center justify-center gap-3 text-xs text-zinc-500"><Loader2 className="h-4 w-4 animate-spin text-red-400 motion-reduce:animate-none" />Finding trending titles</div> : (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {trendingItems.slice(0, 8).map((item) => {
                       const Icon = item.media_type === 'movie' ? Clapperboard : item.media_type === 'tv' ? Tv : User;
@@ -1779,38 +1744,11 @@ const SearchResults = () => {
             </div>
           )}
 
-          {(query || genreParam) && page < totalPages && <div ref={loadMoreRef} className="flex min-h-28 items-center justify-center">{loadingMore && <div className="flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[9px] font-black uppercase tracking-[.15em] text-zinc-600"><Loader2 className="h-3.5 w-3.5 animate-spin text-red-400" />Loading more</div>}</div>}
+          {(query || genreParam) && page < totalPages && <div ref={loadMoreRef} className="flex min-h-28 items-center justify-center">{loadingMore && <div className="flex items-center gap-2.5 rounded-full border border-white/[0.09] bg-gradient-to-r from-white/[0.065] to-white/[0.025] px-4 py-2.5 text-[10px] font-semibold tracking-wide text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl"><Loader2 className="h-3.5 w-3.5 animate-spin text-red-400 motion-reduce:animate-none" />Loading titles</div>}</div>}
         </section>
       </main>
 
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: 20, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 14, scale: .98 }} className="fixed inset-x-3 bottom-[max(14px,env(safe-area-inset-bottom))] z-[10080] mx-auto flex max-w-sm items-center gap-3 rounded-[18px] border border-white/[0.1] bg-zinc-950/88 px-3.5 py-3 shadow-[0_16px_55px_rgba(0,0,0,.65),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-3xl sm:bottom-6">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${toast.tone === 'success' ? 'bg-emerald-500/10 text-emerald-400' : toast.tone === 'error' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-300'}`}>
-              {toast.tone === 'error' ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-            </span>
-            <p className="min-w-0 flex-1 text-[11px] font-bold text-zinc-200">{toast.message}</p>
-            <button type="button" onClick={() => setToast(null)} className={`flex h-9 w-9 items-center justify-center rounded-lg text-zinc-600 hover:bg-white/[0.05] hover:text-white ${FOCUS_RING}`} aria-label="Dismiss notification"><X className="h-3.5 w-3.5" /></button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {undo && (
-          <motion.div initial={{ opacity: 0, y: 22, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18, scale: 0.98 }} transition={{ type: 'spring', stiffness: 430, damping: 35 }} className="fixed bottom-[calc(.65rem+env(safe-area-inset-bottom))] left-2.5 right-2.5 z-[10090] sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-[min(430px,calc(100vw-2rem))] sm:-translate-x-1/2">
-            <div className="relative overflow-hidden rounded-[20px] border border-amber-300/20 bg-[linear-gradient(145deg,rgba(38,31,18,.94),rgba(18,16,13,.96))] px-2.5 py-2 shadow-[0_20px_60px_rgba(0,0,0,.60),0_8px_28px_rgba(245,158,11,.10),inset_0_1px_0_rgba(255,255,255,.11)] backdrop-blur-[28px] saturate-150 sm:rounded-[22px] sm:px-3 sm:py-2.5">
-              <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/55 to-transparent" />
-              <div className="pointer-events-none absolute -left-8 -top-10 h-24 w-24 rounded-full bg-amber-400/[0.10] blur-3xl" />
-              <div className="relative flex min-w-0 items-center gap-2">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[13px] border border-amber-300/20 bg-gradient-to-br from-amber-300/20 to-orange-500/10 text-amber-300 shadow-[inset_0_1px_1px_rgba(255,255,255,.10),0_5px_16px_rgba(245,158,11,.12)] sm:h-10 sm:w-10 sm:rounded-[14px]"><RotateCcw className="h-3.5 w-3.5 stroke-[2.4] sm:h-4 sm:w-4" /></div>
-                <div className="min-w-0 flex-1"><p className="text-[7px] font-black uppercase tracking-[.16em] text-amber-300/65 sm:text-[8px]">Recent change</p><p className="mt-0.5 truncate text-[10px] font-semibold text-zinc-100 sm:text-[11px]">{undo.message}</p></div>
-                <button type="button" onClick={() => void undo.action()} className={`shrink-0 rounded-[12px] border border-amber-300/25 bg-gradient-to-b from-amber-300 via-amber-400 to-orange-500 px-2.5 py-1.5 text-[10px] font-black text-black shadow-[0_5px_15px_rgba(245,158,11,.20),inset_0_1px_1px_rgba(255,255,255,.48)] transition hover:brightness-105 active:scale-95 sm:px-3 sm:py-2 sm:text-[11px] ${FOCUS_RING}`}>Undo</button>
-              </div>
-              <div className="absolute inset-x-2.5 bottom-0 h-[2px] overflow-hidden rounded-full bg-amber-100/[0.07]"><motion.div key={undo.message} initial={{ scaleX: 1 }} animate={{ scaleX: 0 }} transition={{ duration: 5, ease: 'linear' }} className="h-full origin-left bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500" /></div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Toast message={toastState?.message || ''} type={toastState?.tone || 'success'} isVisible={Boolean(toastState)} onClose={() => setToastState(null)} />
 
       {showFilterSheet && createPortal(
         <div className="fixed inset-0 z-[10035] flex items-end justify-center sm:items-center sm:p-5">
@@ -1852,13 +1790,13 @@ const SearchResults = () => {
       )}
 
       {actionItem && createPortal(
-        <div className="fixed inset-0 z-[10040] flex items-end justify-center sm:items-center sm:p-5">
-          <button type="button" aria-label="Close actions" onClick={() => setActionItem(null)} className="absolute inset-0 bg-black/72 backdrop-blur-lg" />
+        <div className="fixed inset-0 z-[2147483000] flex items-end justify-center pointer-events-auto sm:items-center sm:p-5">
+          <button type="button" aria-label="Close actions" onClick={closeActionMenuFromBackdrop} className="absolute inset-0 bg-black/72 backdrop-blur-lg" />
           <motion.div initial={{ y: 55, opacity: 0, scale: .985 }} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 390, damping: 34 }} className="relative z-10 w-full max-w-md overflow-hidden rounded-t-[30px] border border-white/[0.09] bg-zinc-950/95 p-4 pb-[max(18px,env(safe-area-inset-bottom))] shadow-[0_28px_90px_rgba(0,0,0,.75)] backdrop-blur-3xl sm:rounded-[30px] sm:p-5">
             <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-white/15 sm:hidden" />
             <div className="flex items-center gap-3">
               <div className={`relative h-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900 ${actionItem.media_type === 'person' ? 'w-16' : 'w-14'}`}><ResultImage item={actionItem} /></div>
-              <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[.17em] text-zinc-600">Quick actions</p><h3 className="mt-1 truncate text-base font-black text-white">{getTitle(actionItem)}</h3><p className="mt-1 text-[10px] font-semibold text-zinc-600">{actionItem.media_type === 'person' ? getDepartment(actionItem).label : actionItem.media_type === 'tv' ? 'TV Series' : 'Movie'}{actionItem.media_type !== 'person' ? ` · ${getYear(actionItem) || 'TBA'}` : ''}</p></div>
+              <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[.17em] text-zinc-600">Quick actions</p><h3 className="mt-1 break-words text-base font-black text-white">{getTitle(actionItem)}</h3><p className="mt-1 text-[10px] font-semibold text-zinc-600">{actionItem.media_type === 'person' ? getDepartment(actionItem).label : actionItem.media_type === 'tv' ? 'TV Series' : 'Movie'}{actionItem.media_type !== 'person' ? ` · ${getYear(actionItem) || 'TBA'}` : ''}</p></div>
               <button type="button" onClick={() => setActionItem(null)} className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-500 transition hover:text-white ${FOCUS_RING}`} aria-label="Close quick actions"><X className="h-4 w-4" /></button>
             </div>
 
@@ -1880,15 +1818,44 @@ const SearchResults = () => {
                     return <>
                       <button disabled={actionBusy} type="button" onClick={() => void openQuickPeek(actionItem)} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.055] px-2 text-[10px] font-bold text-cyan-300 transition active:scale-[.98] ${FOCUS_RING}`}><Info className="h-4 w-4" /><span>Quick Peek</span></button>
                       <button disabled={actionBusy} type="button" onClick={() => void toggleWatchlist(actionItem)} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 text-[10px] font-bold transition active:scale-[.98] ${inWatchlist ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' : 'border-white/[0.08] bg-white/[0.035] text-zinc-300'} ${FOCUS_RING}`}>{actionBusy && busyAction?.startsWith('watchlist') ? <Loader2 className="h-4 w-4 animate-spin" /> : inWatchlist ? <BookmarkMinus className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}<span>{inWatchlist ? 'Watchlisted' : 'Watchlist'}</span></button>
-                      <button disabled={actionBusy} type="button" onClick={() => void toggleHistory(actionItem)} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 text-[10px] font-bold transition active:scale-[.98] ${watched ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.08] bg-white/[0.035] text-zinc-300'} ${FOCUS_RING}`}><Check className="h-4 w-4" /><span>{watched ? 'Watched' : 'Mark watched'}</span></button>
+                      <button disabled={actionBusy} type="button" onClick={() => openWatchEditor(actionItem, watched ? 'rewatch' : 'mark')} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 text-[10px] font-bold transition active:scale-[.98] ${watched ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.08] bg-white/[0.035] text-zinc-300'} ${FOCUS_RING}`}>{watched ? <RotateCcw className="h-4 w-4" /> : <Check className="h-4 w-4" />}<span>{watched ? 'Add rewatch' : 'Mark watched'}</span></button>
                       <button disabled={actionBusy} type="button" onClick={() => openMyListPicker(actionItem)} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 text-[10px] font-bold transition active:scale-[.98] ${inMyList ? 'border-violet-500/20 bg-violet-500/10 text-violet-300' : 'border-white/[0.08] bg-white/[0.035] text-zinc-300'} ${FOCUS_RING}`}><ListChecks className="h-4 w-4" /><span>Manage List</span></button>
                       <button disabled={actionBusy} type="button" onClick={() => void toggleFavorite(actionItem)} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 text-[10px] font-bold transition active:scale-[.98] ${favorite ? 'border-rose-500/20 bg-rose-500/10 text-rose-300' : 'border-white/[0.08] bg-white/[0.035] text-zinc-300'} ${FOCUS_RING}`}><Heart className={`h-4 w-4 ${favorite ? 'fill-current' : ''}`} /><span>Favorite</span></button>
                       <button type="button" onClick={() => { navigate(getRoute(actionItem)); setActionItem(null); }} className={`flex min-h-[74px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-2 text-[10px] font-bold text-zinc-300 transition active:scale-[.98] ${FOCUS_RING}`}><ArrowUpRight className="h-4 w-4" /><span>Details</span></button>
                     </>;
                   })()}
                 </div>
+                {historyKeys.has(mediaKey(actionItem)) && (
+                  <div className="mt-4 rounded-2xl border border-emerald-500/10 bg-emerald-500/[0.035] p-3">
+                    <div className="flex items-center justify-between gap-2"><div><p className="text-[9px] font-black uppercase tracking-[.14em] text-emerald-400/70">Watch history</p><p className="mt-0.5 text-[10px] text-zinc-500">Edit or delete individual watch dates.</p></div><button type="button" onClick={() => openWatchEditor(actionItem, 'rewatch')} className={`flex h-9 items-center gap-1.5 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.07] px-3 text-[9px] font-black text-emerald-300 ${FOCUS_RING}`}><RotateCcw className="h-3.5 w-3.5" />Rewatch</button></div>
+                    <div className="mt-2 space-y-1.5">
+                      {getItemWatchedDates(actionItem).map((date, index) => (
+                        <div key={`${date}-${index}`} className="flex items-center gap-2 rounded-xl border border-white/[0.055] bg-black/20 px-2.5 py-2">
+                          <CalendarDays className="h-3.5 w-3.5 text-emerald-400" />
+                          <span className="min-w-0 flex-1 text-[10px] font-bold text-zinc-300">{new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}{index === getItemWatchedDates(actionItem).length - 1 ? ' · Latest' : ''}</span>
+                          <button type="button" onClick={() => openWatchEditor(actionItem, 'edit', index)} className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-white/[0.05] hover:text-emerald-300" aria-label="Edit watch date"><CalendarDays className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => void deleteWatchDate(actionItem, index)} className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-rose-500/[0.08] hover:text-rose-300" aria-label="Delete watch date"><Trash2 className="h-3.5 w-3.5" /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
+          </motion.div>
+        </div>,
+        document.body,
+      )}
+
+      {watchEditor && createPortal(
+        <div className="fixed inset-0 z-[10070] flex items-end justify-center sm:items-center sm:p-5">
+          <button type="button" aria-label="Close watch date editor" onClick={() => setWatchEditor(null)} className="absolute inset-0 bg-black/75 backdrop-blur-lg" />
+          <motion.div initial={{ y: 45, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="relative z-10 w-full max-w-sm rounded-t-[28px] border border-white/[0.09] bg-zinc-950 p-4 pb-[max(18px,env(safe-area-inset-bottom))] shadow-[0_28px_90px_rgba(0,0,0,.75)] sm:rounded-[28px] sm:p-5">
+            <div className="mx-auto mb-4 h-1 w-9 rounded-full bg-white/15 sm:hidden" />
+            <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.16em] text-emerald-400/75">{watchEditor.mode === 'rewatch' ? 'Add rewatch' : watchEditor.mode === 'edit' ? 'Change watch date' : 'Mark watched'}</p><h3 className="mt-1 text-base font-black text-white">{getTitle(watchEditor.item)}</h3></div><button type="button" onClick={() => setWatchEditor(null)} className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-500"><X className="h-4 w-4" /></button></div>
+            <label className="mt-5 block text-[10px] font-black uppercase tracking-[.12em] text-zinc-500">Watch date</label>
+            <input type="date" value={watchDateValue} max={toDateInputValue(new Date())} onChange={(event) => setWatchDateValue(event.target.value)} className="mt-2 min-h-12 w-full rounded-2xl border border-white/[0.09] bg-white/[0.035] px-4 text-sm font-bold text-white outline-none focus:border-emerald-400/30" />
+            <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" onClick={() => setWatchDateValue(toDateInputValue(new Date()))} className="min-h-11 rounded-2xl border border-white/[0.07] bg-white/[0.035] text-[10px] font-black text-zinc-400">Today</button><button type="button" disabled={!watchDateValue || busyAction?.startsWith('watchdate:')} onClick={() => void saveWatchDate()} className="min-h-11 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 text-[10px] font-black text-white disabled:opacity-40">{busyAction?.startsWith('watchdate:') ? 'Saving…' : watchEditor.mode === 'rewatch' ? 'Add Rewatch' : 'Save Date'}</button></div>
           </motion.div>
         </div>,
         document.body,
@@ -1957,7 +1924,7 @@ const SearchResults = () => {
                     return (
                       <button key={folder.id} type="button" disabled={folder.smartList || updating} onClick={() => void toggleItemInFolder(folderPickerItem, folder)} className={`flex min-h-14 w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition active:scale-[.99] disabled:cursor-not-allowed ${folder.smartList ? 'border-white/[0.05] bg-white/[0.02] opacity-50' : inFolder ? 'border-violet-400/20 bg-violet-500/10 hover:bg-violet-500/[0.14]' : 'border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.055]'} ${FOCUS_RING}`}>
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${folder.smartList ? 'border-violet-400/10 bg-violet-500/[0.05] text-violet-500' : inFolder ? 'border-violet-400/25 bg-violet-500/15 text-violet-200' : 'border-white/[0.07] bg-zinc-900 text-zinc-500'}`}>{updating ? <Loader2 className="h-4 w-4 animate-spin" /> : folder.smartList ? <SlidersHorizontal className="h-4 w-4" /> : inFolder ? <Check className="h-4 w-4 stroke-[3]" /> : <ListChecks className="h-4 w-4" />}</span>
-                        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-zinc-200">{folder.name}</span><span className="mt-0.5 block text-[9px] text-zinc-600">{folder.smartList ? 'Smart List · rule controlled' : inFolder ? 'In this list' : 'Not in this list'}</span></span>
+                        <span className="min-w-0 flex-1"><span className="block break-words text-xs font-bold text-zinc-200">{folder.name}</span><span className="mt-0.5 block text-[9px] text-zinc-600">{folder.smartList ? 'Smart List · rule controlled' : inFolder ? 'In this list' : 'Not in this list'}</span></span>
                         {!folder.smartList && <span className={`text-[9px] font-black uppercase tracking-[.12em] ${inFolder ? 'text-violet-300' : 'text-zinc-600'}`}>{inFolder ? 'Remove' : 'Add'}</span>}
                       </button>
                     );
