@@ -34,11 +34,52 @@ const LoginPage: React.FC = () => {
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchBackgroundImage = async () => {
-      const image = await fetchRandomMovieImages();
-      setBackgroundImage(image);
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const loadBackground = async (attempt = 0) => {
+      try {
+        const image = await fetchRandomMovieImages();
+        if (!image || typeof image !== 'string') {
+          throw new Error('No background image returned');
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          const preload = new Image();
+          const timeout = window.setTimeout(() => {
+            preload.onload = null;
+            preload.onerror = null;
+            reject(new Error('Background image timed out'));
+          }, 12000);
+          preload.onload = () => {
+            window.clearTimeout(timeout);
+            resolve();
+          };
+          preload.onerror = () => {
+            window.clearTimeout(timeout);
+            reject(new Error('Background image failed to load'));
+          };
+          preload.src = image;
+          if (preload.complete && preload.naturalWidth > 0) {
+            window.clearTimeout(timeout);
+            resolve();
+          }
+        });
+
+        if (!cancelled) setBackgroundImage(image);
+      } catch {
+        if (!cancelled && attempt < 5) {
+          retryTimer = setTimeout(() => loadBackground(attempt + 1), Math.min(1500 * (attempt + 1), 6000));
+        }
+      }
     };
-    fetchBackgroundImage();
+
+    loadBackground();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -110,9 +151,9 @@ const LoginPage: React.FC = () => {
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-black text-white flex">
       <motion.div
-        initial={{ scale: 1 }}
-        animate={{ scale: 1.08 }}
-        transition={{ duration: 20, ease: 'linear', repeat: Infinity, repeatType: 'reverse' }}
+        initial={{ scale: 1, opacity: 0 }}
+        animate={{ scale: 1.08, opacity: backgroundImage ? 1 : 0 }}
+        transition={{ scale: { duration: 20, ease: 'linear', repeat: Infinity, repeatType: 'reverse' }, opacity: { duration: 0.8, ease: 'easeOut' } }}
         className="absolute inset-0 z-0"
         style={{
           backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
