@@ -1,4 +1,4 @@
-# 🎬 Cinescape
+# 🎬 Cinescape - Your Cinema. Your Universe.
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-000000?style=flat&logo=vercel&logoColor=white)](https://cinescape-films.vercel.app/)
 ![React](https://img.shields.io/badge/React_18-20232A?style=flat&logo=react&logoColor=61DAFB)
@@ -7,22 +7,23 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
 ![Firebase](https://img.shields.io/badge/Firebase-Database-FFFFFF?style=flat&logo=firebase&logoColor=orange)
 
-**Cinescape** is a high-performance movie discovery platform designed for cinephiles. Built with **React 18** and **TypeScript**, it provides a seamless interface to explore trending cinema, manage personal watchlists, and track viewing history. Cinescape leverages real-time data from TMDB API to offer comprehensive movie information, including trending movies, top-rated films, upcoming releases, TV shows, and actor profiles—making it the ultimate destination for movie enthusiasts to discover and track their favorite content.
+**Cinescape** is a cinematic playground for cinephiles—a space to discover, track, and celebrate everything on screen. Explore films, TV shows, anime, cartoons, and the talents behind them; uncover hidden gems and your next obsession; curate personal watchlists, log viewing history, rate titles, and express your cinematic taste through customizable profiles. Built with **React 18** and **TypeScript**, Cinescape combines TMDB-powered discovery with a polished, responsive experience made for cinema culture.
 
 ---
 
 ## 🚀 Key Features
 
-* **📺 Instant Streaming**: Watch any film in the library for free with integrated high-quality playback.
-* **🎬 Cinematic Discovery**: Explore a vast library of movies with real-time data.
-* **⭐ Curated Rankings**: Access top-rated films and trending content instantly.
-* **🎭 Talent Profiles**: Detailed insights into actors, including full filmographies.
-* **❤️ Favorites Management**: Save and organize your preferred actors and movies.
-* **🕒 History Tracking**: Keep a log of your recently viewed titles.
+* **🎞️ Films, Shows & More**: Discover films, TV shows, anime, and cartoons in one cinematic space.
+* **🎬 Cinematic Discovery**: Find trending titles, cult classics, hidden gems, and your next obsession with TMDB-powered data.
+* **⭐ Curated Rankings**: Explore top-rated films, trending picks, and standout shows.
+* **🎭 Talent Discovery**: Explore actors, directors, and other creative talents and their work.
+* **❤️ Favorites & Watchlists**: Save favorite titles and talents and organize your personal watchlists.
+* **🕒 Watch History & Ratings**: Log what you watch, revisit favorites, and rate titles.
 * **📊 Binge Watch Stats (Binge Analytics)**: Visualize your viewing habits—30-day genre trends, screen time, runtime split, and favorite directors.
 * **🎲 Watchlist Roulette**: Spin through your watchlist to pick your next “winner pick” with an animated roulette + confetti moment.
 * **🎬 Director’s Cut (Lineage Graph)**: Explore cinematic connections using an interactive director/actor network graph powered by TMDB relationships.
-* **📱 Responsive UI**: Fully optimized for desktop, tablet, and mobile devices.
+* **🎟️ Cinematic Profiles**: Showcase your taste with personalized scenes and ranked Top Five picks.
+* **📱 Responsive UI**: A polished cinema-inspired experience across desktop, tablet, and mobile.
 
 
 ---
@@ -51,7 +52,7 @@
 | <img src="/screenshots/profile-page.png" /> | <img src="/screenshots/watchlist.png" /> |
 
 ### Exploration & Discovery
-| **Top Rated Collection** | **Explore Movies** |
+| **Top Rated Collection** | **Explore Cinema** |
 | :---: | :---: |
 | <img src="/screenshots/toprated.png" /> | <img src="/screenshots/explore-page.png" /> |
 
