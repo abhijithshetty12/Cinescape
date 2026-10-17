@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
+import UserAvatar, { getGoogleName, getGooglePhoto, type AvatarMode } from '../components/UserAvatar.tsx';
 
 interface SearchResult {
   id: number;
@@ -30,6 +31,7 @@ const Navbar: React.FC = () => {
   const [activeSection, setActiveSection] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>('initial');
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,12 +40,17 @@ const Navbar: React.FC = () => {
   const requestRef = useRef(0);
 
   useEffect(() => {
-    if (!user?.uid) { setPhotoUrl(null); setProfileName(''); return; }
+    if (!user?.uid) { setPhotoUrl(null); setProfileName(''); setAvatarMode('initial'); return; }
     return onSnapshot(doc(db, 'users', user.uid), snap => {
       const data = snap.exists() ? snap.data() : null;
-      setPhotoUrl(data?.photoDataUrl || data?.photoURL || user.photoURL || null);
-      setProfileName(data?.displayName || data?.name || data?.username || user.displayName || user.email?.split('@')[0] || 'Cinescape user');
-    }, () => setPhotoUrl(null));
+      const customPhoto = typeof data?.photoDataUrl === 'string' && data.photoDataUrl ? data.photoDataUrl : null;
+      const googlePhoto = getGooglePhoto(user);
+      const removed = data?.avatarMode === 'removed' || data?.photoRemoved === true;
+      const mode: AvatarMode = removed ? 'removed' : data?.avatarMode === 'initial' ? 'initial' : data?.avatarMode === 'google' ? 'google' : customPhoto ? 'custom' : googlePhoto ? 'google' : 'initial';
+      setAvatarMode(mode);
+      setPhotoUrl(mode === 'custom' ? customPhoto : mode === 'google' ? googlePhoto : null);
+      setProfileName(getGoogleName(user));
+    }, () => { setPhotoUrl(getGooglePhoto(user)); setAvatarMode(getGooglePhoto(user) ? 'google' : 'initial'); setProfileName(getGoogleName(user)); });
   }, [user?.uid]);
 
   useEffect(() => {
@@ -99,7 +106,7 @@ const Navbar: React.FC = () => {
         const response = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${encodeURIComponent(searchQuery.trim())}`, { signal: controller.signal });
         if (!response.ok) throw new Error('Search failed');
         const data = await response.json();
-        if (current === requestRef.current) setSearchResults((data.results || []).filter((item: SearchResult) => ['movie','tv','person'].includes(item.media_type)));
+        if (current === requestRef.current) setSearchResults((data.results || []).filter((item: SearchResult) => ['movie', 'tv', 'person'].includes(item.media_type)));
       } catch (e) {
         if (!controller.signal.aborted && current === requestRef.current) setError('Search is unavailable. Please try again.');
       } finally {
@@ -177,8 +184,8 @@ const Navbar: React.FC = () => {
       <nav className="fixed inset-x-0 top-0 z-[80] w-full border-0 bg-black/35 backdrop-blur-xl backdrop-saturate-150 text-white pointer-events-none">
         <div className="pointer-events-auto relative mx-auto flex h-[62px] max-w-[1500px] items-center gap-2 px-3 sm:px-6 lg:h-[76px]">
           <Link to="/home" onClick={closePanels} aria-label="Cinescape home" className="flex shrink-0 items-center gap-2 rounded-xl py-1.5">
-            <img src="/Logo.png" alt="" className="h-8 w-8 object-contain drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]" />
-            <img src="/Cinescape.png" alt="Cinescape" className="hidden h-5 w-auto sm:block" />
+            <img src="/Cinescape_Logo.svg" alt="" className="h-8 w-8 object-contain drop-shadow-[0_0_12px_rgba(239,68,68,0.6)]" />
+            <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="hidden h-5 w-auto sm:block" />
           </Link>
           <div className="absolute left-[62px] top-0 flex h-[53px] items-center rounded-b-[23px] border border-t-0 border-white/[0.12] bg-black/90 px-2 shadow-[0_10px_28px_rgba(0,0,0,0.35),inset_0_-1px_0_rgba(255,255,255,0.07)] backdrop-blur-xl sm:left-[78px] lg:hidden">
             <button type="button" onClick={() => searchOpen ? setSearchOpen(false) : openSearch()} aria-label="Search" className="flex h-8 w-9 items-center justify-center rounded-xl text-zinc-300 transition hover:bg-white/10 hover:text-white"><Search className="h-[18px] w-[18px]" /></button>
@@ -194,7 +201,7 @@ const Navbar: React.FC = () => {
             <button type="button" onClick={() => { setIsTrayOpen(v => !v); setSearchOpen(false); setProfileOpen(false); }} aria-label={isTrayOpen ? 'Close menu' : 'Open menu'} aria-expanded={isTrayOpen} className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-200 transition hover:bg-black/60 lg:hidden">{isTrayOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
             <div ref={profileRef} className="relative">
               <button type="button" onClick={() => { setProfileOpen(v => !v); setIsTrayOpen(false); setSearchOpen(false); }} aria-label="Account menu" aria-expanded={profileOpen} className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-black/70 transition hover:border-white/40">
-                <img src={photoUrl || '/user-icon.jpg'} alt="Account" className="h-full w-full object-cover" />
+                <UserAvatar name={profileName || getGoogleName(user)} photo={photoUrl} mode={avatarMode} className="h-full w-full rounded-full text-base" />
               </button>
               {profileOpen && <div className="absolute right-0 top-full mt-3 w-[min(300px,calc(100vw-24px))] overflow-hidden rounded-2xl border border-white/10 bg-[#090909] p-2 shadow-[0_20px_65px_rgba(0,0,0,0.8)]">
                 <div className="border-b border-white/10 px-3 py-3"><p className="truncate text-sm font-semibold text-white">{profileName || user?.displayName || 'Cinescape account'}</p><p className="mt-1 truncate text-xs text-zinc-500">{user?.email || 'Your account'}</p></div>
@@ -217,8 +224,11 @@ const Navbar: React.FC = () => {
             {navItems.map(item => { const active = location.pathname === item.path; return <Link key={item.path} to={item.path} onClick={closePanels} className={`flex items-center gap-4 rounded-xl px-3 py-2.5 text-[14px] transition ${active ? 'border border-red-400/20 bg-gradient-to-r from-red-500/15 to-white/[0.035] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'border border-transparent text-zinc-400 hover:bg-white/[0.06] hover:text-white'}`}><item.icon className={`h-[19px] w-[19px] ${active ? 'text-red-500' : ''}`} /><span>{item.label}</span>{active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-red-500" />}</Link>; })}
           </div>
           <div className="my-2 h-px bg-white/10" />
-          <Link to="/profile" onClick={closePanels} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] text-zinc-300 hover:bg-white/5 hover:text-white"><img src={photoUrl || user?.photoURL || "/user-icon.jpg"} alt="" className="h-8 w-8 shrink-0 rounded-full border border-white/15 object-cover" /><span className="min-w-0 flex-1 truncate font-medium">{profileName || user?.displayName || user?.email?.split("@")[0] || "Profile"}</span><ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" /></Link>
-          <div className="mt-2 flex items-center justify-center gap-2 text-[11px] tracking-[0.2em] text-zinc-600"><img src="/Logo.png" alt="" className="h-4 w-4 object-contain" /> CINESCAPE</div>
+          <Link to="/profile" onClick={closePanels} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] text-zinc-300 hover:bg-white/5 hover:text-white"><UserAvatar name={profileName || getGoogleName(user)} photo={photoUrl} mode={avatarMode} className="h-8 w-8 rounded-full text-sm" /><span className="min-w-0 flex-1 truncate font-medium">{profileName || user?.displayName || user?.email?.split("@")[0] || "Profile"}</span><ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" /></Link>
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <img src="/Cinescape_Logo.svg" alt="" className="h-4 w-4 object-contain" />
+            <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-4 w-auto object-contain" />
+          </div>
         </div>
       </div>
       <div className={`fixed inset-0 z-[90] transition-all duration-300 ${searchOpen ? 'visible opacity-100' : 'invisible pointer-events-none opacity-0'}`}>

@@ -3,10 +3,11 @@ import axios from "axios";
 import { motion, LayoutGroup } from "framer-motion";
 import Lenis from "@studio-freight/lenis";
 import Hero from "../components/Hero.tsx";
-import { Youtube, Clock, Star, TrendingUp, Bookmark, History, Play } from "lucide-react";
+import { AlertCircle, Youtube, Clock, Star, TrendingUp, Bookmark, History, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import MovieCarousel from "../components/MovieCarousel.tsx";
-import Loading from "../components/Loading.tsx";
+import { MovieCarouselSkeleton } from "../components/MediaSkeleton.tsx";
+import EmptyState from "../components/EmptyState.tsx";
 import DailyPicks from "../components/DailyPicks.tsx";
 
 type TrailerMovie = {
@@ -78,21 +79,31 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
+    let active = true;
     const fetchMovies = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        const TRENDING_URL = `https://api.themoviedb.org/3/trending/${mediaType}/week?api_key=${API_KEY}`;
-        const trendingResponse = await axios.get(TRENDING_URL);
+        const trendingUrl = `https://api.themoviedb.org/3/trending/${mediaType}/week?api_key=${API_KEY}`;
+        const trendingResponse = await axios.get(trendingUrl);
         const upcomingUrl = upcomingType === 'movie' ? UPCOMING_URL : UPCOMING_TV_URL;
         const upcomingResponse = await axios.get(upcomingUrl);
-        setTrending(trendingResponse.data.results);
-        setUpcomingMovies(upcomingResponse.data.results);
-      } catch (err) {
-        setError('Failed to fetch movies');
+        if (!active) return;
+        setTrending(trendingResponse.data.results || []);
+        setUpcomingMovies(upcomingResponse.data.results || []);
+      } catch {
+        if (active) setError('Failed to fetch movies');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
+    void fetchMovies();
+    return () => { active = false; };
+  }, [mediaType, upcomingType, UPCOMING_URL, UPCOMING_TV_URL, API_KEY]);
+
+  useEffect(() => {
+    let active = true;
     const fetchTrailers = async () => {
       try {
         let sourceList: any[] = [];
@@ -111,32 +122,29 @@ const Home = () => {
             const endpoint = trailersCategory === 'tv' ? 'tv' : 'movie';
             const videoResponse = await axios.get(`https://api.themoviedb.org/3/${endpoint}/${item.id}/videos?api_key=${API_KEY}`);
             const trailer = Array.isArray(videoResponse.data.results)
-              ? videoResponse.data.results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') || videoResponse.data.results.find((v: any) => v.site === 'YouTube')
+              ? videoResponse.data.results.find((video: any) => video.type === 'Trailer' && video.site === 'YouTube') || videoResponse.data.results.find((video: any) => video.site === 'YouTube')
               : null;
-
-            if (trailer && trailer.key) {
-              return {
-                id: item.id,
-                title: item.title || item.name || 'Untitled',
-                release_date: item.release_date || item.first_air_date,
-                trailerKey: trailer.key
-              } as TrailerMovie;
-            }
-            return null;
+            if (!trailer?.key) return null;
+            return {
+              id: item.id,
+              title: item.title || item.name || 'Untitled',
+              release_date: item.release_date || item.first_air_date,
+              trailerKey: trailer.key,
+            } as TrailerMovie;
           } catch {
             return null;
           }
         });
         const trailersData = await Promise.all(trailerPromises);
-        setTrailers(trailersData.filter(Boolean) as TrailerMovie[]);
+        if (active) setTrailers(trailersData.filter(Boolean) as TrailerMovie[]);
       } catch (err) {
-        console.error('Failed to fetch trailers', err);
+        if (active) console.error('Failed to fetch trailers', err);
       }
     };
 
-    fetchMovies();
-    fetchTrailers();
-  }, [mediaType, trailersCategory, upcomingType]);
+    void fetchTrailers();
+    return () => { active = false; };
+  }, [trailersCategory, POPULAR_URL, NOW_PLAYING_URL, TV_POPULAR_URL, API_KEY]);
 
   const handleMediaTypeChange = (type: 'movie' | 'tv') => {
     setMediaType(type);
@@ -176,7 +184,8 @@ const Home = () => {
       <div className="relative group">
         <Link
           to={path}
-          className="flex items-center justify-center gap-2 p-2 min-h-[44px] min-w-[44px] md:min-w-0 md:min-h-0 md:p-2.5 md:gap-3 bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:border-opacity-100 hover:-translate-y-0.5 text-white font-semibold text-[10px] md:text-sm opacity-95 hover:opacity-100 snap-center"
+          aria-label={label}
+          className="focus-ring flex items-center justify-center gap-2 p-2 min-h-[44px] min-w-[44px] md:min-w-0 md:min-h-0 md:p-2.5 md:gap-3 bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:border-opacity-100 hover:-translate-y-0.5 text-white font-semibold text-[10px] md:text-sm opacity-95 hover:opacity-100 snap-center"
           style={{
             borderColor: `${accentColor}25`,
             boxShadow: `0 4px 20px -4px ${accentColor}15, inset 0 1px 0 rgba(255,255,255,0.05)`,
@@ -192,9 +201,31 @@ const Home = () => {
     );
   };
 
-  if (loading) {
-    return <Loading />;
-  }
+  const renderMediaRail = (items: any[], railType: 'movie' | 'tv', label: string) => {
+    if (loading) return <MovieCarouselSkeleton />;
+    if (error) {
+      return (
+        <EmptyState
+          icon={<AlertCircle className="h-6 w-6" />}
+          title={`Couldn't load ${label.toLowerCase()}`}
+          description={error}
+          tone="error"
+          action={<button type="button" onClick={() => window.location.reload()} className="focus-ring min-h-11 rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-white transition hover:bg-white/10">Try again</button>}
+        />
+      );
+    }
+    if (items.length === 0) {
+      return (
+        <EmptyState
+          icon={<TrendingUp className="h-6 w-6" />}
+          title={`No ${label.toLowerCase()} available`}
+          description="There aren't any titles to show right now."
+          action={<Link to="/explore" className="focus-ring inline-flex min-h-11 items-center rounded-xl bg-white px-4 text-sm font-semibold text-black transition hover:bg-zinc-200">Explore titles</Link>}
+        />
+      );
+    }
+    return <MovieCarousel movies={items} mediaType={railType} />;
+  };
 
   return (
     <div className="bg-black min-h-screen text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif] selection:bg-white/20 antialiased relative overflow-x-hidden">
@@ -228,7 +259,8 @@ const Home = () => {
               <div className="inline-flex items-center bg-white/10 dark:bg-white/[0.06] backdrop-blur-2xl p-0.5 sm:p-1 rounded-full border border-white/15 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] shrink-0">
                 <button
                   onClick={() => handleMediaTypeChange('movie')}
-                  className={`relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${mediaType === 'movie' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
+                  aria-pressed={mediaType === 'movie'}
+                  className={`focus-ring relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${mediaType === 'movie' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
                     }`}
                 >
                   <span>Movies</span>
@@ -242,7 +274,8 @@ const Home = () => {
                 </button>
                 <button
                   onClick={() => handleMediaTypeChange('tv')}
-                  className={`relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${mediaType === 'tv' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
+                  aria-pressed={mediaType === 'tv'}
+                  className={`focus-ring relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${mediaType === 'tv' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
                     }`}
                 >
                   <span>Series</span>
@@ -256,7 +289,7 @@ const Home = () => {
                 </button>
               </div>
             </div>
-            <MovieCarousel movies={trending} mediaType={mediaType} />
+          {renderMediaRail(trending, mediaType, 'Trending titles')}
           </section>
           <section className="mb-8 sm:mb-16">
             <div className="flex items-center justify-between mb-3 sm:mb-6 gap-3 pb-2.5 sm:pb-4 border-b border-white/10">
@@ -271,7 +304,8 @@ const Home = () => {
               <div className="inline-flex items-center bg-white/10 dark:bg-white/[0.06] backdrop-blur-2xl p-0.5 sm:p-1 rounded-full border border-white/15 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] shrink-0">
                 <button
                   onClick={() => handleUpcomingTypeChange('movie')}
-                  className={`relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${upcomingType === 'movie' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
+                  aria-pressed={upcomingType === 'movie'}
+                  className={`focus-ring relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${upcomingType === 'movie' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
                     }`}
                 >
                   <span>Movies</span>
@@ -285,7 +319,8 @@ const Home = () => {
                 </button>
                 <button
                   onClick={() => handleUpcomingTypeChange('tv')}
-                  className={`relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${upcomingType === 'tv' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
+                  aria-pressed={upcomingType === 'tv'}
+                  className={`focus-ring relative px-2.5 py-0.5 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all duration-300 z-10 ${upcomingType === 'tv' ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
                     }`}
                 >
                   <span>Series</span>
@@ -299,7 +334,7 @@ const Home = () => {
                 </button>
               </div>
             </div>
-            <MovieCarousel movies={upcomingMovies} mediaType={upcomingType} />
+          {renderMediaRail(upcomingMovies, upcomingType, 'Upcoming titles')}
           </section>
         </LayoutGroup>
         <section className="mb-12 sm:mb-16 relative">
@@ -321,7 +356,8 @@ const Home = () => {
                   <button
                     key={catId}
                     onClick={() => setTrailersCategory(catId)}
-                    className={`relative px-2 sm:px-3.5 py-0.5 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium transition-all duration-300 z-10 ${isActive ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
+                    aria-pressed={isActive}
+                    className={`focus-ring relative px-2 sm:px-3.5 py-0.5 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium transition-all duration-300 z-10 ${isActive ? 'text-white font-semibold' : 'text-white/60 hover:text-white'
                       }`}
                   >
                     {labels[catId]}
@@ -373,7 +409,7 @@ const Home = () => {
                           ) : (
                             <button
                               onClick={() => setActiveTrailerId(movie.id)}
-                              className="w-full h-full flex items-center justify-center bg-cover bg-center relative group/play"
+                              className="focus-ring w-full h-full flex items-center justify-center bg-cover bg-center relative group/play"
                               aria-label={`Play ${movie.title} trailer`}
                               style={{ backgroundImage: `url(https://img.youtube.com/vi/${movie.trailerKey}/maxresdefault.jpg)` }}
                             >
@@ -396,7 +432,7 @@ const Home = () => {
                           </div>
                         )}
                       </div>
-                      <Link to={targetUrl} className="block relative z-20">
+                      <Link to={targetUrl} aria-label={`Open ${movie.title || movie.name} details`} className="focus-ring block relative z-20 rounded-b-2xl">
                         <div className="p-3.5 sm:p-4 bg-transparent flex flex-col gap-1">
                           <h3 className="font-semibold text-sm sm:text-base text-white leading-snug tracking-tight group-hover:text-red-400 transition-colors duration-300 line-clamp-1">
                             {movie.title || movie.name || 'Untitled'}

@@ -31,6 +31,12 @@
   }
 }
 
+@layer components {
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-black;
+  }
+}
+
 @layer utilities {
   .text-shadow {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
@@ -167,7 +173,37 @@
   @apply transition-all duration-300;
 }
 
-.movie-card-hover:hover {
+  .movie-card-hover:hover {
   transform: translateY(-8px);
   box-shadow: 0 8px 20px -8px rgba(255, 255, 255, 0.3);
+}
+
+.media-skeleton {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background:
+    radial-gradient(90% 70% at 12% 0%, rgba(255, 255, 255, 0.08), transparent 68%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), inset 0 -18px 38px rgba(255, 255, 255, 0.012);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.media-skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  transform: translateX(-115%);
+  background: linear-gradient(105deg, transparent 28%, rgba(255, 255, 255, 0.09) 48%, rgba(255, 255, 255, 0.025) 54%, transparent 72%);
+  animation: cinescape-glass-shimmer 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes cinescape-glass-shimmer {
+  to { transform: translateX(115%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-skeleton::after { animation: none; opacity: 0.4; }
 }

@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { AlertCircle, ArrowUpDown, Bookmark, BookmarkMinus, CalendarCheck, CalendarDays, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Clock3, Filter, Grid3X3, Heart, History, ImageOff, List, ListChecks, MoreHorizontal, RotateCcw, Search, Star, Trash2, Tv, X, } from 'lucide-react';
+import { AlertCircle, ArrowUpDown, Bookmark, BookmarkMinus, CalendarCheck, CalendarDays, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Clock3, Filter, Grid3X3, Heart, History, List, ListChecks, MoreHorizontal, RotateCcw, Search, Star, Trash2, Tv, X, } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
+import PosterImage from '../components/PosterImage.tsx';
+import EmptyState from '../components/EmptyState.tsx';
 
 type SortMode = 'watched-desc' | 'watched-asc' | 'release-desc' | 'release-asc' | 'tmdb-desc' | 'user-rating-desc' | 'az';
 type ViewMode = 'grid' | 'list' | 'timeline';
@@ -265,39 +267,16 @@ const readPrefs = (): StoredPrefs => {
   }
 };
 
-const PosterImage = ({ item }: { item: WatchedItem }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const path = item.posterPath?.startsWith('/') ? item.posterPath : `/${item.posterPath || ''}`;
-
-  return (
-    <div className="absolute inset-0 bg-zinc-900">
-      {!loaded && !failed && (
-        <div className="absolute inset-0 overflow-hidden bg-zinc-900">
-          <div className="absolute inset-0 -translate-x-full animate-[historyShimmer_1.7s_infinite] bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
-        </div>
-      )}
-      {!failed && item.posterPath ? (
-        <img
-          src={`https://image.tmdb.org/t/p/w342${path}`}
-          srcSet={`https://image.tmdb.org/t/p/w342${path} 342w, https://image.tmdb.org/t/p/w500${path} 500w, https://image.tmdb.org/t/p/w780${path} 780w`}
-          sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 16vw"
-          alt={item.title || item.name || ''}
-          className={`h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-[1.02] ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-950 text-zinc-600">
-          <ImageOff className="mb-1.5 h-8 w-8 stroke-[1.5]" />
-          <span className="text-[10px] font-medium tracking-wide">Missing Poster</span>
-        </div>
-      )}
-    </div>
-  );
-};
+const HistoryPoster = ({ item }: { item: WatchedItem }) => (
+  <PosterImage
+    src={item.posterPath}
+    size="w342"
+    alt={item.title || item.name || ''}
+    fallbackLabel="Missing poster"
+    sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 16vw"
+    imageClassName="transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+  />
+);
 
 const MiniStatusCluster = ({ favorite, inMyList, inWatchlist }: { favorite: boolean; inMyList: boolean; inWatchlist: boolean }) => (
   <div className="flex items-center justify-end -space-x-1.5 sm:justify-start sm:-space-x-1">
@@ -957,13 +936,15 @@ const HistoryPage = () => {
 
   if (error) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center bg-[#09090b] px-4">
-        <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-zinc-900/40 p-8 text-center shadow-2xl shadow-red-950/20 backdrop-blur-2xl">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10"><AlertCircle className="h-8 w-8 text-red-500" /></div>
-          <h3 className="mb-2 text-xl font-bold tracking-tight text-white">Error Loading History</h3>
-          <p className="mb-6 text-sm text-zinc-400">{error}</p>
-          <button onClick={() => window.location.reload()} className="w-full rounded-xl bg-red-600 py-3 text-sm font-semibold text-white transition hover:bg-red-500">Retry Connection</button>
-        </div>
+      <div className="min-h-[80vh] bg-[#09090b] px-4 py-12">
+        <EmptyState
+          icon={<AlertCircle className="h-6 w-6" />}
+          title="Error Loading History"
+          description={error}
+          tone="error"
+          className="mx-auto max-w-md border-solid"
+          action={<button type="button" onClick={() => window.location.reload()} className="focus-ring min-h-11 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500">Retry Connection</button>}
+        />
       </div>
     );
   }
@@ -1037,12 +1018,12 @@ const HistoryPage = () => {
             <div className="flex w-full items-center gap-2 lg:max-w-3xl lg:flex-1 lg:justify-end">
               <div className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
-                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={`Search ${mediaType === 'movie' ? 'movies' : 'series'}...`} className="w-full rounded-xl border border-white/[0.05] bg-zinc-900/60 py-2.5 pl-10 pr-9 text-xs text-white outline-none backdrop-blur-md placeholder:text-zinc-500 focus:border-emerald-500/30" />
-                {searchTerm && <button type="button" onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 z-10 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"><X className="h-3 w-3" /></button>}
+                <input aria-label={`Search ${mediaType === 'movie' ? 'movies' : 'series'} in history`} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={`Search ${mediaType === 'movie' ? 'movies' : 'series'}...`} className="focus-ring w-full rounded-xl border border-white/[0.05] bg-zinc-900/60 py-2.5 pl-10 pr-9 text-xs text-white outline-none backdrop-blur-md placeholder:text-zinc-500 focus:border-emerald-500/30" />
+                {searchTerm && <button type="button" onClick={() => setSearchTerm('')} aria-label="Clear history search" className="focus-ring absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-md p-1 text-zinc-400 hover:text-white"><X className="h-3 w-3" /></button>}
               </div>
 
               <div className="relative shrink-0">
-                <button type="button" onClick={() => setShowSortMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white sm:w-auto sm:gap-2 sm:px-3.5" title={sortOptions.find((option) => option.id === sortMode)?.label}>
+                <button type="button" onClick={() => setShowSortMenu((value) => !value)} aria-label={`Sort history: ${sortOptions.find((option) => option.id === sortMode)?.label}`} aria-expanded={showSortMenu} className="focus-ring flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white sm:w-auto sm:gap-2 sm:px-3.5" title={sortOptions.find((option) => option.id === sortMode)?.label}>
                   <ArrowUpDown className="h-4 w-4" />
                   <span className="hidden sm:inline text-xs font-semibold">{sortOptions.find((option) => option.id === sortMode)?.label}</span>
                   <ChevronDown className={`hidden h-3.5 w-3.5 text-zinc-500 transition-transform sm:block ${showSortMenu ? 'rotate-180' : ''}`} />
@@ -1056,13 +1037,13 @@ const HistoryPage = () => {
                 </AnimatePresence>
               </div>
 
-              <button type="button" onClick={() => setShowFilters(true)} className={`flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${activeFilterChips.length ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Filters">
+              <button type="button" onClick={() => setShowFilters(true)} aria-label="Filter watch history" aria-expanded={showFilters} className={`focus-ring flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${activeFilterChips.length ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Filters">
                 <Filter className="h-4 w-4" />
                 <span className="hidden sm:inline text-xs font-semibold">Filters</span>
               </button>
 
               <div className="relative shrink-0">
-                <button type="button" onClick={() => setShowViewMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white sm:w-auto sm:gap-2 sm:px-3.5" title="Change view">
+                <button type="button" onClick={() => setShowViewMenu((value) => !value)} aria-label={`Change history view: ${viewMode}`} aria-expanded={showViewMenu} className="focus-ring flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white sm:w-auto sm:gap-2 sm:px-3.5" title="Change view">
                   {viewMode === 'grid' ? <Grid3X3 className="h-4 w-4" /> : viewMode === 'list' ? <List className="h-4 w-4" /> : <History className="h-4 w-4" />}
                   <span className="hidden sm:inline text-xs font-semibold">{viewMode === 'grid' ? 'Grid' : viewMode === 'list' ? 'List' : 'Timeline'}</span>
                   <ChevronDown className={`hidden h-3.5 w-3.5 text-zinc-500 transition-transform sm:block ${showViewMenu ? 'rotate-180' : ''}`} />
@@ -1085,7 +1066,7 @@ const HistoryPage = () => {
               </div>
 
 
-              <button type="button" onClick={() => { setSelectionMode((value) => !value); setSelectedIds(new Set()); }} className={`flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${selectionMode ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Select titles">
+              <button type="button" onClick={() => { setSelectionMode((value) => !value); setSelectedIds(new Set()); }} aria-label={selectionMode ? 'Finish selecting titles' : 'Select titles'} aria-pressed={selectionMode} className={`focus-ring flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${selectionMode ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Select titles">
                 <CheckSquare className="h-4 w-4" />
                 <span className="hidden md:inline text-xs font-semibold">{selectionMode ? 'Done' : 'Select'}</span>
               </button>
@@ -1095,7 +1076,7 @@ const HistoryPage = () => {
           {activeFilterChips.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {activeFilterChips.map((chip) => (
-                <button type="button" key={chip.id} onClick={chip.clear} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:text-white">
+                <button type="button" key={chip.id} onClick={chip.clear} className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:text-white">
                   {chip.label}<X className="h-3 w-3 text-zinc-500" />
                 </button>
               ))}
@@ -1125,12 +1106,15 @@ const HistoryPage = () => {
         )}
 
         {filteredAndSortedHistory.length === 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-900 bg-zinc-950/20 py-20 text-center backdrop-blur-sm">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-600"><History className="h-6 w-6" /></div>
-            <h3 className="mb-1.5 text-lg font-bold tracking-tight text-white">{noResultsBecauseFilters ? 'No matches found' : 'No watch history yet'}</h3>
-            <p className="mb-6 max-w-xs text-xs leading-relaxed text-zinc-500">{noResultsBecauseFilters ? 'Your active filters or search are hiding everything in this history.' : `Your ${mediaType === 'movie' ? 'movie' : 'series'} history is empty.`}</p>
-            {noResultsBecauseFilters ? <button type="button" onClick={clearFilters} className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-2.5 text-xs font-bold text-zinc-950"><X className="h-3.5 w-3.5" />Clear filters</button> : <button type="button" onClick={() => navigate('/trending')} className="rounded-xl bg-zinc-100 px-5 py-2.5 text-xs font-bold text-zinc-950">Discover Media</button>}
-          </motion.div>
+          <EmptyState
+            icon={<History className="h-6 w-6" />}
+            title={noResultsBecauseFilters ? 'No matches found' : 'No watch history yet'}
+            description={noResultsBecauseFilters ? 'Your active filters or search are hiding everything in this history.' : `Your ${mediaType === 'movie' ? 'movie' : 'series'} history is empty.`}
+            action={noResultsBecauseFilters
+              ? <button type="button" onClick={clearFilters} className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-zinc-100 px-5 text-xs font-bold text-zinc-950"><X className="h-3.5 w-3.5" />Clear filters</button>
+              : <button type="button" onClick={() => navigate('/trending')} className="focus-ring inline-flex min-h-11 items-center rounded-xl bg-zinc-100 px-5 text-xs font-bold text-zinc-950">Discover Media</button>}
+            className="mb-4"
+          />
         )}
 
         {viewMode === 'grid' && filteredAndSortedHistory.length > 0 && (
@@ -1145,7 +1129,7 @@ const HistoryPage = () => {
               return (
                 <motion.article key={item.id} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }} onPointerDown={() => startLongPress(item)} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress} onPointerMove={cancelLongPress} className={`group relative min-w-0 rounded-2xl border bg-zinc-950 shadow-md transition-all duration-300 hover:shadow-[0_14px_34px_rgba(0,0,0,0.42)] ${selected ? 'border-emerald-400/55 ring-2 ring-emerald-400/15' : 'border-zinc-900 hover:border-zinc-800'}`}>
                   <div className="relative aspect-[2/3] overflow-hidden rounded-t-2xl bg-zinc-900">
-                    <PosterImage item={item} />
+<HistoryPoster item={item} />
                     <button
                       type="button"
                       onClick={() => handleCardOpen(item)}
@@ -1154,7 +1138,7 @@ const HistoryPage = () => {
                       onPointerCancel={cancelLongPress}
                       onPointerLeave={cancelLongPress}
                       onPointerMove={cancelLongPress}
-                      className="absolute inset-0 z-10"
+                      className="focus-ring absolute inset-0 z-10 rounded-t-2xl"
                       aria-label={`${selectionMode ? 'Select' : 'Open'} ${item.title || item.name || 'title'}`}
                     />
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-black/45 to-transparent" />
@@ -1162,30 +1146,30 @@ const HistoryPage = () => {
                     {releaseYear(item) > 0 && <div className="pointer-events-none absolute right-2 top-2 z-20 rounded-lg border border-white/10 bg-black/55 px-2 py-1 text-[9px] font-bold text-zinc-200 backdrop-blur-md">{releaseYear(item)}</div>}
 
                     {!selectionMode && (
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setActionItem(item); }} className="absolute bottom-2 left-2 z-40 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/55 text-white/80 shadow-[0_4px_14px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-black/75 active:scale-90 lg:hidden" aria-label="More actions" title="More actions"><MoreHorizontal className="h-4 w-4" /></button>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); setActionItem(item); }} className="focus-ring absolute bottom-2 left-2 z-40 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/55 text-white/80 shadow-[0_4px_14px_rgba(0,0,0,0.35)] backdrop-blur-xl transition hover:bg-black/75 active:scale-90 lg:hidden" aria-label={`More actions for ${item.title || item.name}`} title="More actions"><MoreHorizontal className="h-4 w-4" /></button>
                     )}
 
                     {selectionMode && (
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); toggleSelection(item); }} className={`absolute bottom-2 left-2 z-40 flex h-8 w-8 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/15 bg-black/60 text-white/60'}`} aria-label={selected ? 'Deselect title' : 'Select title'}><Check className="h-4 w-4 stroke-[3]" /></button>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); toggleSelection(item); }} className={`focus-ring absolute bottom-2 left-2 z-40 flex h-8 w-8 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/15 bg-black/60 text-white/60'}`} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected}><Check className="h-4 w-4 stroke-[3]" /></button>
                     )}
 
                     {userRating !== undefined && <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 -translate-x-1/2"><UserRatingBadge rating={userRating} /></div>}
                     <div className="pointer-events-none absolute bottom-2 right-2 z-30"><MiniStatusCluster favorite={favorite} inMyList={inMyList} inWatchlist={inWatchlist} /></div>
 
                     {!selectionMode && (
-                      <div className="absolute inset-x-2 bottom-2 z-40 hidden translate-y-3 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-black/65 p-1.5 opacity-0 shadow-xl backdrop-blur-xl transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 lg:flex">
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); toggleWatchlist(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${inWatchlist ? 'text-blue-400' : 'text-white/80 hover:text-blue-300'}`} title={inWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist'}>{inWatchlist ? <BookmarkMinus className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}</button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openRewatchEditor(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-emerald-400 transition hover:bg-white/10 hover:text-emerald-300" title="Add rewatch"><RotateCcw className="h-3.5 w-3.5" /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); toggleFavorite(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${favorite ? 'text-rose-400' : 'text-white/80 hover:text-rose-300'}`} title={favorite ? 'Remove Favorite' : 'Favorite'}><Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (inMyList) removeFromMyList(item); else { setFolderPickerItem(item); setShowFolderPicker(true); } }} className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${inMyList ? 'text-fuchsia-400' : 'text-white/80 hover:text-fuchsia-300'}`} title={inMyList ? 'Remove from My List' : 'Add to My List'}><ListChecks className="h-3.5 w-3.5" /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openWatchDateEditor(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-emerald-300" title="Change watch date"><CalendarDays className="h-3.5 w-3.5" /></button>
+                      <div className="absolute inset-x-2 bottom-2 z-40 hidden translate-y-3 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-black/65 p-1.5 opacity-0 shadow-xl backdrop-blur-xl transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100 lg:flex">
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); toggleWatchlist(item); }} className={`focus-ring flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${inWatchlist ? 'text-blue-400' : 'text-white/80 hover:text-blue-300'}`} title={inWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist'} aria-label={inWatchlist ? `Remove ${item.title || item.name} from Watchlist` : `Add ${item.title || item.name} to Watchlist`}>{inWatchlist ? <BookmarkMinus className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}</button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openRewatchEditor(item); }} className="focus-ring flex h-8 w-8 items-center justify-center rounded-xl text-emerald-400 transition hover:bg-white/10 hover:text-emerald-300" title="Add rewatch" aria-label={`Add rewatch for ${item.title || item.name}`}><RotateCcw className="h-3.5 w-3.5" /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); toggleFavorite(item); }} className={`focus-ring flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${favorite ? 'text-rose-400' : 'text-white/80 hover:text-rose-300'}`} title={favorite ? 'Remove Favorite' : 'Favorite'} aria-label={favorite ? `Remove ${item.title || item.name} from Favorites` : `Favorite ${item.title || item.name}`}><Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (inMyList) removeFromMyList(item); else { setFolderPickerItem(item); setShowFolderPicker(true); } }} className={`focus-ring flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${inMyList ? 'text-fuchsia-400' : 'text-white/80 hover:text-fuchsia-300'}`} title={inMyList ? 'Remove from My List' : 'Add to My List'} aria-label={inMyList ? `Remove ${item.title || item.name} from My List` : `Add ${item.title || item.name} to My List`}><ListChecks className="h-3.5 w-3.5" /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); openWatchDateEditor(item); }} className="focus-ring flex h-8 w-8 items-center justify-center rounded-xl text-white/80 transition hover:bg-white/10 hover:text-emerald-300" title="Change watch date" aria-label={`Change watch date for ${item.title || item.name}`}><CalendarDays className="h-3.5 w-3.5" /></button>
                       </div>
                     )}
                   </div>
 
                   <div className="p-3">
                     <div className="flex items-start gap-2">
-                      <button type="button" onClick={() => handleCardOpen(item)} className="block min-w-0 flex-1 text-left">
+                      <button type="button" onClick={() => handleCardOpen(item)} className="focus-ring block min-w-0 flex-1 rounded-sm text-left">
                         <h2 className="line-clamp-1 text-xs font-bold tracking-tight text-zinc-200 transition-colors group-hover:text-white">{item.title || item.name}</h2>
                       </button>
                       {!selectionMode && (
@@ -1193,7 +1177,7 @@ const HistoryPage = () => {
                           type="button"
                           onPointerDown={(event) => event.stopPropagation()}
                           onClick={(event) => { event.stopPropagation(); setActionItem(item); }}
-                          className="hidden h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.03] text-zinc-400 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95 lg:flex"
+                          className="focus-ring hidden h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.03] text-zinc-400 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95 lg:flex"
                           aria-label={`Open quick actions for ${item.title || item.name || 'title'}`}
                           title="Quick actions"
                         >
@@ -1251,12 +1235,11 @@ const HistoryPage = () => {
                   onPointerCancel={cancelLongPress}
                   onPointerLeave={cancelLongPress}
                   onPointerMove={cancelLongPress}
-                  onClick={() => handleCardOpen(item)}
-                  className={`flex cursor-pointer items-center gap-3 rounded-2xl border bg-zinc-950/60 p-2.5 backdrop-blur-xl transition ${selected ? 'border-emerald-400/45 ring-2 ring-emerald-400/10' : 'border-white/[0.05] hover:border-white/10'}`}
+                  className={`flex items-center gap-3 rounded-2xl border bg-zinc-950/60 p-2.5 backdrop-blur-xl transition ${selected ? 'border-emerald-400/45 ring-2 ring-emerald-400/10' : 'border-white/[0.05] hover:border-white/10'}`}
                 >
-                  <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900"><PosterImage item={item} /></div>
+                  <button type="button" onClick={() => handleCardOpen(item)} aria-label={`${selectionMode ? 'Select' : 'Open'} ${item.title || item.name}`} aria-pressed={selectionMode ? selected : undefined} className="focus-ring relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900"><HistoryPoster item={item} /></button>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-bold text-white">{item.title || item.name}</h3>
+                    <button type="button" onClick={() => handleCardOpen(item)} className="focus-ring max-w-full rounded-sm text-left"><h3 className="truncate text-sm font-bold text-white">{item.title || item.name}</h3></button>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500">
                       {watchCount(item) > 1 && (
                         <span className="inline-flex items-center gap-1 text-[9px] font-medium text-zinc-400">
@@ -1293,9 +1276,9 @@ const HistoryPage = () => {
                       {userRating !== undefined && <UserRatingBadge rating={userRating} />}
                       <MiniStatusCluster favorite={favorite} inMyList={inMyList} inWatchlist={inWatchlist} />
                       {selectionMode ? (
-                        <button type="button" onClick={() => toggleSelection(item)} className={`flex h-9 w-9 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}><Check className="h-4 w-4 stroke-[3]" /></button>
+                        <button type="button" onClick={() => toggleSelection(item)} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected} className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}><Check className="h-4 w-4 stroke-[3]" /></button>
                       ) : (
-                        <button type="button" onClick={() => setActionItem(item)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95" title="More actions"><MoreHorizontal className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => setActionItem(item)} aria-label={`More actions for ${item.title || item.name}`} className="focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95" title="More actions"><MoreHorizontal className="h-4 w-4" /></button>
                       )}
                     </div>
                   </div>
@@ -1331,10 +1314,10 @@ const HistoryPage = () => {
                     const userRating = userRatings.get(key);
                     return (
                       <motion.div key={`${group.key}-${event.id}`} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} className={`group flex items-center gap-3 rounded-2xl border bg-zinc-950/65 p-2.5 backdrop-blur-xl transition ${selected ? 'border-emerald-400/45 ring-2 ring-emerald-400/10' : 'border-white/[0.05] hover:border-white/10'}`}>
-                        <button type="button" onClick={() => handleCardOpen(item)} onPointerDown={() => startLongPress(item)} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress} className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900">
-                          <PosterImage item={item} />
+                        <button type="button" onClick={() => handleCardOpen(item)} onPointerDown={() => startLongPress(item)} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress} aria-label={`${selectionMode ? 'Select' : 'Open'} ${item.title || item.name}`} className="focus-ring relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900">
+<HistoryPoster item={item} />
                         </button>
-                        <button type="button" onClick={() => handleCardOpen(item)} className="min-w-0 flex-1 text-left">
+                        <button type="button" onClick={() => handleCardOpen(item)} className="focus-ring min-w-0 flex-1 rounded-sm text-left">
                           <h4 className="truncate text-sm font-bold text-white">{item.title || item.name}</h4>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-500">
                             <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/15 bg-emerald-500/[0.075] px-2 py-1 text-[9px] font-bold text-emerald-300"><CalendarCheck className="h-3 w-3" />{formatWatchedDate(event.date)}</span>
@@ -1346,9 +1329,9 @@ const HistoryPage = () => {
                           {userRating !== undefined && <UserRatingBadge rating={userRating} />}
                           <MiniStatusCluster favorite={favorite} inMyList={inMyList} inWatchlist={inWatchlist} />
                           {selectionMode ? (
-                            <button type="button" onClick={() => toggleSelection(item)} className={`flex h-9 w-9 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}><Check className="h-4 w-4 stroke-[3]" /></button>
+                      <button type="button" onClick={() => toggleSelection(item)} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected} className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}><Check className="h-4 w-4 stroke-[3]" /></button>
                           ) : (
-                            <button type="button" onClick={() => setActionItem(item)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white"><MoreHorizontal className="h-4 w-4" /></button>
+                            <button type="button" onClick={() => setActionItem(item)} aria-label={`More actions for ${item.title || item.name}`} className="focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white"><MoreHorizontal className="h-4 w-4" /></button>
                           )}
                         </div>
                       </motion.div>
@@ -1370,7 +1353,7 @@ const HistoryPage = () => {
             <motion.div initial={{ y: 60, opacity: 0, scale: 0.985 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 60, opacity: 0, scale: 0.985 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }} className="relative z-10 w-full rounded-t-[30px] border border-white/10 bg-zinc-950 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-20px_70px_rgba(0,0,0,0.72)] sm:max-w-md sm:rounded-[30px] sm:p-5">
               <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-white/15 sm:hidden" />
               <div className="mb-4 flex items-center gap-3">
-                <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900"><PosterImage item={actionItem} /></div>
+                <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900"><HistoryPoster item={actionItem} /></div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Quick actions</p>
                   <h3 className="mt-1 truncate text-base font-black tracking-tight text-white">{actionItem.title || actionItem.name}</h3>
@@ -1504,7 +1487,6 @@ const HistoryPage = () => {
         document.body,
       )}
 
-      <style>{`@keyframes historyShimmer { 100% { transform: translateX(100%); } }`}</style>
     </div>
   );
 };

@@ -7,14 +7,41 @@ import { useNavigate, Link } from "react-router-dom";
 import ReviewList from "../components/ReviewList.tsx";
 import { RecommendationSection, WatchlistItem, HistoryItem, FavouriteTalent, RatedMovie } from "../components/Recommendation.tsx";
 import { UserRatingSection } from "../components/UserRating.tsx";
+import { syncPublicDirectoryProfile } from "../services/socialService.ts";
 import { User, ChevronRight, Star, Heart, Film, Bookmark, History, SquarePen, Tv, Camera, Loader2, ImageOff, X, MapPin, CalendarDays, ImagePlus, Upload, Search, CheckCircle2, Trash2, ExternalLink, Link2, ChevronDown, Check, } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import BingeWatchStats from "../components/BingeWatchStats.tsx";
 import Toast from "../components/Toast.tsx";
+import UserAvatar, { getGoogleName, getGooglePhoto, type AvatarMode } from "../components/UserAvatar.tsx";
 
-const BASE_POSTER_URL = "https://image.tmdb.org/t/p/original/";
+const BASE_POSTER_URL = "https://image.tmdb.org/t/p/w500/";
 const TMDB_API_KEY = "859afbb4b98e3b467da9c99ac390e950";
+
+const tmdbGet = async (path: string, params: Record<string, unknown> = {}) => {
+  const requestParams = { ...params, api_key: TMDB_API_KEY };
+  try {
+    const response = await axios.get(`/api/tmdb${path}`, { params: requestParams });
+    if (typeof response.data === "string" || !response.data || typeof response.data !== "object") {
+      throw new Error("Invalid TMDB proxy response");
+    }
+    return response;
+  } catch {
+    return axios.get(`https://api.themoviedb.org/3${path}`, { params: requestParams });
+  }
+};
+
+const optimizeMediaUrl = (src: string | undefined) => {
+  if (!src || !src.startsWith("https://image.tmdb.org/t/p/")) return src;
+  return src.replace(/\/t\/p\/(?:original|w1280|w780|w500|w342)\//, "/t/p/w500/");
+};
+
+const MediaImage = ({ src, loading = "lazy", decoding = "async", onError, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  return <img {...props} src={failed ? undefined : optimizeMediaUrl(src)} loading={loading} decoding={decoding} onError={(event) => { setFailed(true); onError?.(event); }} />;
+};
+
 const MAX_PHOTO_PX = 256;
 const PHOTO_QUALITY = 0.72;
 
@@ -139,7 +166,7 @@ const MediaRow = ({
           >
             <div className="relative aspect-[2/3] overflow-hidden bg-zinc-900">
               {item.posterPath ? (
-                <img
+                <MediaImage
                   src={item.posterPath}
                   alt={item.title}
                   className="w-full h-full object-cover"
@@ -249,6 +276,8 @@ const ProfilePage = () => {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>("initial");
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [ratedMovies, setRatedMovies] = useState<RatedMovie[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -335,7 +364,7 @@ const ProfilePage = () => {
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
         const data = snap.data();
-        setUsername(data.username ?? "");
+        setUsername(getGoogleName(user));
         setBio(data.bio ?? "");
         setLocation(data.location ?? "");
         setHandle(data.handle ?? "");
@@ -348,10 +377,21 @@ const ProfilePage = () => {
         setBannerUrl(data.profileBannerUrl ?? "");
         setBannerTitle(data.profileBannerTitle ?? "");
         setScenePosition(data.profileScenePosition === "top" || data.profileScenePosition === "bottom" ? data.profileScenePosition : "center");
-        if (data.photoDataUrl) setPhotoDataUrl(data.photoDataUrl);
+        const savedPhoto = typeof data.photoDataUrl === "string" && data.photoDataUrl ? data.photoDataUrl : null;
+        const removed = data.avatarMode === "removed" || data.photoRemoved === true;
+        setPhotoDataUrl(savedPhoto);
+        setAvatarMode(removed ? "removed" : data.avatarMode === "initial" ? "initial" : data.avatarMode === "google" ? "google" : savedPhoto ? "custom" : getGooglePhoto(user) ? "google" : "initial");
+      } else {
+        setUsername(getGoogleName(user));
+        setAvatarMode(getGooglePhoto(user) ? "google" : "initial");
       }
+      setProfileLoaded(true);
     };
-    fetchProfile();
+    fetchProfile().catch(() => {
+      setUsername(getGoogleName(user));
+      setAvatarMode(getGooglePhoto(user) ? "google" : "initial");
+      setProfileLoaded(true);
+    });
 
     const unsubs = [
       onSnapshot(collection(db, `users/${user.uid}/watchlist`), (snap) => {
@@ -480,9 +520,7 @@ const ProfilePage = () => {
       await Promise.all(
         historyItems.map(async (item) => {
           try {
-            const res = await axios.get(
-              `https://api.themoviedb.org/3/${item.mediaType}/${item.id}?api_key=${TMDB_API_KEY}`
-            );
+            const res = await tmdbGet(`/${item.mediaType}/${item.id}`);
             const runtime =
               item.mediaType === "movie"
                 ? (res.data.runtime || 120)
@@ -525,8 +563,8 @@ const ProfilePage = () => {
         const key = `${item.mediaType}-${item.id}`;
         if (bannerChoices[key]) return;
         try {
-          const response = await axios.get(`https://api.themoviedb.org/3/${item.mediaType}/${item.id}?api_key=${TMDB_API_KEY}`);
-          if (response.data.backdrop_path) results[key] = `https://image.tmdb.org/t/p/original${response.data.backdrop_path}`;
+          const response = await tmdbGet(`/${item.mediaType}/${item.id}`);
+          if (response.data.backdrop_path) results[key] = `https://image.tmdb.org/t/p/w780${response.data.backdrop_path}`;
         } catch { }
       }));
       if (!cancelled) {
@@ -546,8 +584,8 @@ const ProfilePage = () => {
       try {
         const term = bannerSearch.trim();
         const requests = term
-          ? [axios.get("https://api.themoviedb.org/3/search/multi", { params: { api_key: TMDB_API_KEY, query: term, include_adult: false, page: 1 } })]
-          : [axios.get("https://api.themoviedb.org/3/trending/all/week", { params: { api_key: TMDB_API_KEY } })];
+          ? [tmdbGet("/search/multi", { query: term, include_adult: false, page: 1 })]
+          : [tmdbGet("/trending/all/week")];
         const responses = await Promise.all(requests);
         if (cancelled) return;
         setSceneResults(responses.flatMap((response) => (response.data.results ?? []).filter((item: any) => (item.media_type === "movie" || item.media_type === "tv") && item.backdrop_path).map((item: any) => ({ id: item.id, title: item.title || item.name || "Untitled", mediaType: item.media_type, backdrop: `https://image.tmdb.org/t/p/w780${item.backdrop_path}` }))));
@@ -566,9 +604,9 @@ const ProfilePage = () => {
     setSceneChosenUrl("");
     setSceneImagesLoading(true);
     try {
-      const response = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}/images`, { params: { api_key: TMDB_API_KEY, include_image_language: "en,null" } });
+      const response = await tmdbGet(`/${mediaType}/${id}/images`, { include_image_language: "en,null" });
       const backdrops = (response.data.backdrops ?? []).filter((item: any) => item.file_path && item.width >= 780).slice(0, 36);
-      setSceneImages(backdrops.map((item: any) => ({ url: `https://image.tmdb.org/t/p/original${item.file_path}`, title })));
+      setSceneImages(backdrops.map((item: any) => ({ url: `https://image.tmdb.org/t/p/w1280${item.file_path}`, title })));
       if (!backdrops.length) showToast("No backdrops available for this title", "info");
     } catch {
       showToast("Couldn't load this title's scenes", "error");
@@ -642,10 +680,11 @@ const ProfilePage = () => {
       setPhotoPreview(dataUrl);
       await setDoc(
         doc(db, "users", user.uid),
-        { photoDataUrl: dataUrl },
+        { photoDataUrl: dataUrl, avatarMode: "custom", photoRemoved: false },
         { merge: true },
       );
       setPhotoDataUrl(dataUrl);
+       setAvatarMode("custom");
       setPhotoPreview(null);
       showToast("Profile photo updated!", "success");
     } catch {
@@ -657,16 +696,35 @@ const ProfilePage = () => {
   };
 
   const useAccountPhoto = async () => {
-    if (!user?.uid || !accountPhoto) return;
+    if (!user?.uid) return;
     setIsUploadingPhoto(true);
     try {
-      await setDoc(doc(db, "users", user.uid), { photoDataUrl: accountPhoto }, { merge: true });
-      setPhotoDataUrl(accountPhoto);
+      const nextMode: AvatarMode = getGooglePhoto(user) ? "google" : "initial";
+      await setDoc(doc(db, "users", user.uid), { photoDataUrl: null, avatarMode: nextMode, photoRemoved: false }, { merge: true });
+      setPhotoDataUrl(null);
+      setAvatarMode(nextMode);
       setPhotoPreview(null);
       setPhotoOpen(false);
-      showToast("Account photo applied", "success");
+      showToast(nextMode === "google" ? "Account photo applied" : "Initial avatar applied", "success");
     } catch {
-      showToast("Could not apply account photo", "error");
+      showToast("Could not apply account avatar", "error");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const useInitialAvatar = async () => {
+    if (!user?.uid) return;
+    setIsUploadingPhoto(true);
+    try {
+      await setDoc(doc(db, "users", user.uid), { photoDataUrl: null, avatarMode: "initial", photoRemoved: false }, { merge: true });
+      setPhotoDataUrl(null);
+      setAvatarMode("initial");
+      setPhotoPreview(null);
+      setPhotoOpen(false);
+      showToast("Initial avatar applied", "success");
+    } catch {
+      showToast("Could not apply initial avatar", "error");
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -678,10 +736,11 @@ const ProfilePage = () => {
     try {
       await setDoc(
         doc(db, "users", user.uid),
-        { photoDataUrl: null },
+        { photoDataUrl: null, avatarMode: "removed", photoRemoved: true },
         { merge: true },
       );
       setPhotoDataUrl(null);
+      setAvatarMode("removed");
       setPhotoPreview(null);
       showToast("Photo removed", "info");
     } catch {
@@ -700,9 +759,10 @@ const ProfilePage = () => {
     try {
       await setDoc(
         doc(db, "users", user.uid),
-        { username, bio, location },
+        { bio, location },
         { merge: true },
       );
+      await syncPublicDirectoryProfile(user);
       showToast("Profile updated!", "success");
       setIsEditingUsername(false);
       setIsEditingBio(false);
@@ -733,8 +793,9 @@ const ProfilePage = () => {
     }
     setIsSaving(true);
     try {
-      await setDoc(doc(db, "users", user.uid), { username: editDraft.username.trim(), bio: editDraft.bio.trim(), handle: nextHandle, location: editDraft.location.trim(), profileLinks: nextLinks }, { merge: true });
-      setUsername(editDraft.username.trim());
+      await setDoc(doc(db, "users", user.uid), { bio: editDraft.bio.trim(), handle: nextHandle, location: editDraft.location.trim(), profileLinks: nextLinks }, { merge: true });
+      await syncPublicDirectoryProfile(user);
+      setUsername(getGoogleName(user));
       setBio(editDraft.bio.trim());
       setHandle(nextHandle);
       setLocation(editDraft.location.trim());
@@ -756,8 +817,9 @@ const ProfilePage = () => {
       if (!response.ok) throw new Error("Image unavailable");
       const blob = await response.blob();
       const dataUrl = await compressImageToBase64(new File([blob], "talent.jpg", { type: blob.type || "image/jpeg" }));
-      await setDoc(doc(db, "users", user.uid), { photoDataUrl: dataUrl }, { merge: true });
+      await setDoc(doc(db, "users", user.uid), { photoDataUrl: dataUrl, avatarMode: "custom", photoRemoved: false }, { merge: true });
       setPhotoDataUrl(dataUrl);
+       setAvatarMode("custom");
       setPhotoOpen(false);
       showToast("Profile photo updated", "success");
     } catch {
@@ -772,7 +834,7 @@ const ProfilePage = () => {
     setTalentGallery([]);
     setTalentLoading(true);
     try {
-      const response = await axios.get(`https://api.themoviedb.org/3/person/${id}/images`, { params: { api_key: TMDB_API_KEY } });
+      const response = await tmdbGet(`/person/${id}/images`);
       setTalentGallery((response.data.profiles ?? []).filter((item: any) => item.file_path).slice(0, 48));
     } catch {
       showToast("Couldn't load talent images", "error");
@@ -788,7 +850,7 @@ const ProfilePage = () => {
       if (!talentSearch.trim()) { setTalentResults([]); return; }
       setTalentLoading(true);
       try {
-        const response = await axios.get("https://api.themoviedb.org/3/search/person", { params: { api_key: TMDB_API_KEY, query: talentSearch, include_adult: false } });
+        const response = await tmdbGet("/search/person", { query: talentSearch, include_adult: false });
         if (!cancelled) setTalentResults((response.data.results ?? []).slice(0, 24));
       } catch {
         if (!cancelled) showToast("Talent search failed", "error");
@@ -866,7 +928,7 @@ const ProfilePage = () => {
       setTopFiveSearching(true);
       try {
         const type = topFiveOpen === "actors" ? "person" : topFiveOpen === "films" ? "movie" : "tv";
-        const response = await axios.get(`https://api.themoviedb.org/3/search/${type}`, { params: { api_key: TMDB_API_KEY, query: topFiveQuery.trim(), include_adult: false, page: 1 } });
+        const response = await tmdbGet(`/search/${type}`, { query: topFiveQuery.trim(), include_adult: false, page: 1 });
         if (!cancelled) { if (type === "person") setTopFiveTalentResults((response.data.results || []).map((item: any) => ({ id: String(item.id), name: item.name || "Unknown", profilePath: item.profile_path ? `https://image.tmdb.org/t/p/w342${item.profile_path}` : "" })).slice(0, 30)); else setTopFiveResults((response.data.results || []).map((item: any) => ({ id: String(item.id), title: item.title || item.name || "Untitled", posterPath: item.poster_path ? `https://image.tmdb.org/t/p/w342${item.poster_path}` : "", mediaType: type, year: String(item.release_date || item.first_air_date || "").slice(0, 4) })).slice(0, 30)); }
       } catch { if (!cancelled) showToast("Search failed", "error"); }
       finally { if (!cancelled) setTopFiveSearching(false); }
@@ -880,15 +942,17 @@ const ProfilePage = () => {
     if (!missing.length) return;
     let cancelled = false;
     Promise.all(missing.map(async item => {
-      try { const res = await axios.get(`https://api.themoviedb.org/3/${item.mediaType}/${item.id}`, { params: { api_key: TMDB_API_KEY } }); return [`${item.mediaType}-${item.id}`, String(res.data.release_date || res.data.first_air_date || "").slice(0, 4)] as const; }
+      try { const res = await tmdbGet(`/${item.mediaType}/${item.id}`); return [`${item.mediaType}-${item.id}`, String(res.data.release_date || res.data.first_air_date || "").slice(0, 4)] as const; }
       catch { return [`${item.mediaType}-${item.id}`, "—"] as const; }
     })).then(values => { if (!cancelled) setTopFiveYears(prev => ({ ...prev, ...Object.fromEntries(values) })); });
     return () => { cancelled = true; };
   }, [topFiveFilms, topFiveShows, topFiveCatalog]);
-  const renderTopFiveMedia = (items: FavouriteMediaItem[]) => <div className="grid grid-cols-5 gap-2 sm:gap-3 lg:gap-3 lg:max-w-[800px]">{items.map((item, index) => <Link key={`${item.mediaType}-${item.id}`} to={`/${item.mediaType}/${item.id}`} className="group min-w-0"><div className="relative overflow-hidden rounded-lg bg-zinc-900"><div className="aspect-[2/3]">{item.posterPath && <img src={item.posterPath} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}</div><span className="absolute left-1.5 top-1.5 rounded-md bg-black/85 px-1.5 py-0.5 text-[10px] font-bold text-white">{index + 1}</span></div><p className="mt-2 line-clamp-2 text-[10px] leading-snug text-zinc-300 sm:text-xs">{item.title}</p><p className="mt-0.5 text-[10px] text-zinc-500">{topFiveCatalog[`${item.mediaType}-${item.id}`]?.year || topFiveYears[`${item.mediaType}-${item.id}`] || ""}</p></Link>)}{items.length === 0 && <p className="col-span-5 py-6 text-xs text-zinc-500">Choose up to five titles from favourites or search Cinescape.</p>}</div>;
+  const renderTopFiveMedia = (items: FavouriteMediaItem[]) => <div className="grid grid-cols-5 gap-2 sm:gap-3 lg:gap-3 lg:max-w-[800px]">{items.map((item, index) => <Link key={`${item.mediaType}-${item.id}`} to={`/${item.mediaType}/${item.id}`} className="group min-w-0"><div className="relative overflow-hidden rounded-lg bg-zinc-900"><div className="aspect-[2/3]">{item.posterPath && <MediaImage src={item.posterPath} alt={item.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />}</div><span className="absolute left-1.5 top-1.5 rounded-md bg-black/85 px-1.5 py-0.5 text-[10px] font-bold text-white">{index + 1}</span></div><p className="mt-2 line-clamp-2 text-[10px] leading-snug text-zinc-300 sm:text-xs">{item.title}</p><p className="mt-0.5 text-[10px] text-zinc-500">{topFiveCatalog[`${item.mediaType}-${item.id}`]?.year || topFiveYears[`${item.mediaType}-${item.id}`] || ""}</p></Link>)}{items.length === 0 && <p className="col-span-5 py-6 text-xs text-zinc-500">Choose up to five titles from favourites or search Cinescape.</p>}</div>;
 
-  const accountPhoto = getAuth().currentUser?.photoURL || null;
-  const displayPhoto = photoPreview ?? photoDataUrl;
+  const accountPhoto = getGooglePhoto(user);
+  const exactName = getGoogleName(user);
+  const displayPhoto = photoPreview ?? (avatarMode === "custom" ? photoDataUrl : avatarMode === "google" ? accountPhoto : null);
+  const effectiveAvatarMode: AvatarMode = photoPreview ? "custom" : avatarMode;
 
   const isEditing = isEditingUsername || isEditingBio || isEditingLocation;
 
@@ -924,18 +988,18 @@ const ProfilePage = () => {
                     <div className="relative overflow-hidden bg-[#17100c] shadow-[7px_15px_0_-7px_#493020,12px_25px_36px_rgba(0,0,0,.85),inset_0_1px_0_rgba(255,230,180,.5)]" style={{ clipPath: "polygon(0 0,100% 0,100% 42%,94% 46%,94% 54%,100% 58%,100% 100%,0 100%,0 58%,6% 54%,6% 46%,0 42%)" }}>
                       <button type="button" onClick={() => setPortraitCreditsOpen(value => !value)} aria-expanded={portraitCreditsOpen} aria-label={portraitCreditsOpen ? "Hide ticket holder" : "Reveal ticket holder"} className="relative block w-full overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
                         <div className="flex h-[19px] items-center justify-between gap-1 border-b border-dashed border-amber-200/45 bg-[#20140e] px-2 font-mono text-[6px] font-bold tracking-[.08em] text-amber-100 sm:h-[23px] sm:text-[8px]"><span>CINESCAPE</span><span>ADMIT ONE</span></div>
-                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#120e0c]"><img src={displayPhoto || accountPhoto || "/user-icon.jpg"} alt="Profile portrait" className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.06]" /><div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10" /><div className="pointer-events-none absolute inset-0 opacity-[.10] mix-blend-screen [background:repeating-linear-gradient(110deg,transparent_0px,transparent_3px,rgba(255,245,210,.3)_4px,transparent_5px)]" /></div>
+                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#120e0c]"><UserAvatar name={exactName} photo={displayPhoto} mode={effectiveAvatarMode} className="absolute inset-0 h-full w-full rounded-none text-6xl transition-transform duration-700 group-hover:scale-[1.06]" /><div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10" /><div className="pointer-events-none absolute inset-0 opacity-[.10] mix-blend-screen [background:repeating-linear-gradient(110deg,transparent_0px,transparent_3px,rgba(255,245,210,.3)_4px,transparent_5px)]" /></div>
                         <div className="flex h-[19px] items-center justify-between gap-1 border-t border-dashed border-amber-200/45 bg-[#20140e] px-2 font-mono text-[6px] font-semibold tracking-[.03em] text-amber-100 sm:h-[23px] sm:text-[7px]"><span>PREMIERE PASS</span><span>01 / 01</span></div>
                         <div className="pointer-events-none absolute inset-[2px] border border-amber-100/30" />
                         <div className="pointer-events-none absolute inset-y-0 -left-full w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-[480%] motion-reduce:hidden" />
                       </button>
                       <button type="button" onClick={() => { setPhotoMode("favourites"); setTalentGallery([]); setPhotoOpen(true); }} disabled={isUploadingPhoto} aria-label="Change profile picture" className="absolute right-2 top-7 z-20 rounded-full border border-amber-200/40 bg-black/80 p-2 text-amber-100 shadow-lg backdrop-blur-md transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">{isUploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}</button>
                     </div>
-                    <AnimatePresence initial={false}>{portraitCreditsOpen && <motion.div initial={{ height: 0, opacity: 0, y: -8 }} animate={{ height: "auto", opacity: 1, y: 0 }} exit={{ height: 0, opacity: 0, y: -8 }} transition={{ duration: 0.3 }} className="overflow-hidden"><div className="mt-1 border-x border-b border-dashed border-amber-200/40 bg-[#21160f] px-2 py-3 text-center shadow-xl"><p className="font-mono text-[8px] tracking-[.2em] text-amber-300">TICKET HOLDER</p><p className="mt-1 break-words text-xs font-bold text-white">{username || "Cinescape member"}</p>{handle && <p className="mt-1 truncate text-[9px] text-amber-100/60">@{handle}</p>}</div></motion.div>}</AnimatePresence>
+                    <AnimatePresence initial={false}>{portraitCreditsOpen && <motion.div initial={{ height: 0, opacity: 0, y: -8 }} animate={{ height: "auto", opacity: 1, y: 0 }} exit={{ height: 0, opacity: 0, y: -8 }} transition={{ duration: 0.3 }} className="overflow-hidden"><div className="mt-1 border-x border-b border-dashed border-amber-200/40 bg-[#21160f] px-2 py-3 text-center shadow-xl"><p className="font-mono text-[8px] tracking-[.2em] text-amber-300">TICKET HOLDER</p><p className="mt-1 break-words text-xs font-bold text-white">{exactName}</p>{handle && <p className="mt-1 truncate text-[9px] text-amber-100/60">@{handle}</p>}</div></motion.div>}</AnimatePresence>
                   </motion.div>
                 </div>
                 <div className="relative z-10 min-w-0 flex-1 pb-0 lg:hidden">
-                  <h2 className="break-words text-xl font-extrabold tracking-tight">{username || "Cinescape member"}</h2>
+                  <h2 className="break-words text-xl font-extrabold tracking-tight">{exactName}</h2>
                   {handle && <p className="mt-1 text-xs text-zinc-400">@{handle}</p>}
                   <p className="mt-2 flex items-center gap-1.5 text-xs text-zinc-400"><CalendarDays className="h-3.5 w-3.5 shrink-0 text-emerald-600" />{memberSince ? `Member since ${memberSince}` : "Cinescape member"}</p>
                   {location && <p className="mt-1 flex items-center gap-1.5 text-xs text-zinc-400"><MapPin className="h-3.5 w-3.5 shrink-0 text-blue-600" />{location}</p>}
@@ -943,26 +1007,26 @@ const ProfilePage = () => {
                 </div>
               </div>
               <div className="space-y-4 px-1 pb-5 pt-2 sm:px-6 lg:px-5 lg:pt-5">
-                <div className="hidden lg:block"><h2 className="break-words text-2xl font-extrabold tracking-tight">{username || "Cinescape member"}</h2>{handle && <p className="mt-1 text-xs text-zinc-400">@{handle}</p>}<div className="mt-3 space-y-1 text-xs text-zinc-500">{memberSince && <p className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5 text-green-600" /> Member since {memberSince}</p>}{location && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-blue-600" /> {location}</p>}</div></div>
+                <div className="hidden lg:block"><h2 className="break-words text-2xl font-extrabold tracking-tight">{exactName}</h2>{handle && <p className="mt-1 text-xs text-zinc-400">@{handle}</p>}<div className="mt-3 space-y-1 text-xs text-zinc-500">{memberSince && <p className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5 text-green-600" /> Member since {memberSince}</p>}{location && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-blue-600" /> {location}</p>}</div></div>
                 <div className="grid grid-cols-2 gap-2 lg:hidden">{[{ label: "SEEN", value: filmsWatched + seriesWatched }, { label: "VERDICTS", value: ratedMovies.length }, { label: "QUEUED", value: watchlist.length }, { label: "AVG VERDICT", value: avgRating ?? "N/A" }].map((item) => <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.025] p-3"><p className="text-xl font-extrabold tabular-nums">{item.value}</p><p className="mt-1 text-[10px] font-semibold tracking-wider text-zinc-500">{item.label}</p></div>)}</div>
                 {bio && <p className="whitespace-pre-wrap text-xs leading-relaxed text-zinc-400">{bio}</p>}
                 {profileLinks.length > 0 && <div className="relative w-fit max-w-full"><button type="button" onClick={() => setLinksOpen(value => !value)} aria-expanded={linksOpen} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-zinc-900/90 px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-zinc-800"><Link2 className="h-3.5 w-3.5" /> Links <ChevronDown className={`h-3 w-3 transition-transform ${linksOpen ? "rotate-180" : ""}`} /></button><AnimatePresence>{linksOpen && <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="absolute left-0 top-full z-40 mt-2 w-[min(270px,calc(100vw-48px))] overflow-hidden rounded-xl border border-white/10 bg-[#090909] p-1.5 shadow-2xl">{profileLinks.map((item, index) => <a key={`${item.url}-${index}`} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-xs text-zinc-400 transition hover:bg-white/10 hover:text-white"><span className="min-w-0 truncate">{item.label}</span><ExternalLink className="h-3.5 w-3.5 shrink-0" /></a>)}</motion.div>}</AnimatePresence></div>}
                 <div className="hidden"><button onClick={openEdit} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300"><SquarePen className="h-4 w-4" /> Edit profile</button><button onClick={() => setBannerOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300"><ImagePlus className="h-4 w-4" /> Change scene</button></div>
-                <div className="hidden space-y-4 border-t border-white/10 pt-4 lg:hidden"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-bold">The Top Five</h3><button onClick={() => { setTopFiveOpen(topFiveMediaTab); setTopFiveSource("favourites"); }} className="shrink-0 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-zinc-300">Arrange / Add</button></div><div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1">{(["films", "shows", "actors"] as const).map(tab => <button key={tab} onClick={() => { if (tab !== "actors") setTopFiveMediaTab(tab); else setTopFiveOpen("actors"); }} className={`rounded-lg px-2 py-2 text-xs font-semibold ${tab === topFiveMediaTab ? "border border-white/15 bg-white/15 text-white" : "text-zinc-400"}`}>{tab === "films" ? "Films" : tab === "shows" ? "Shows" : "Talents"}</button>)}</div>{renderTopFiveMedia(topFiveMediaTab === "films" ? topFiveFilms : topFiveShows)}<button onClick={() => setTopFiveOpen("actors")} className="text-xs text-zinc-400">Arrange Top Five Talents →</button><div className="grid grid-cols-5 gap-2">{topFiveActors.map((item, index) => <Link key={item.id} to={`/talent/${item.id}`} className="min-w-0"><div className="relative"><img src={item.profilePath || "/user-icon.jpg"} alt={item.name} className="aspect-[3/4] w-full rounded-lg object-cover" /><span className="absolute left-1 top-1 rounded bg-black/80 px-1 text-[10px]">{index + 1}</span></div><p className="mt-1 line-clamp-2 text-[10px] text-zinc-400">{item.name}</p></Link>)}</div></div>
+                <div className="hidden space-y-4 border-t border-white/10 pt-4 lg:hidden"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-bold">The Top Five</h3><button onClick={() => { setTopFiveOpen(topFiveMediaTab); setTopFiveSource("favourites"); }} className="shrink-0 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-zinc-300">Arrange / Add</button></div><div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1">{(["films", "shows", "actors"] as const).map(tab => <button key={tab} onClick={() => { if (tab !== "actors") setTopFiveMediaTab(tab); else setTopFiveOpen("actors"); }} className={`rounded-lg px-2 py-2 text-xs font-semibold ${tab === topFiveMediaTab ? "border border-white/15 bg-white/15 text-white" : "text-zinc-400"}`}>{tab === "films" ? "Films" : tab === "shows" ? "Shows" : "Talents"}</button>)}</div>{renderTopFiveMedia(topFiveMediaTab === "films" ? topFiveFilms : topFiveShows)}<button onClick={() => setTopFiveOpen("actors")} className="text-xs text-zinc-400">Arrange Top Five Talents →</button><div className="grid grid-cols-5 gap-2">{topFiveActors.map((item, index) => <Link key={item.id} to={`/talent/${item.id}`} className="min-w-0"><div className="relative"><MediaImage src={item.profilePath || "/user-icon.jpg"} alt={item.name} className="aspect-[3/4] w-full rounded-lg object-cover" /><span className="absolute left-1 top-1 rounded bg-black/80 px-1 text-[10px]">{index + 1}</span></div><p className="mt-1 line-clamp-2 text-[10px] text-zinc-400">{item.name}</p></Link>)}</div></div>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
             </aside>
             <div className="min-w-0">
               <div className="hidden lg:flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-6 py-4"><div className="grid grid-cols-4 gap-2">{[{ label: "SEEN", value: filmsWatched + seriesWatched }, { label: "VERDICTS", value: ratedMovies.length }, { label: "QUEUED", value: watchlist.length }, { label: "AVG VERDICT", value: avgRating ?? "N/A" }].map((item) => <div key={item.label} className="min-w-[100px] rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2"><p className="text-lg font-extrabold tabular-nums">{item.value}</p><p className="text-[9px] font-semibold tracking-wider text-zinc-500">{item.label}</p></div>)}</div><div className="flex gap-2"><button onClick={openEdit} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><SquarePen className="h-4 w-4" /> Edit profile</button><button onClick={() => setBannerOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><ImagePlus className="h-4 w-4" /> Change scene</button></div></div>
                             <div className="border-b border-white/10 px-4 py-5 sm:px-7 sm:py-6 lg:py-4"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-bold">The Top Five</h3><button onClick={() => { setTopFiveOpen(topFiveMediaTab); setTopFiveSource("favourites"); }} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300">Arrange / Add</button></div><div className="my-4 flex gap-2 lg:my-3">{(["films", "shows"] as const).map(tab => <button key={tab} onClick={() => setTopFiveMediaTab(tab)} className={`rounded-full px-4 py-2 text-xs font-semibold ${topFiveMediaTab === tab ? "bg-white/15 text-white" : "text-zinc-500"}`}>{tab === "films" ? "Films" : "Shows"}</button>)}</div>{renderTopFiveMedia(topFiveMediaTab === "films" ? topFiveFilms : topFiveShows)}</div>
-               <div className="grid min-h-[180px] grid-cols-1 sm:grid-cols-2"><div className="border-b border-white/10 p-4 sm:border-b-0 sm:border-r sm:p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Top Five Talents</h3><button onClick={() => setTopFiveOpen("actors")} className="text-xs text-zinc-400 hover:text-white">Choose</button></div><div className="mt-5 flex flex-wrap gap-2">{topFiveActors.map(item => <Link key={item.id} to={`/talent/${item.id}`} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-zinc-300">{item.profilePath && <img src={item.profilePath} alt="" className="h-7 w-7 rounded-full object-cover" />}{item.name}</Link>)}{topFiveActors.length === 0 && <p className="text-xs text-zinc-500">Choose talents from favourites or search Cinescape.</p>}</div></div><div className="hidden p-6 sm:block"><h3 className="text-sm font-bold">Highest Rated</h3><div className="mt-5 space-y-2">{ratedMovies.slice().sort((a, b) => b.rating - a.rating).slice(0, 3).map(item => <Link key={item.id} to={`/${item.mediaType || "movie"}/${item.id}`} className="flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-white"><span className="truncate">{item.title}</span><span className="shrink-0 text-amber-400">★ {item.rating}</span></Link>)}{ratedMovies.length === 0 && <p className="text-xs leading-relaxed text-zinc-500">Rate a few films or shows and the best of them stand here.</p>}</div></div></div>
+               <div className="grid min-h-[180px] grid-cols-1 sm:grid-cols-2"><div className="border-b border-white/10 p-4 sm:border-b-0 sm:border-r sm:p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Top Five Talents</h3><button onClick={() => setTopFiveOpen("actors")} className="text-xs text-zinc-400 hover:text-white">Choose</button></div><div className="mt-5 flex flex-wrap gap-2">{topFiveActors.map(item => <Link key={item.id} to={`/talent/${item.id}`} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-zinc-300">{item.profilePath && <MediaImage src={item.profilePath} alt="" className="h-7 w-7 rounded-full object-cover" />}{item.name}</Link>)}{topFiveActors.length === 0 && <p className="text-xs text-zinc-500">Choose talents from favourites or search Cinescape.</p>}</div></div><div className="hidden p-6 sm:block"><h3 className="text-sm font-bold">Highest Rated</h3><div className="mt-5 space-y-2">{ratedMovies.slice().sort((a, b) => b.rating - a.rating).slice(0, 3).map(item => <Link key={item.id} to={`/${item.mediaType || "movie"}/${item.id}`} className="flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-white"><span className="truncate">{item.title}</span><span className="shrink-0 text-amber-400">★ {item.rating}</span></Link>)}{ratedMovies.length === 0 && <p className="text-xs leading-relaxed text-zinc-500">Rate a few films or shows and the best of them stand here.</p>}</div></div></div>
 
             </div>
           </div>
         </section>
         <AnimatePresence>
-          {editOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-center justify-center bg-black/75 px-3 pb-3 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:px-5 sm:pb-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditOpen(false); }}><motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Edit profile" className="max-h-[calc(100dvh-var(--navbar-height,80px)-24px)] w-full max-w-lg overflow-y-auto rounded-[22px] border border-white/10 bg-[#0b0b0d] p-5 shadow-[0_25px_90px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.08)] sm:p-7"><h3 className="mb-6 text-base font-bold">Edit profile</h3><div className="space-y-5"><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Name</span><input value={editDraft.username} onChange={(e) => setEditDraft((d) => ({ ...d, username: e.target.value }))} className="w-full rounded-lg border border-white/10 bg-black px-3 py-2.5 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Bio</span><textarea rows={4} value={editDraft.bio} onChange={(e) => setEditDraft((d) => ({ ...d, bio: e.target.value }))} placeholder="Your cinematic thesis, e.g. Practical effects or nothing." className="w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Location</span><input value={editDraft.location} onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))} placeholder="City, country" className="w-full rounded-lg border border-white/10 bg-black px-3 py-2.5 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Handle</span><div className="flex items-center rounded-lg border border-white/10 bg-black"><span className="pl-3 text-zinc-500">@</span><input value={editDraft.handle} onChange={(e) => setEditDraft((d) => ({ ...d, handle: e.target.value.replace(/^@/, "") }))} maxLength={15} placeholder="username" className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm outline-none" /></div><p className="mt-1 text-[10px] text-zinc-500">3–15 characters; letters, numbers, underscores.</p></label><div><p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Links</p><div className="space-y-2">{editDraft.links.map((item, index) => <div key={index} className="flex gap-2"><input aria-label="Link label" placeholder="Label" value={item.label} onChange={(e) => setEditDraft((d) => ({ ...d, links: d.links.map((link, i) => i === index ? { ...link, label: e.target.value } : link) }))} className="w-[35%] min-w-0 rounded-lg border border-white/10 bg-black px-2 py-2 text-xs outline-none" /><input aria-label="Link URL" placeholder="https://..." value={item.url} onChange={(e) => setEditDraft((d) => ({ ...d, links: d.links.map((link, i) => i === index ? { ...link, url: e.target.value } : link) }))} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black px-2 py-2 text-xs outline-none" /><button aria-label="Remove link" onClick={() => setEditDraft((d) => ({ ...d, links: d.links.filter((_, i) => i !== index) }))} className="p-1 text-zinc-500 hover:text-white"><X className="h-4 w-4" /></button></div>)}</div><button onClick={() => setEditDraft((d) => ({ ...d, links: [...d.links, { label: "", url: "" }] }))} className="mt-2 text-xs text-zinc-400 hover:text-white">+ Add link</button></div></div><div className="mt-7 flex items-center gap-4"><button disabled={isSaving} onClick={saveEdit} className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black disabled:opacity-50">{isSaving ? "Saving..." : "Save"}</button><button onClick={() => setEditOpen(false)} className="text-xs text-zinc-400 hover:text-white">Cancel</button></div></motion.div></motion.div>}
-          {photoOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-center justify-center bg-black/75 px-3 pb-3 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:px-5 sm:pb-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setPhotoOpen(false); }}><motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Profile photo" className="flex max-h-[calc(100dvh-var(--navbar-height,80px)-24px)] w-full max-w-xl flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0b0b0d] shadow-[0_25px_90px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.08)]"><div className="flex items-center justify-between border-b border-white/10 p-5"><h3 className="font-bold">Profile photo</h3><button onClick={() => setPhotoOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button></div><div className="min-h-0 overflow-y-auto p-5"><div className="mb-5 flex items-start gap-4"><img src={displayPhoto || "/user-icon.jpg"} alt="Current profile" className="h-28 w-24 rounded-lg bg-zinc-900 object-contain" /><div className="space-y-3"><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs"><Upload className="h-4 w-4" /> Upload from device</button>{accountPhoto && <button onClick={useAccountPhoto} disabled={isUploadingPhoto} className="flex items-center gap-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-100 transition hover:bg-red-500/20 disabled:opacity-50"><img src={accountPhoto} alt="Account" className="h-5 w-5 rounded-full object-cover" /> Use account photo</button>}<button onClick={async () => { await handleRemovePhoto(); setPhotoOpen(false); }} disabled={!displayPhoto || isUploadingPhoto} className="flex items-center gap-2 text-xs text-zinc-400 disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /> Remove photo</button><p className="max-w-[240px] text-[11px] leading-relaxed text-zinc-500">Choose your own photo or use an image from a talent's gallery.</p></div></div><div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/50 p-1">{([{ id: "favourites", label: "Favourite talents" }, { id: "search", label: "Search talents" }] as const).map((item) => <button key={item.id} onClick={() => { setPhotoMode(item.id); setTalentGallery([]); setTalentGalleryName(""); }} className={`rounded-lg px-2 py-2.5 text-xs font-semibold ${photoMode === item.id ? "border border-white/15 bg-white/10 text-white shadow-inner" : "text-zinc-500"}`}>{item.label}</button>)}</div>{photoMode === "search" && <div className="relative mb-4"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={talentSearch} onChange={(e) => { setTalentSearch(e.target.value); setTalentGallery([]); }} placeholder="Search actors, directors, talents..." className="w-full rounded-xl border border-white/10 bg-black/50 py-3 pl-10 pr-3 text-sm outline-none" /></div>}{talentGalleryName && <button onClick={() => { setTalentGalleryName(""); setTalentGallery([]); }} className="mb-3 flex items-center gap-1 text-xs text-zinc-400"><ChevronRight className="h-4 w-4 rotate-180" /> {talentGalleryName} · Back</button>}{talentLoading && <div className="flex items-center gap-2 py-3 text-xs text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>}{talentGalleryName ? <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{talentGallery.map((item) => <button key={item.file_path} disabled={isUploadingPhoto} onClick={() => saveTalentPhoto(item.file_path)} className="overflow-hidden rounded-xl border border-white/10 hover:border-red-400/50 disabled:opacity-50"><img src={`https://image.tmdb.org/t/p/w185${item.file_path}`} alt={`${talentGalleryName} portrait`} loading="lazy" className="aspect-[3/4] w-full object-contain bg-zinc-900" /></button>)}{!talentLoading && !talentGallery.length && <p className="col-span-full py-6 text-center text-xs text-zinc-500">No gallery images available.</p>}</div> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{(photoMode === "favourites" ? favouriteTalents.map((item) => ({ id: Number(item.id), name: item.name, profile_path: item.profilePath ? item.profilePath.replace(/^.*?image\.tmdb\.org\/t\/p\/[^/]+/, "") : null })) : talentResults).map((item) => <button key={item.id} onClick={() => openTalentGallery(item.id, item.name)} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] text-left hover:border-white/30">{item.profile_path ? <img src={item.profile_path.startsWith("http") ? item.profile_path : `https://image.tmdb.org/t/p/w185${item.profile_path}`} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-contain bg-zinc-900" /> : <div className="flex aspect-[3/4] items-center justify-center"><User className="h-6 w-6 text-zinc-600" /></div>}<p className="truncate p-2 text-[11px]">{item.name}</p></button>)}{photoMode === "favourites" && !favouriteTalents.length && <p className="col-span-full py-6 text-center text-xs text-zinc-500">No favourite talents yet. Try searching instead.</p>}</div>}</div><div className="border-t border-white/10 p-4 text-right"><button onClick={() => setPhotoOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-xs text-zinc-300">Close</button></div></motion.div></motion.div>}
+          {editOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-center justify-center bg-black/75 px-3 pb-3 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:px-5 sm:pb-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditOpen(false); }}><motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Edit profile" className="max-h-[calc(100dvh-var(--navbar-height,80px)-24px)] w-full max-w-lg overflow-y-auto rounded-[22px] border border-white/10 bg-[#0b0b0d] p-5 shadow-[0_25px_90px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.08)] sm:p-7"><h3 className="mb-6 text-base font-bold">Edit profile</h3><div className="space-y-5"><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Name</span><input value={exactName} readOnly className="w-full rounded-lg border border-white/10 bg-black/60 px-3 py-2.5 text-sm text-zinc-300 outline-none" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Bio</span><textarea rows={4} value={editDraft.bio} onChange={(e) => setEditDraft((d) => ({ ...d, bio: e.target.value }))} placeholder="Your cinematic thesis, e.g. Practical effects or nothing." className="w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Location</span><input value={editDraft.location} onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))} placeholder="City, country" className="w-full rounded-lg border border-white/10 bg-black px-3 py-2.5 text-sm outline-none focus:border-white/30" /></label><label className="block"><span className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Handle</span><div className="flex items-center rounded-lg border border-white/10 bg-black"><span className="pl-3 text-zinc-500">@</span><input value={editDraft.handle} onChange={(e) => setEditDraft((d) => ({ ...d, handle: e.target.value.replace(/^@/, "") }))} maxLength={15} placeholder="username" className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm outline-none" /></div><p className="mt-1 text-[10px] text-zinc-500">3–15 characters; letters, numbers, underscores.</p></label><div><p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Links</p><div className="space-y-2">{editDraft.links.map((item, index) => <div key={index} className="flex gap-2"><input aria-label="Link label" placeholder="Label" value={item.label} onChange={(e) => setEditDraft((d) => ({ ...d, links: d.links.map((link, i) => i === index ? { ...link, label: e.target.value } : link) }))} className="w-[35%] min-w-0 rounded-lg border border-white/10 bg-black px-2 py-2 text-xs outline-none" /><input aria-label="Link URL" placeholder="https://..." value={item.url} onChange={(e) => setEditDraft((d) => ({ ...d, links: d.links.map((link, i) => i === index ? { ...link, url: e.target.value } : link) }))} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black px-2 py-2 text-xs outline-none" /><button aria-label="Remove link" onClick={() => setEditDraft((d) => ({ ...d, links: d.links.filter((_, i) => i !== index) }))} className="p-1 text-zinc-500 hover:text-white"><X className="h-4 w-4" /></button></div>)}</div><button onClick={() => setEditDraft((d) => ({ ...d, links: [...d.links, { label: "", url: "" }] }))} className="mt-2 text-xs text-zinc-400 hover:text-white">+ Add link</button></div></div><div className="mt-7 flex items-center gap-4"><button disabled={isSaving} onClick={saveEdit} className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black disabled:opacity-50">{isSaving ? "Saving..." : "Save"}</button><button onClick={() => setEditOpen(false)} className="text-xs text-zinc-400 hover:text-white">Cancel</button></div></motion.div></motion.div>}
+          {photoOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-center justify-center bg-black/75 px-3 pb-3 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:px-5 sm:pb-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setPhotoOpen(false); }}><motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} role="dialog" aria-modal="true" aria-label="Profile photo" className="flex max-h-[calc(100dvh-var(--navbar-height,80px)-24px)] w-full max-w-xl flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#0b0b0d] shadow-[0_25px_90px_rgba(0,0,0,.7),inset_0_1px_0_rgba(255,255,255,.08)]"><div className="flex items-center justify-between border-b border-white/10 p-5"><h3 className="font-bold">Profile photo</h3><button onClick={() => setPhotoOpen(false)} aria-label="Close"><X className="h-4 w-4" /></button></div><div className="min-h-0 overflow-y-auto p-5"><div className="mb-5 flex items-start gap-4"><UserAvatar name={exactName} photo={displayPhoto} mode={effectiveAvatarMode} className="h-24 w-24 rounded-2xl text-5xl sm:h-28 sm:w-28 sm:text-6xl" /><div className="min-w-0 flex-1 space-y-2.5"><button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs"><Upload className="h-4 w-4" /> Upload from device</button><div className="grid grid-cols-2 gap-2"><button type="button" onClick={useAccountPhoto} disabled={isUploadingPhoto || !profileLoaded} className="flex min-w-0 items-center gap-1.5 rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-1.5 text-left text-[10px] leading-tight sm:text-[11px] text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"><UserAvatar name={exactName || user?.displayName || user?.email || "Cinescape member"} photo={accountPhoto} mode={accountPhoto ? "google" : "initial"} className="h-6 w-6 rounded-full text-xs sm:h-7 sm:w-7" /><span className="min-w-0 flex-1">Account photo</span></button><button type="button" onClick={useInitialAvatar} disabled={isUploadingPhoto || !profileLoaded} className="flex min-w-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1.5 text-left text-[10px] leading-tight sm:text-[11px] text-zinc-200 transition hover:border-[#a45a58]/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"><UserAvatar name={exactName} mode="initial" className="h-6 w-6 rounded-full text-xs sm:h-7 sm:w-7" /><span className="min-w-0 flex-1">Initial avatar</span></button></div><p className="max-w-[240px] text-[11px] leading-relaxed text-zinc-500">Choose your own photo or use an image from a talent's gallery.</p></div></div><div className="mb-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/50 p-1">{([{ id: "favourites", label: "Favourite talents" }, { id: "search", label: "Search talents" }] as const).map((item) => <button key={item.id} onClick={() => { setPhotoMode(item.id); setTalentGallery([]); setTalentGalleryName(""); }} className={`rounded-lg px-2 py-2.5 text-xs font-semibold ${photoMode === item.id ? "border border-white/15 bg-white/10 text-white shadow-inner" : "text-zinc-500"}`}>{item.label}</button>)}</div>{photoMode === "search" && <div className="relative mb-4"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={talentSearch} onChange={(e) => { setTalentSearch(e.target.value); setTalentGallery([]); }} placeholder="Search actors, directors, talents..." className="w-full rounded-xl border border-white/10 bg-black/50 py-3 pl-10 pr-3 text-sm outline-none" /></div>}{talentGalleryName && <button onClick={() => { setTalentGalleryName(""); setTalentGallery([]); }} className="mb-3 flex items-center gap-1 text-xs text-zinc-400"><ChevronRight className="h-4 w-4 rotate-180" /> {talentGalleryName} · Back</button>}{talentLoading && <div className="flex items-center gap-2 py-3 text-xs text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>}{talentGalleryName ? <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{talentGallery.map((item) => <button key={item.file_path} disabled={isUploadingPhoto} onClick={() => saveTalentPhoto(item.file_path)} className="overflow-hidden rounded-xl border border-white/10 hover:border-red-400/50 disabled:opacity-50"><MediaImage src={`https://image.tmdb.org/t/p/w185${item.file_path}`} alt={`${talentGalleryName} portrait`} loading="lazy" className="aspect-[3/4] w-full object-contain bg-zinc-900" /></button>)}{!talentLoading && !talentGallery.length && <p className="col-span-full py-6 text-center text-xs text-zinc-500">No gallery images available.</p>}</div> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">{(photoMode === "favourites" ? favouriteTalents.map((item) => ({ id: Number(item.id), name: item.name, profile_path: item.profilePath ? item.profilePath.replace(/^.*?image\.tmdb\.org\/t\/p\/[^/]+/, "") : null })) : talentResults).map((item) => <button key={item.id} onClick={() => openTalentGallery(item.id, item.name)} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] text-left hover:border-white/30">{item.profile_path ? <MediaImage src={item.profile_path.startsWith("http") ? item.profile_path : `https://image.tmdb.org/t/p/w185${item.profile_path}`} alt={item.name} loading="lazy" className="aspect-[3/4] w-full object-contain bg-zinc-900" /> : <div className="flex aspect-[3/4] items-center justify-center"><User className="h-6 w-6 text-zinc-600" /></div>}<p className="truncate p-2 text-[11px]">{item.name}</p></button>)}{photoMode === "favourites" && !favouriteTalents.length && <p className="col-span-full py-6 text-center text-xs text-zinc-500">No favourite talents yet. Try searching instead.</p>}</div>}</div><div className="flex items-center justify-between gap-3 border-t border-white/10 p-4"><button type="button" onClick={async () => { await handleRemovePhoto(); setPhotoOpen(false); }} disabled={avatarMode === "removed" || isUploadingPhoto || !profileLoaded} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-zinc-400 transition hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /> Remove photo</button><button type="button" onClick={() => setPhotoOpen(false)} className="rounded-lg bg-white/10 px-4 py-2 text-xs text-zinc-300 transition hover:bg-white/15">Close</button></div></motion.div></motion.div>}
         </AnimatePresence>
         <AnimatePresence>
           {bannerOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[250] flex items-end justify-center bg-black/70 px-0 pb-0 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:items-center sm:px-5 sm:pb-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setBannerOpen(false); }}>
@@ -982,7 +1046,7 @@ const ProfilePage = () => {
                 <div className="mb-4 flex items-center gap-2"><span className="mr-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Scene position</span>{(["top", "center", "bottom"] as const).map((position) => <button key={position} onClick={() => setScenePosition(position)} className={`rounded-full px-3 py-1.5 text-xs capitalize transition ${scenePosition === position ? "bg-white text-black" : "bg-white/5 text-zinc-400 hover:bg-white/10"}`}>{position}</button>)}</div>
                 {sceneTitle && <button onClick={() => { setSceneTitle(""); setSceneImages([]); setSceneChosenUrl(""); }} className="mb-3 flex items-center gap-2 self-start text-xs font-medium text-zinc-300 hover:text-white"><ChevronRight className="h-4 w-4 rotate-180" /> Back to titles <span className="text-zinc-500">/ {sceneTitle}</span></button>}
                 {(sceneResultLoading || sceneImagesLoading || (sceneSource === "history" && bannerLoading)) && <div className="flex items-center gap-2 py-3 text-xs text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading scenes...</div>}
-                {sceneTitle ? <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{sceneImages.map((item, index) => <button key={`${item.url}-${index}`} onClick={() => setSceneChosenUrl(item.url)} className={`group relative overflow-hidden rounded-xl border transition ${sceneChosenUrl === item.url ? "border-red-500 ring-2 ring-red-500/30" : "border-white/10 hover:border-white/30"}`}><img src={item.url.replace('/original', '/w500')} alt={`${item.title} scene ${index + 1}`} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" />{sceneChosenUrl === item.url && <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-black/60 text-red-400" />}</button>)}</div> : <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{sceneSource === "discover" ? sceneResults.map((item) => <button key={`${item.mediaType}-${item.id}`} onClick={() => openSceneTitle(item.mediaType, item.id, item.title)} className="group relative overflow-hidden rounded-xl border border-white/10 text-left hover:border-red-500/40"><img src={item.backdrop} alt={item.title} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/65 to-transparent px-2.5 pb-2 pt-8"><p className="truncate text-xs font-semibold">{item.title}</p><p className="text-[10px] uppercase text-zinc-400">{item.mediaType === "tv" ? "Series" : "Movie"}</p></div></button>) : bannerCandidates.filter((item) => item.title.toLowerCase().includes(bannerSearch.toLowerCase()) && bannerChoices[`${item.mediaType}-${item.id}`]).map((item) => { const key = `${item.mediaType}-${item.id}`; return <button key={key} onClick={() => openSceneTitle(item.mediaType as "movie" | "tv", Number(item.id), item.title)} className="group relative overflow-hidden rounded-xl border border-white/10 text-left hover:border-red-500/40"><img src={bannerChoices[key]} alt={item.title} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent px-2.5 pb-2 pt-8"><p className="truncate text-xs font-semibold">{item.title}</p></div></button>; })}</div>}
+                {sceneTitle ? <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{sceneImages.map((item, index) => <button key={`${item.url}-${index}`} onClick={() => setSceneChosenUrl(item.url)} className={`group relative overflow-hidden rounded-xl border transition ${sceneChosenUrl === item.url ? "border-red-500 ring-2 ring-red-500/30" : "border-white/10 hover:border-white/30"}`}><MediaImage src={item.url.replace('/original', '/w500')} alt={`${item.title} scene ${index + 1}`} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" />{sceneChosenUrl === item.url && <CheckCircle2 className="absolute right-2 top-2 h-5 w-5 rounded-full bg-black/60 text-red-400" />}</button>)}</div> : <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{sceneSource === "discover" ? sceneResults.map((item) => <button key={`${item.mediaType}-${item.id}`} onClick={() => openSceneTitle(item.mediaType, item.id, item.title)} className="group relative overflow-hidden rounded-xl border border-white/10 text-left hover:border-red-500/40"><MediaImage src={item.backdrop} alt={item.title} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/65 to-transparent px-2.5 pb-2 pt-8"><p className="truncate text-xs font-semibold">{item.title}</p><p className="text-[10px] uppercase text-zinc-400">{item.mediaType === "tv" ? "Series" : "Movie"}</p></div></button>) : bannerCandidates.filter((item) => item.title.toLowerCase().includes(bannerSearch.toLowerCase()) && bannerChoices[`${item.mediaType}-${item.id}`]).map((item) => { const key = `${item.mediaType}-${item.id}`; return <button key={key} onClick={() => openSceneTitle(item.mediaType as "movie" | "tv", Number(item.id), item.title)} className="group relative overflow-hidden rounded-xl border border-white/10 text-left hover:border-red-500/40"><MediaImage src={bannerChoices[key]} alt={item.title} loading="lazy" className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-105" /><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent px-2.5 pb-2 pt-8"><p className="truncate text-xs font-semibold">{item.title}</p></div></button>; })}</div>}
                 {sceneTitle && !sceneImagesLoading && !sceneImages.length && <p className="py-8 text-center text-sm text-zinc-500">No scenes available for this title.</p>}
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-[#141417] px-4 py-4 sm:px-6"><button disabled={bannerSaving || !bannerUrl} onClick={() => saveBanner("", "")} className="inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-white disabled:opacity-30"><Trash2 className="h-4 w-4" /> Reset scene</button><button disabled={bannerSaving || (!sceneChosenUrl && !bannerUrl)} onClick={() => saveBanner(sceneChosenUrl || bannerUrl, sceneChosenUrl ? sceneTitle : bannerTitle)} className="rounded-full bg-gradient-to-r from-red-500 to-rose-600 px-5 py-2.5 text-xs font-bold text-white transition hover:from-red-400 hover:to-rose-500 disabled:opacity-40">{bannerSaving ? "Saving…" : "Apply scene"}</button></div>
@@ -990,7 +1054,7 @@ const ProfilePage = () => {
           </motion.div>}
         </AnimatePresence>
 
-        <AnimatePresence>{topFiveOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[260] flex items-end justify-center bg-black/70 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:items-center sm:px-5 sm:pb-5" onMouseDown={event => { if (event.target === event.currentTarget) setTopFiveOpen(null); }}><motion.div initial={{ y: 25, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 25, opacity: 0 }} className="flex max-h-[calc(100dvh-var(--navbar-height,80px)-8px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#101012] shadow-2xl sm:rounded-3xl"><div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5"><div><h3 className="font-bold">Arrange your Top Five</h3><p className="mt-1 text-xs text-zinc-500">Rank your picks from 1 to 5</p></div><button onClick={() => setTopFiveOpen(null)} aria-label="Close" className="rounded-full bg-white/10 p-2"><X className="h-4 w-4" /></button></div><div className="min-h-0 overflow-y-auto p-4 sm:p-5"><div className="mb-4 flex gap-2">{(["films", "shows", "actors"] as const).map(tab => <button key={tab} onClick={() => { setTopFiveOpen(tab); if (tab !== "actors") setTopFiveMediaTab(tab); setTopFiveQuery(""); }} className={`rounded-full px-3 py-2 text-xs font-semibold capitalize ${topFiveOpen === tab ? "bg-white text-black" : "bg-white/5 text-zinc-400"}`}>{tab === "actors" ? "Talents" : tab === "films" ? "Films" : "Shows"}</button>)}</div><div className="space-y-2">{(topFiveOpen === "films" ? topFiveFilms : topFiveOpen === "shows" ? topFiveShows : topFiveActors).map((item, index) => { const name = "title" in item ? item.title : item.name; const photo = "posterPath" in item ? item.posterPath : item.profilePath; return <div key={item.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2"><span className="w-5 text-center text-sm font-bold text-zinc-400">{index + 1}</span><img src={photo || "/user-icon.jpg"} alt="" className="h-14 w-10 rounded object-cover" /><div className="min-w-0 flex-1"><p className="line-clamp-2 text-xs font-semibold">{name}</p>{"mediaType" in item && <p className="text-[10px] text-zinc-500">{topFiveCatalog[`${item.mediaType}-${item.id}`]?.year || topFiveYears[`${item.mediaType}-${item.id}`] || ""}</p>}</div><button aria-label="Move up" disabled={index === 0} onClick={() => moveTopFive(topFiveOpen, index, -1)} className="rounded-lg bg-white/5 px-2 py-2 text-xs disabled:opacity-25">↑</button><button aria-label="Move down" disabled={index === (topFiveOpen === "films" ? topFiveFilms : topFiveOpen === "shows" ? topFiveShows : topFiveActors).length - 1} onClick={() => moveTopFive(topFiveOpen, index, 1)} className="rounded-lg bg-white/5 px-2 py-2 text-xs disabled:opacity-25">↓</button><button aria-label="Remove" onClick={() => toggleTopFive(topFiveOpen, String(item.id))} className="rounded-lg bg-red-500/10 p-2 text-red-400"><X className="h-4 w-4" /></button></div>; })}</div><div className="my-5 border-t border-white/10 pt-4"><h4 className="mb-3 text-xs font-bold">Add to Top Five</h4>{<div className="mb-3 flex gap-2">{(["favourites", "search"] as const).map(source => <button key={source} onClick={() => setTopFiveSource(source)} className={`rounded-full px-3 py-2 text-xs capitalize ${topFiveSource === source ? "bg-white/15 text-white" : "text-zinc-500"}`}>{source === "search" ? "Search Cinescape" : "Favourites"}</button>)}</div>}{topFiveSource === "search" && <div className="relative mb-4"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={topFiveQuery} onChange={event => setTopFiveQuery(event.target.value)} placeholder={`Search ${topFiveOpen}...`} className="w-full rounded-xl border border-white/10 bg-black px-10 py-3 text-sm outline-none focus:border-white/30" /></div>}{topFiveSearching && <p className="mb-3 text-xs text-zinc-500">Searching...</p>}<div className="grid grid-cols-3 gap-3 sm:grid-cols-5">{(topFiveOpen === "actors" ? (topFiveSource === "search" ? topFiveTalentResults : favouriteTalents) : topFiveSource === "search" ? topFiveResults : topFiveOpen === "films" ? favouriteMovies : favouriteSeries).map(item => { const id = String(item.id); const selected = (topFiveOpen === "films" ? topFiveFilmIds : topFiveOpen === "shows" ? topFiveShowIds : topFiveActorIds).includes(id); const image = "posterPath" in item ? item.posterPath : item.profilePath; const name = "title" in item ? item.title : item.name; const media = "mediaType" in item ? item as { id: string; title: string; posterPath: string; mediaType: "movie" | "tv"; year?: string } : null; return <button key={id} type="button" onClick={() => toggleTopFive(topFiveOpen, id, media ? { ...media, year: media.year || "" } : undefined, "name" in item ? item as FavouriteTalent : undefined)} className={`relative overflow-hidden rounded-xl border p-1 text-left ${selected ? "border-red-500 bg-red-500/10" : "border-white/10 bg-white/[0.03]"}`}>{image ? <img src={image} alt={name} className="aspect-[2/3] w-full rounded-lg object-cover" /> : <div className="aspect-[2/3] rounded-lg bg-zinc-900" />}{selected && <span className="absolute right-2 top-2 rounded-full bg-red-600 p-1"><Check className="h-3 w-3" /></span>}<p className="line-clamp-2 px-1 py-1 text-[11px] text-zinc-300">{name}</p>{media?.year && <p className="px-1 text-[10px] text-zinc-500">{media.year}</p>}</button>; })}</div></div></div><div className="border-t border-white/10 p-4 text-right"><button onClick={() => setTopFiveOpen(null)} className="rounded-full bg-white px-5 py-2 text-xs font-bold text-black">Done</button></div></motion.div></motion.div>}</AnimatePresence>
+        <AnimatePresence>{topFiveOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[260] flex items-end justify-center bg-black/70 pt-[calc(var(--navbar-height,80px)+12px)] backdrop-blur-xl sm:items-center sm:px-5 sm:pb-5" onMouseDown={event => { if (event.target === event.currentTarget) setTopFiveOpen(null); }}><motion.div initial={{ y: 25, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 25, opacity: 0 }} className="flex max-h-[calc(100dvh-var(--navbar-height,80px)-8px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#101012] shadow-2xl sm:rounded-3xl"><div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5"><div><h3 className="font-bold">Arrange your Top Five</h3><p className="mt-1 text-xs text-zinc-500">Rank your picks from 1 to 5</p></div><button onClick={() => setTopFiveOpen(null)} aria-label="Close" className="rounded-full bg-white/10 p-2"><X className="h-4 w-4" /></button></div><div className="min-h-0 overflow-y-auto p-4 sm:p-5"><div className="mb-4 flex gap-2">{(["films", "shows", "actors"] as const).map(tab => <button key={tab} onClick={() => { setTopFiveOpen(tab); if (tab !== "actors") setTopFiveMediaTab(tab); setTopFiveQuery(""); }} className={`rounded-full px-3 py-2 text-xs font-semibold capitalize ${topFiveOpen === tab ? "bg-white text-black" : "bg-white/5 text-zinc-400"}`}>{tab === "actors" ? "Talents" : tab === "films" ? "Films" : "Shows"}</button>)}</div><div className="space-y-2">{(topFiveOpen === "films" ? topFiveFilms : topFiveOpen === "shows" ? topFiveShows : topFiveActors).map((item, index) => { const name = "title" in item ? item.title : item.name; const photo = "posterPath" in item ? item.posterPath : item.profilePath; return <div key={item.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2"><span className="w-5 text-center text-sm font-bold text-zinc-400">{index + 1}</span><MediaImage src={photo || "/user-icon.jpg"} alt="" className="h-14 w-10 rounded object-cover" /><div className="min-w-0 flex-1"><p className="line-clamp-2 text-xs font-semibold">{name}</p>{"mediaType" in item && <p className="text-[10px] text-zinc-500">{topFiveCatalog[`${item.mediaType}-${item.id}`]?.year || topFiveYears[`${item.mediaType}-${item.id}`] || ""}</p>}</div><button aria-label="Move up" disabled={index === 0} onClick={() => moveTopFive(topFiveOpen, index, -1)} className="rounded-lg bg-white/5 px-2 py-2 text-xs disabled:opacity-25">↑</button><button aria-label="Move down" disabled={index === (topFiveOpen === "films" ? topFiveFilms : topFiveOpen === "shows" ? topFiveShows : topFiveActors).length - 1} onClick={() => moveTopFive(topFiveOpen, index, 1)} className="rounded-lg bg-white/5 px-2 py-2 text-xs disabled:opacity-25">↓</button><button aria-label="Remove" onClick={() => toggleTopFive(topFiveOpen, String(item.id))} className="rounded-lg bg-red-500/10 p-2 text-red-400"><X className="h-4 w-4" /></button></div>; })}</div><div className="my-5 border-t border-white/10 pt-4"><h4 className="mb-3 text-xs font-bold">Add to Top Five</h4>{<div className="mb-3 flex gap-2">{(["favourites", "search"] as const).map(source => <button key={source} onClick={() => setTopFiveSource(source)} className={`rounded-full px-3 py-2 text-xs capitalize ${topFiveSource === source ? "bg-white/15 text-white" : "text-zinc-500"}`}>{source === "search" ? "Search Cinescape" : "Favourites"}</button>)}</div>}{topFiveSource === "search" && <div className="relative mb-4"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={topFiveQuery} onChange={event => setTopFiveQuery(event.target.value)} placeholder={`Search ${topFiveOpen}...`} className="w-full rounded-xl border border-white/10 bg-black px-10 py-3 text-sm outline-none focus:border-white/30" /></div>}{topFiveSearching && <p className="mb-3 text-xs text-zinc-500">Searching...</p>}<div className="grid grid-cols-3 gap-3 sm:grid-cols-5">{(topFiveOpen === "actors" ? (topFiveSource === "search" ? topFiveTalentResults : favouriteTalents) : topFiveSource === "search" ? topFiveResults : topFiveOpen === "films" ? favouriteMovies : favouriteSeries).map(item => { const id = String(item.id); const selected = (topFiveOpen === "films" ? topFiveFilmIds : topFiveOpen === "shows" ? topFiveShowIds : topFiveActorIds).includes(id); const image = "posterPath" in item ? item.posterPath : item.profilePath; const name = "title" in item ? item.title : item.name; const media = "mediaType" in item ? item as { id: string; title: string; posterPath: string; mediaType: "movie" | "tv"; year?: string } : null; return <button key={id} type="button" onClick={() => toggleTopFive(topFiveOpen, id, media ? { ...media, year: media.year || "" } : undefined, "name" in item ? item as FavouriteTalent : undefined)} className={`relative overflow-hidden rounded-xl border p-1 text-left ${selected ? "border-red-500 bg-red-500/10" : "border-white/10 bg-white/[0.03]"}`}>{image ? <MediaImage src={image} alt={name} className="aspect-[2/3] w-full rounded-lg object-cover" /> : <div className="aspect-[2/3] rounded-lg bg-zinc-900" />}{selected && <span className="absolute right-2 top-2 rounded-full bg-red-600 p-1"><Check className="h-3 w-3" /></span>}<p className="line-clamp-2 px-1 py-1 text-[11px] text-zinc-300">{name}</p>{media?.year && <p className="px-1 text-[10px] text-zinc-500">{media.year}</p>}</button>; })}</div></div></div><div className="border-t border-white/10 p-4 text-right"><button onClick={() => setTopFiveOpen(null)} className="rounded-full bg-white px-5 py-2 text-xs font-bold text-black">Done</button></div></motion.div></motion.div>}</AnimatePresence>
         <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 mb-6">
           <div className="relative flex items-center p-1 rounded-2xl bg-white/[0.02] border border-white/10 backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] min-w-max sm:min-w-0">
             {TABS.map((tab) => {
@@ -1134,7 +1198,7 @@ const ProfilePage = () => {
                         >
                           <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-black/60 border border-white/10 shadow-md">
                             {item.posterPath ? (
-                              <img
+                              <MediaImage
                                 src={item.posterPath}
                                 alt={item.title || (item as any).name}
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -1225,7 +1289,7 @@ const ProfilePage = () => {
                         >
                           <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden bg-black/60 border border-white/10 shadow-md">
                             {item.posterPath ? (
-                              <img
+                              <MediaImage
                                 src={item.posterPath}
                                 alt={item.title || (item as any).name}
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -1363,7 +1427,7 @@ const ProfilePage = () => {
                               <Heart className="w-2 h-2 text-white fill-current" />
                             </div>
                             {item.posterPath ? (
-                              <img src={item.posterPath} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                              <MediaImage src={item.posterPath} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-zinc-900"><Film className="w-5 h-5 text-zinc-700" /></div>
                             )}
@@ -1401,7 +1465,7 @@ const ProfilePage = () => {
                             <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm"><span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">#{idx + 1}</span></div>
                             <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20"><Heart className="w-2 h-2 text-white fill-current" /></div>
                             {item.posterPath ? (
-                              <img src={item.posterPath} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                              <MediaImage src={item.posterPath} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-zinc-900"><Tv className="w-5 h-5 text-zinc-700" /></div>
                             )}
@@ -1439,7 +1503,7 @@ const ProfilePage = () => {
                             <div className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center h-4 bg-zinc-950/80 backdrop-blur-md border border-white/[0.06] rounded-md px-1.5 shadow-sm"><span className="text-[8px] font-black tracking-tighter text-zinc-400 group-hover:text-red-400 transition-colors">#{idx + 1}</span></div>
                             <div className="absolute top-1.5 right-1.5 z-10 flex items-center justify-center w-4 h-4 bg-red-500 rounded-md shadow-md shadow-red-500/20"><Heart className="w-2 h-2 text-white fill-current" /></div>
                             {talent.profilePath ? (
-                              <img src={talent.profilePath} alt={talent.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                              <MediaImage src={talent.profilePath} alt={talent.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-zinc-900"><User className="w-5 h-5 text-zinc-700" /></div>
                             )}

@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { collection, deleteDoc, doc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc, } from 'firebase/firestore';
-import { AlertCircle, ArrowDown, ArrowUpDown, Bookmark, BookmarkMinus, CalendarClock, Check, CheckSquare, ChevronDown, Clapperboard, Clock3, Filter, Flag, Flame, Grid3X3, Heart, ImageOff, List, ListChecks, MoreHorizontal, Play, Search, Sparkles, Star, Trash2, TrendingUp, Tv, X, } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUpDown, Bookmark, BookmarkMinus, CalendarClock, Check, CheckSquare, ChevronDown, Clapperboard, Clock3, Filter, Flag, Flame, Grid3X3, Heart, List, ListChecks, MoreHorizontal, Play, Search, Sparkles, Star, Trash2, TrendingUp, Tv, X, } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Loading from '../components/Loading.tsx';
+import PosterImage from '../components/PosterImage.tsx';
+import EmptyState from '../components/EmptyState.tsx';
 import axios from 'axios';
 import Roulette from '../components/Roulette.tsx';
 import { IoDiceOutline } from 'react-icons/io5';
@@ -190,39 +192,16 @@ const readPrefs = (): StoredPrefs => {
   }
 };
 
-const PosterImage = ({ item }: { item: MediaItem }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const path = item.posterPath?.startsWith('/') ? item.posterPath : `/${item.posterPath || ''}`;
-
-  return (
-    <div className="absolute inset-0 bg-zinc-900">
-      {!loaded && !failed && (
-        <div className="absolute inset-0 overflow-hidden bg-zinc-900">
-          <div className="absolute inset-0 -translate-x-full animate-[watchlistShimmer_1.7s_infinite] bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
-        </div>
-      )}
-      {!failed && item.posterPath ? (
-        <img
-          src={`https://image.tmdb.org/t/p/w342${path}`}
-          srcSet={`https://image.tmdb.org/t/p/w342${path} 342w, https://image.tmdb.org/t/p/w500${path} 500w, https://image.tmdb.org/t/p/w780${path} 780w`}
-          sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 16vw"
-          alt={item.title || item.name || ''}
-          className={`h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-[1.02] ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
-          loading="lazy"
-          decoding="async"
-        />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-950 text-zinc-600">
-          <ImageOff className="mb-1.5 h-8 w-8 stroke-[1.5]" />
-          <span className="text-[10px] font-medium tracking-wide">Missing Poster</span>
-        </div>
-      )}
-    </div>
-  );
-};
+const WatchlistPoster = ({ item }: { item: MediaItem }) => (
+  <PosterImage
+    src={item.posterPath}
+    size="w342"
+    alt={item.title || item.name || ''}
+    fallbackLabel="Missing poster"
+    sizes="(max-width: 640px) 46vw, (max-width: 1024px) 24vw, 16vw"
+    imageClassName="transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+  />
+);
 
 const MiniStatusCluster = ({ favorite, watched, inMyList }: { favorite: boolean; watched: boolean; inMyList: boolean }) => (
   <div className="flex items-center justify-end -space-x-1.5 sm:justify-start sm:-space-x-1">
@@ -860,15 +839,15 @@ const WatchlistPage = () => {
 
   if (error) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center bg-[#09090b] px-4">
-        <div className="w-full max-w-md overflow-hidden rounded-3xl border border-red-500/20 bg-zinc-900/40 p-8 text-center shadow-2xl shadow-red-950/20 backdrop-blur-2xl">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-          </div>
-          <h3 className="mb-2 text-xl font-bold tracking-tight text-white">Error Loading Watchlist</h3>
-          <p className="mb-6 text-sm leading-relaxed text-zinc-400">{error}</p>
-          <button onClick={() => window.location.reload()} className="w-full rounded-xl bg-red-600 py-3 text-sm font-semibold tracking-wide text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-500 active:scale-[0.98]">Retry Connection</button>
-        </div>
+      <div className="min-h-[80vh] bg-[#09090b] px-4 py-12">
+        <EmptyState
+          icon={<AlertCircle className="h-6 w-6" />}
+          title="Error Loading Watchlist"
+          description={error}
+          tone="error"
+          className="mx-auto max-w-md border-solid"
+          action={<button type="button" onClick={() => window.location.reload()} className="focus-ring min-h-11 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-500 active:scale-[0.98]">Retry Connection</button>}
+        />
       </div>
     );
   }
@@ -937,12 +916,12 @@ const WatchlistPage = () => {
             <div className="flex w-full items-center gap-2 lg:max-w-3xl lg:flex-1 lg:justify-end">
               <div className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
-                <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={`Search ${mediaType === 'movie' ? 'movies' : 'series'}...`} className="w-full rounded-xl border border-white/[0.05] bg-zinc-900/60 py-2.5 pl-10 pr-9 text-xs text-white outline-none backdrop-blur-md placeholder:text-zinc-500 focus:border-red-500/30" />
-                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 z-10 -translate-y-1/2 p-1 text-zinc-400 hover:text-white"><X className="h-3 w-3" /></button>}
+                <input aria-label={`Search ${mediaType === 'movie' ? 'movies' : 'series'} in watchlist`} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={`Search ${mediaType === 'movie' ? 'movies' : 'series'}...`} className="focus-ring w-full rounded-xl border border-white/[0.05] bg-zinc-900/60 py-2.5 pl-10 pr-9 text-xs text-white outline-none backdrop-blur-md placeholder:text-zinc-500 focus:border-red-500/30" />
+                {searchTerm && <button type="button" onClick={() => setSearchTerm('')} aria-label="Clear watchlist search" className="focus-ring absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-md p-1 text-zinc-400 hover:text-white"><X className="h-3 w-3" /></button>}
               </div>
 
               <div className="relative shrink-0">
-                <button type="button" onClick={() => setShowSortMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white sm:w-auto sm:gap-2 sm:px-3.5" title={sortOptions.find((option) => option.id === sortMode)?.label}>
+                <button type="button" onClick={() => setShowSortMenu((value) => !value)} aria-label={`Sort watchlist: ${sortOptions.find((option) => option.id === sortMode)?.label}`} aria-expanded={showSortMenu} className="focus-ring flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white sm:w-auto sm:gap-2 sm:px-3.5" title={sortOptions.find((option) => option.id === sortMode)?.label}>
                   <ArrowUpDown className="h-4 w-4" />
                   <span className="hidden sm:inline text-xs font-semibold">{sortOptions.find((option) => option.id === sortMode)?.label}</span>
                   <ChevronDown className={`hidden h-3.5 w-3.5 text-zinc-500 transition-transform sm:block ${showSortMenu ? 'rotate-180' : ''}`} />
@@ -956,16 +935,16 @@ const WatchlistPage = () => {
                 </AnimatePresence>
               </div>
 
-              <button type="button" onClick={() => setShowFilters(true)} className={`flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${activeFilterChips.length ? 'border-red-500/25 bg-red-500/10 text-red-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Filters">
+              <button type="button" onClick={() => setShowFilters(true)} aria-label="Filter watchlist" aria-expanded={showFilters} className={`focus-ring flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${activeFilterChips.length ? 'border-red-500/25 bg-red-500/10 text-red-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Filters">
                 <Filter className="h-4 w-4" />
                 <span className="hidden sm:inline text-xs font-semibold">Filters</span>
               </button>
 
-              <button type="button" onClick={() => setViewMode((value) => value === 'grid' ? 'list' : 'grid')} className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white" title={viewMode === 'grid' ? 'Compact list' : 'Poster grid'}>
+              <button type="button" onClick={() => setViewMode((value) => value === 'grid' ? 'list' : 'grid')} aria-label={viewMode === 'grid' ? 'Switch to compact list' : 'Switch to poster grid'} aria-pressed={viewMode === 'list'} className="focus-ring flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white" title={viewMode === 'grid' ? 'Compact list' : 'Poster grid'}>
                 {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
               </button>
 
-              <button type="button" onClick={() => { setSelectionMode((value) => !value); setSelectedIds(new Set()); }} className={`flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${selectionMode ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Select titles">
+              <button type="button" onClick={() => { setSelectionMode((value) => !value); setSelectedIds(new Set()); }} aria-label={selectionMode ? 'Finish selecting titles' : 'Select titles'} aria-pressed={selectionMode} className={`focus-ring flex h-10 w-10 items-center justify-center rounded-xl border sm:w-auto sm:gap-2 sm:px-3.5 ${selectionMode ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-white/[0.05] bg-zinc-900/60 text-zinc-300 hover:text-white'}`} title="Select titles">
                 <CheckSquare className="h-4 w-4" />
                 <span className="hidden md:inline text-xs font-semibold">{selectionMode ? 'Done' : 'Select'}</span>
               </button>
@@ -975,7 +954,7 @@ const WatchlistPage = () => {
           {activeFilterChips.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {activeFilterChips.map((chip) => (
-                <button key={chip.id} onClick={chip.clear} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:text-white">
+                <button key={chip.id} type="button" onClick={chip.clear} className="focus-ring flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-zinc-300 hover:text-white">
                   {chip.label}<X className="h-3 w-3 text-zinc-500" />
                 </button>
               ))}
@@ -1009,12 +988,15 @@ const WatchlistPage = () => {
         )}
 
         {filteredAndSortedWatchlist.length === 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-900 bg-zinc-950/20 py-20 text-center backdrop-blur-sm">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-600"><Bookmark className="h-6 w-6" /></div>
-            <h3 className="mb-1.5 text-lg font-bold tracking-tight text-white">{noResultsBecauseFilters ? 'No matches found' : 'No tracking assets found'}</h3>
-            <p className="mb-6 max-w-xs text-xs leading-relaxed text-zinc-500">{noResultsBecauseFilters ? 'Your active filters or search are hiding everything in this watchlist.' : `Your active ${mediaType === 'movie' ? 'movie' : 'series'} watchlist is empty.`}</p>
-            {noResultsBecauseFilters ? <button onClick={clearFilters} className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-2.5 text-xs font-bold text-zinc-950 transition hover:bg-white"><X className="h-3.5 w-3.5" />Clear filters</button> : <button onClick={() => navigate('/trending')} className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-5 py-2.5 text-xs font-bold text-zinc-950 transition hover:bg-white"><TrendingUp className="h-3.5 w-3.5" />Discover Media</button>}
-          </motion.div>
+          <EmptyState
+            icon={<Bookmark className="h-6 w-6" />}
+            title={noResultsBecauseFilters ? 'No matches found' : 'No tracking assets found'}
+            description={noResultsBecauseFilters ? 'Your active filters or search are hiding everything in this watchlist.' : `Your active ${mediaType === 'movie' ? 'movie' : 'series'} watchlist is empty.`}
+            action={noResultsBecauseFilters
+              ? <button type="button" onClick={clearFilters} className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-zinc-100 px-5 text-xs font-bold text-zinc-950 transition hover:bg-white"><X className="h-3.5 w-3.5" />Clear filters</button>
+              : <button type="button" onClick={() => navigate('/trending')} className="focus-ring inline-flex min-h-11 items-center gap-2 rounded-xl bg-zinc-100 px-5 text-xs font-bold text-zinc-950 transition hover:bg-white"><TrendingUp className="h-3.5 w-3.5" />Discover Media</button>}
+            className="mb-4"
+          />
         )}
 
         {viewMode === 'grid' && filteredAndSortedWatchlist.length > 0 && (
@@ -1029,8 +1011,8 @@ const WatchlistPage = () => {
               return (
                 <motion.article key={item.id} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }} className={`group relative min-w-0 rounded-2xl border bg-zinc-950 shadow-md transition-all duration-300 hover:shadow-[0_14px_34px_rgba(0,0,0,0.42)] ${selected ? 'border-emerald-400/55 ring-2 ring-emerald-400/15' : 'border-zinc-900 hover:border-zinc-800'}`}>
                   <div className="relative aspect-[2/3] overflow-hidden rounded-t-2xl bg-zinc-900">
-                    <PosterImage item={item} />
-                    <button type="button" onClick={() => handleCardOpen(item)} className="absolute inset-0 z-10" aria-label={`Open ${item.title || item.name || getMediaLabel(item.mediaType)}`} />
+                    <WatchlistPoster item={item} />
+                <button type="button" onClick={() => handleCardOpen(item)} className="focus-ring absolute inset-0 z-10 rounded-t-2xl" aria-label={`Open ${item.title || item.name || getMediaLabel(item.mediaType)}`} />
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-black/50 to-transparent" />
 
                     <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-md border border-zinc-800/80 bg-zinc-950/80 px-1.5 py-0.5 shadow-md backdrop-blur-md"><Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" /><span className="text-[10px] font-bold text-zinc-200">{item.vote_average ? item.vote_average.toFixed(1) : '—'}</span></div>
@@ -1039,22 +1021,22 @@ const WatchlistPage = () => {
                       {item.priority && <PriorityBadge priority={item.priority} compact />}
                       <span className="rounded-lg border border-white/10 bg-black/65 px-2 py-1 text-[9px] font-black tabular-nums text-white/85 shadow-lg backdrop-blur-md">{releaseYear(item) || 'TBA'}</span>
                     </div>
-                    {!selectionMode && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="absolute bottom-2 left-2 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/65 text-white/90 shadow-[0_5px_16px_rgba(0,0,0,0.38)] backdrop-blur-md transition hover:bg-black/80 active:scale-95 lg:hidden" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></button>}
+                    {!selectionMode && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="focus-ring absolute bottom-2 left-2 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/65 text-white/90 shadow-[0_5px_16px_rgba(0,0,0,0.38)] backdrop-blur-md transition hover:bg-black/80 active:scale-95 lg:hidden" aria-label={`More actions for ${item.title || item.name}`}><MoreHorizontal className="h-4 w-4" /></button>}
 
                     {isUpcoming(item) && <div className="pointer-events-none absolute left-2 top-9 rounded-lg border border-sky-400/20 bg-sky-500/15 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-sky-300 backdrop-blur-md">Upcoming · {formatReleaseDate(item)}</div>}
 
                     {userRating !== undefined && <div className="pointer-events-none absolute bottom-2 left-1/2 z-30 -translate-x-1/2"><UserRatingBadge rating={userRating} /></div>}
                     <div className="pointer-events-none absolute bottom-2 right-2 z-20"><MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /></div>
 
-                    {selectionMode && <button type="button" onClick={(event) => { event.stopPropagation(); toggleSelection(item); }} className={`absolute left-2 bottom-2 z-50 flex h-7 w-7 items-center justify-center rounded-lg border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/15 bg-black/60 text-white/60'}`}><Check className="h-4 w-4 stroke-[3]" /></button>}
+                    {selectionMode && <button type="button" onClick={(event) => { event.stopPropagation(); toggleSelection(item); }} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected} className={`focus-ring absolute left-2 bottom-2 z-50 flex h-7 w-7 items-center justify-center rounded-lg border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/15 bg-black/60 text-white/60'}`}><Check className="h-4 w-4 stroke-[3]" /></button>}
 
                     {!selectionMode && (
-                      <div className="absolute inset-x-2 bottom-2 z-40 hidden translate-y-3 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-black/65 p-1.5 opacity-0 shadow-xl backdrop-blur-xl transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 lg:flex">
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleFavorite(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/10 ${favorite ? 'text-rose-400' : 'text-white/80'}`} title={favorite ? 'Remove Favorite' : 'Favorite'}><Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleHistory(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl ${watched ? 'text-emerald-400' : 'text-white/80 hover:bg-white/10 hover:text-emerald-300'}`} title={watched ? 'Remove from History' : 'Mark Watched'}><Check className="h-3.5 w-3.5" /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); inMyList ? removeFromMyList(item) : openMyListPicker(item); }} className={`flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/10 ${inMyList ? 'text-violet-400' : 'text-white/80 hover:text-violet-300'}`} title={inMyList ? 'Remove from My List' : 'Add to My List'}><ListChecks className="h-3.5 w-3.5" /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); removeItem(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-rose-500/15 hover:text-rose-300" title="Remove from Watchlist"><BookmarkMinus className="h-3.5 w-3.5" /></button>
-                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-white/10 hover:text-white active:scale-95" title="More"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+                      <div className="absolute inset-x-2 bottom-2 z-40 hidden translate-y-3 items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-black/65 p-1.5 opacity-0 shadow-xl backdrop-blur-xl transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100 lg:flex">
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleFavorite(item); }} className={`focus-ring flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/10 ${favorite ? 'text-rose-400' : 'text-white/80'}`} title={favorite ? 'Remove Favorite' : 'Favorite'} aria-label={favorite ? `Remove ${item.title || item.name} from Favorites` : `Favorite ${item.title || item.name}`}><Heart className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); toggleHistory(item); }} className={`focus-ring flex h-8 w-8 items-center justify-center rounded-xl ${watched ? 'text-emerald-400' : 'text-white/80 hover:bg-white/10 hover:text-emerald-300'}`} title={watched ? 'Remove from History' : 'Mark Watched'} aria-label={watched ? `Remove ${item.title || item.name} from History` : `Mark ${item.title || item.name} watched`}><Check className="h-3.5 w-3.5" /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); inMyList ? removeFromMyList(item) : openMyListPicker(item); }} className={`focus-ring flex h-8 w-8 items-center justify-center rounded-xl hover:bg-white/10 ${inMyList ? 'text-violet-400' : 'text-white/80 hover:text-violet-300'}`} title={inMyList ? 'Remove from My List' : 'Add to My List'} aria-label={inMyList ? `Remove ${item.title || item.name} from My List` : `Add ${item.title || item.name} to My List`}><ListChecks className="h-3.5 w-3.5" /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); removeItem(item); }} className="focus-ring flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-rose-500/15 hover:text-rose-300" title="Remove from Watchlist" aria-label={`Remove ${item.title || item.name} from Watchlist`}><BookmarkMinus className="h-3.5 w-3.5" /></button>
+                        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="focus-ring flex h-8 w-8 items-center justify-center rounded-xl text-white/80 hover:bg-white/10 hover:text-white active:scale-95" title="More" aria-label={`More actions for ${item.title || item.name}`}><MoreHorizontal className="h-3.5 w-3.5" /></button>
 
                       </div>
                     )}
@@ -1114,11 +1096,11 @@ const WatchlistPage = () => {
               const selected = selectedIds.has(item.id);
               return (
                 <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.15 }} className={`flex items-center gap-3 rounded-2xl border bg-zinc-950/60 p-2.5 backdrop-blur-xl transition ${selected ? 'border-emerald-400/50' : 'border-white/[0.05] hover:border-white/10'}`}>
-                  {selectionMode && <button onClick={() => toggleSelection(item)} className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/5 text-white/50'}`}><Check className="h-4 w-4 stroke-[3]" /></button>}
-                  <button onClick={() => handleCardOpen(item)} className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900"><PosterImage item={item} /></button>
+                  {selectionMode && <button type="button" onClick={() => toggleSelection(item)} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected} className={`focus-ring flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/5 text-white/50'}`}><Check className="h-4 w-4 stroke-[3]" /></button>}
+                  <button type="button" onClick={() => handleCardOpen(item)} aria-label={`Open ${item.title || item.name}`} className="focus-ring relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900"><WatchlistPoster item={item} /></button>
                   <button onClick={() => handleCardOpen(item)} className="min-w-0 flex-1 text-left"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-bold text-white">{item.title || item.name}</h3>{isUpcoming(item) && <span className="rounded-md border border-sky-400/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-sky-300">Upcoming</span>}</div><div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500"><span>{isUpcoming(item) ? formatReleaseDate(item) : releaseYear(item) || 'N/A'}</span>{item.runtimeMinutes ? <><span>·</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{formatRuntime(item.runtimeMinutes)}</span></> : null}<span>·</span><span>{item.vote_average?.toFixed(1) || '—'} TMDB</span>{item.priority && <><span>·</span><span className={priorityMeta[item.priority].text}>{priorityMeta[item.priority].label} priority</span></>}</div><div className="mt-1.5 flex flex-wrap gap-1">{item.genres.slice(0, 3).map((genre) => <span key={genre} className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">{genre}</span>)}{item.addedReason && <span className="rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] text-zinc-500">Why: {item.addedReason}</span>}</div></button>
                   <div className="hidden min-w-[120px] flex-col items-end gap-1.5 sm:flex"><ProviderRow providers={item.providers} compact /><span className="text-[9px] text-zinc-600">{formatAddedAt(item.addedAt)}</span></div>
-                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">{userRating !== undefined && <UserRatingBadge rating={userRating} />}<MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95"><MoreHorizontal className="h-4 w-4" /></button></div>
+                  <div className="flex shrink-0 items-center gap-1 sm:gap-2">{userRating !== undefined && <UserRatingBadge rating={userRating} />}<MiniStatusCluster favorite={favorite} watched={watched} inMyList={inMyList} /><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openActions(item); }} aria-label={`More actions for ${item.title || item.name}`} className="focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white active:scale-95"><MoreHorizontal className="h-4 w-4" /></button></div>
                 </motion.div>
               );
             })}
@@ -1188,7 +1170,7 @@ const WatchlistPage = () => {
           <button type="button" className="absolute inset-0 bg-black/72 backdrop-blur-md" onClick={() => setActionItem(null)} aria-label="Close actions" />
           <motion.div initial={{ y: 70, opacity: 0, scale: 0.985 }} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }} className="relative z-10 max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-[32px] border border-white/10 bg-zinc-950 p-4 shadow-2xl sm:rounded-[32px] sm:p-5">
             <div className="mb-4 flex items-center gap-3">
-              <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10"><PosterImage item={actionItem} /></div>
+              <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10"><WatchlistPoster item={actionItem} /></div>
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-base font-black text-white">{actionItem.title || actionItem.name}</h3>
                 <p className="mt-1 text-[10px] text-zinc-500">{getMediaLabel(actionItem.mediaType)} · {isUpcoming(actionItem) ? formatReleaseDate(actionItem) : releaseYear(actionItem) || 'N/A'}</p>
@@ -1253,7 +1235,7 @@ const WatchlistPage = () => {
                     <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar">
                       {section.items.map((item) => (
                         <button type="button" key={`${section.id}-${item.id}`} onClick={() => handleCardOpen(item)} className="group w-[104px] shrink-0 text-left sm:w-[116px]">
-                          <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900 shadow-md transition group-hover:border-white/15"><PosterImage item={item} />{isUpcoming(item) && <span className="absolute left-1.5 top-1.5 rounded-md border border-sky-400/20 bg-sky-500/15 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide text-sky-300 backdrop-blur-md">Upcoming</span>}</div>
+                          <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900 shadow-md transition group-hover:border-white/15"><WatchlistPoster item={item} />{isUpcoming(item) && <span className="absolute left-1.5 top-1.5 rounded-md border border-sky-400/20 bg-sky-500/15 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide text-sky-300 backdrop-blur-md">Upcoming</span>}</div>
                           <p className="mt-1.5 line-clamp-1 text-[10px] font-bold text-zinc-300 group-hover:text-white">{item.title || item.name}</p>
                         </button>
                       ))}
@@ -1290,7 +1272,6 @@ const WatchlistPage = () => {
       )}
 
       <AnimatePresence>{showRoulette && <Roulette source="watchlist" isOpen={showRoulette} onClose={() => setShowRoulette(false)} items={filteredAndSortedWatchlist as any} />}</AnimatePresence>
-      <style>{`@keyframes watchlistShimmer{100%{transform:translateX(200%)}}`}</style>
     </div>
   );
 };

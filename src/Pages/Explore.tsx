@@ -2,6 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star, Clapperboard, Tv, TrendingUp, Calendar, Filter, ChevronDown, ChevronLeft, ChevronRight, Search, X, Play, Loader2, ImageOff, CheckCheck, BookmarkCheck, Heart, ListChecks } from "lucide-react";
+import PosterImage from "../components/PosterImage.tsx";
+import EmptyState from "../components/EmptyState.tsx";
+import { PosterSkeleton } from "../components/MediaSkeleton.tsx";
 import { fetchMediaByType, searchTMDB, fetchGenres, MediaItem, } from "../api.ts";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase.ts";
@@ -43,16 +46,7 @@ const CircularRating = ({ rating }: { rating: number }) => {
     </div>
   );
 };
-const SkeletonCard = () => (
-  <div className="relative aspect-[2/3] rounded-2xl overflow-hidden bg-zinc-900/80 border border-white/5">
-    <div className="absolute inset-0 skeleton-shimmer" />
-    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
-    <div className="absolute bottom-4 left-4 right-4 space-y-2">
-      <div className="h-4 bg-zinc-800 rounded w-3/4" />
-      <div className="h-3 bg-zinc-800 rounded w-1/2" />
-    </div>
-  </div>
-);
+const SkeletonCard = () => <PosterSkeleton className="rounded-2xl border border-white/[0.07] bg-zinc-950/40 p-2" withCaption />;
 const MovieCard = ({
   movie,
   mediaType,
@@ -74,35 +68,27 @@ const MovieCard = ({
       transition={{ duration: 0.4, delay: index * 0.05, ease: "easeOut" }}
       className="group relative"
     >
-      <Link to={mediaType === "movie" ? `/movie/${movie.id}` : `/tv/${movie.id}`}>
+      <Link aria-label={`Open ${movie.title}`} className="focus-ring block rounded-[22px]" to={mediaType === "movie" ? `/movie/${movie.id}` : `/tv/${movie.id}`}>
         <div
           className="relative aspect-[2/3] overflow-hidden rounded-[18px] bg-zinc-900 border border-white/[0.07] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-all duration-500 sm:rounded-[22px] hover:shadow-2xl hover:shadow-red-900/20 hover:border-white/20 sm:hover:-translate-y-1"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          {movie.image && !imageErrors.poster ? (
-            <img
-              src={movie.image}
-              alt={movie.title}
-              loading="lazy"
-              onError={() => setImageErrors((prev) => ({ ...prev, poster: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered && movie.backdrop && !imageErrors.backdrop ? "opacity-0 scale-105" : "opacity-100 scale-100"
-                }`}
-            />
-          ) : (
-            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-zinc-900 to-zinc-950 text-zinc-500 px-4 text-center">
-              <ImageOff className="w-8 h-8 text-zinc-600 stroke-[1.5]" />
-              <span className="text-xs font-medium tracking-wide">No Image Available</span>
-            </div>
-          )}
+          <PosterImage
+            src={!imageErrors.poster ? movie.image : null}
+            alt={movie.title}
+            fallbackLabel="No image available"
+            onImageError={() => setImageErrors((previous) => ({ ...previous, poster: true }))}
+            imageClassName={`transition-transform duration-700 ${isHovered && movie.backdrop && !imageErrors.backdrop ? 'scale-105' : 'scale-100'}`}
+          />
 
           {movie.backdrop && !imageErrors.backdrop && (
-            <img
+            <PosterImage
               src={movie.backdrop}
+              size="original"
               alt=""
-              onError={() => setImageErrors((prev) => ({ ...prev, backdrop: true }))}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
-                }`}
+              onImageError={() => setImageErrors((previous) => ({ ...previous, backdrop: true }))}
+              className={`transition-opacity duration-700 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
             />
           )}
 
@@ -309,14 +295,14 @@ const HeroBanner = ({
         <>
           <button
             onClick={goToPrevious}
-            className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-md border border-white/10 text-white p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 active:scale-95 z-20"
+            className="focus-ring absolute left-3 md:left-5 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-md border border-white/10 text-white p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 active:scale-95 z-20"
             aria-label="Previous"
           >
             <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
           </button>
           <button
             onClick={goToNext}
-            className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-md border border-white/10 text-white p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 active:scale-95 z-20"
+            className="focus-ring absolute right-3 md:right-5 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur-md border border-white/10 text-white p-2 md:p-3 rounded-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-300 hover:bg-black/60 hover:scale-110 active:scale-95 z-20"
             aria-label="Next"
           >
             <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
@@ -527,9 +513,10 @@ const Explore = () => {
 
   if (initialLoading && movies.length === 0) {
     return (
-      <div className="min-h-screen bg-zinc-950">
+      <div role="status" aria-live="polite" aria-label="Loading Explore titles" aria-busy="true" className="min-h-screen bg-zinc-950">
+        <span className="sr-only">Loading titles</span>
         <div className="container mx-auto px-4 py-8">
-          <div className="h-[50vh] rounded-3xl bg-zinc-900 animate-pulse mb-8" />
+          <div aria-hidden="true" className="media-skeleton mb-8 h-[50vh] rounded-3xl" />
           <div className="flex items-center gap-4 mb-6">
             <div className="h-10 w-48 bg-zinc-900 rounded-full animate-pulse" />
             <div className="h-10 w-32 bg-zinc-900 rounded-full animate-pulse" />
@@ -574,7 +561,7 @@ const Explore = () => {
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange("movie")}
-                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "movie"
+                     className={`focus-ring relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 ${mediaType === "movie"
                       ? "text-neutral-950"
                       : "text-zinc-400 hover:text-zinc-200"
                       }`}
@@ -585,7 +572,7 @@ const Explore = () => {
                   <button
                     type="button"
                     onClick={() => handleMediaTypeChange("tv")}
-                    className={`relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 outline-none ${mediaType === "tv"
+                     className={`focus-ring relative z-10 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs font-bold tracking-wider uppercase transition-colors duration-300 rounded-lg flex items-center gap-2 ${mediaType === "tv"
                       ? "text-neutral-950"
                       : "text-zinc-400 hover:text-zinc-200"
                       }`}
@@ -610,7 +597,9 @@ const Explore = () => {
                 <div className="relative lg:hidden" ref={sortRef}>
                   <button
                     onClick={() => setSortOpen(!sortOpen)}
-                    className="flex items-center gap-2 px-3.5 py-2 bg-zinc-900/60 border border-white/5 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:border-white/10 transition-all duration-300"
+                    aria-label={`Sort Explore titles: ${activeSortLabel}`}
+                    aria-expanded={sortOpen}
+                    className="focus-ring flex items-center gap-2 px-3.5 py-2 bg-zinc-900/60 border border-white/5 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:border-white/10 transition-all duration-300"
                   >
                     <Filter className="w-3.5 h-3.5" />
                     <span>{activeSortLabel}</span>
@@ -655,7 +644,8 @@ const Explore = () => {
                 <div className="inline-flex items-center gap-2 pr-4">
                   <button
                     onClick={() => setSelectedGenre(null)}
-                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === null
+                    aria-pressed={selectedGenre === null}
+                    className={`focus-ring shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === null
                       ? "bg-red-600/20 border-red-500/40 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.2)]"
                       : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
                       }`}
@@ -668,7 +658,8 @@ const Explore = () => {
                       onClick={() =>
                         setSelectedGenre(selectedGenre === g.id ? null : g.id)
                       }
-                      className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === g.id
+                      aria-pressed={selectedGenre === g.id}
+                      className={`focus-ring shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300 border ${selectedGenre === g.id
                         ? "bg-red-600/20 border-red-500/40 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.2)]"
                         : "bg-zinc-900/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/10"
                         }`}
@@ -683,7 +674,9 @@ const Explore = () => {
               <div className="relative hidden lg:block shrink-0" ref={sortRef}>
                 <button
                   onClick={() => setSortOpen(!sortOpen)}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900/60 border border-white/5 rounded-xl text-sm font-medium text-zinc-300 hover:text-white hover:border-white/10 transition-all duration-300"
+                  aria-label={`Sort Explore titles: ${activeSortLabel}`}
+                  aria-expanded={sortOpen}
+                  className="focus-ring flex items-center gap-2 px-4 py-2 bg-zinc-900/60 border border-white/5 rounded-xl text-sm font-medium text-zinc-300 hover:text-white hover:border-white/10 transition-all duration-300"
                 >
                   <Filter className="w-3.5 h-3.5" />
                   {activeSortLabel}
@@ -772,38 +765,21 @@ const Explore = () => {
           </div>
         )}
         {!loading && movies.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
-          >
-            <Search className="w-16 h-16 text-zinc-700 mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2">
-              No results found
-            </h3>
-            <p className="text-zinc-400 text-sm max-w-md">
-              Try adjusting your filters or search query to find what you're
-              looking for.
-            </p>
-          </motion.div>
+          <EmptyState
+            icon={<Search className="h-6 w-6" />}
+            title="No results found"
+            description="Try adjusting your filters or search query to find what you're looking for."
+            action={searchQuery
+              ? <button type="button" onClick={() => setSearchQuery('')} className="focus-ring min-h-11 rounded-xl bg-white px-5 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200">Clear search</button>
+              : selectedGenre
+                ? <button type="button" onClick={() => setSelectedGenre(null)} className="focus-ring min-h-11 rounded-xl bg-white px-5 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200">Clear filters</button>
+                : undefined}
+            className="mt-3"
+          />
         )}
         <div ref={sentinelRef} className="h-10 mt-8" />
       </div>
       <style>{`
-        .skeleton-shimmer {
-          background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0) 0%,
-            rgba(255, 255, 255, 0.03) 50%,
-            rgba(255, 255, 255, 0) 100%
-          );
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }

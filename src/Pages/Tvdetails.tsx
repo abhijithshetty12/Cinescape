@@ -667,6 +667,213 @@ const WatchHistoryPill = ({
   );
 };
 
+
+type EpisodeHistoryProps = {
+  show: TvShow;
+  seasonNumber: number;
+  episode: any;
+  compact?: boolean;
+  onToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+};
+
+const EpisodeHistoryControl = ({ show, seasonNumber, episode, compact = false, onToast }: EpisodeHistoryProps) => {
+  const { user } = useAuth();
+  const [watchedDates, setWatchedDates] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<WatchMenuStep>('root');
+  const [mode, setMode] = useState<WatchActionMode>('mark');
+  const [saving, setSaving] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedDateKey, setSelectedDateKey] = useState(dateKey(new Date()));
+  const documentId = `${show.id}_${seasonNumber}_${episode.episode_number}`;
+  const watched = watchedDates.length > 0;
+  const latestWatchDate = watched ? watchedDates[watchedDates.length - 1] : null;
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setWatchedDates([]);
+      return;
+    }
+    const ref = doc(db, `users/${user.uid}/episodeHistory/${documentId}`);
+    return onSnapshot(ref, (snapshot) => {
+      if (!snapshot.exists()) {
+        setWatchedDates([]);
+        return;
+      }
+      const data = snapshot.data();
+      setWatchedDates(normalizeWatchedDates(data.watchedDates || [], data.watchedDate ?? data.timestamp ?? data.createdAt));
+    }, () => setWatchedDates([]));
+  }, [user?.uid, documentId]);
+
+  const close = () => {
+    setOpen(false);
+    setStep('root');
+    setMode(watched ? 'change' : 'mark');
+  };
+
+  const openDates = (nextMode: WatchActionMode) => {
+    setMode(nextMode);
+    setStep('date-options');
+    setOpen(true);
+  };
+
+  const openCalendar = () => {
+    const initial = mode === 'change' && latestWatchDate ? valueToDate(latestWatchDate) || new Date() : new Date();
+    setSelectedDateKey(dateKey(initial));
+    setCalendarMonth(new Date(initial.getFullYear(), initial.getMonth(), 1));
+    setStep('calendar');
+  };
+
+  const save = async (date: Date, nextMode: WatchActionMode) => {
+    if (!user?.uid) {
+      onToast('Please log in to update episode history', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      const iso = date.toISOString();
+      const nextDates = [...watchedDates];
+      if (nextMode === 'rewatch') nextDates.push(iso);
+      else if (nextMode === 'change' && nextDates.length) nextDates[nextDates.length - 1] = iso;
+      else if (!nextDates.length) nextDates.push(iso);
+      const normalized = normalizeWatchedDates(nextDates);
+      const latest = normalized[normalized.length - 1] || iso;
+      await setDoc(doc(db, `users/${user.uid}/episodeHistory/${documentId}`), {
+        showId: show.id,
+        movieId: show.id,
+        mediaId: show.id,
+        mediaType: 'tv_episode',
+        showTitle: show.name,
+        title: episode.name || `Episode ${episode.episode_number}`,
+        posterPath: show.poster_path || '',
+        stillPath: episode.still_path || '',
+        seasonNumber,
+        episodeNumber: episode.episode_number,
+        releaseDate: episode.air_date || '',
+        watchedDate: latest,
+        watchedDates: normalized,
+        timestamp: serverTimestamp(),
+      }, { merge: true });
+      onToast(nextMode === 'rewatch' ? `Rewatch added for S${seasonNumber} E${episode.episode_number}` : nextMode === 'change' ? 'Episode watch date updated' : `S${seasonNumber} E${episode.episode_number} added to history`, 'success');
+      close();
+    } catch {
+      onToast('Failed to update episode history', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!user?.uid) {
+      onToast('Please log in to update episode history', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/episodeHistory/${documentId}`));
+      onToast(`S${seasonNumber} E${episode.episode_number} removed from history`, 'info');
+      close();
+    } catch {
+      onToast('Failed to remove episode from history', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const releaseDate = episode.air_date ? new Date(`${episode.air_date}T12:00:00`) : null;
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  const validReleaseDate = releaseDate && !Number.isNaN(releaseDate.getTime()) && releaseDate <= todayEnd ? releaseDate : null;
+  const calendarDays = buildCalendarDays(calendarMonth);
+  const currentMonth = new Date();
+  const canGoNextMonth = calendarMonth.getFullYear() < currentMonth.getFullYear() || (calendarMonth.getFullYear() === currentMonth.getFullYear() && calendarMonth.getMonth() < currentMonth.getMonth());
+
+  return (
+    <>
+      <div className={`flex items-center ${compact ? 'gap-1' : 'gap-1.5'}`} onClick={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => watched ? setOpen(true) : save(new Date(), 'mark')}
+          aria-label={watched ? 'Episode watched' : 'Mark episode watched now'}
+          className={`flex ${compact ? 'h-8 w-8' : 'h-9 w-9'} items-center justify-center rounded-full border transition active:scale-90 ${watched ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-white/10 bg-white/[0.025] text-zinc-600 hover:text-zinc-300'}`}
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : watched ? <CheckCheck className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(true);
+            if (watched) {
+              setStep('root');
+              setMode('change');
+            } else {
+              setStep('date-options');
+              setMode('mark');
+            }
+          }}
+          aria-label="Episode history options"
+          className={`flex ${compact ? 'h-8 w-8' : 'h-9 w-9'} items-center justify-center rounded-full text-zinc-600 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-90`}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+
+      {open && createPortal(
+        <div className="fixed inset-0 z-[10080] flex items-end justify-center sm:items-center sm:p-5" onClick={(event) => event.stopPropagation()}>
+          <button type="button" aria-label="Close episode history options" onClick={close} className="absolute inset-0 bg-black/75 backdrop-blur-xl" />
+          <motion.div initial={{ opacity: 0, y: 34 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-zinc-950 shadow-[0_-24px_80px_rgba(0,0,0,0.75)] sm:rounded-[28px]">
+            <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+            <div className="flex items-center gap-3 border-b border-white/[0.07] p-4">
+              <div className="h-14 w-24 shrink-0 overflow-hidden rounded-xl border border-white/[0.07] bg-zinc-900">
+                {episode.still_url ? <img src={episode.still_url} alt="" className="h-full w-full object-cover" /> : show.poster_path ? <img src={`https://image.tmdb.org/t/p/w185${show.poster_path}`} alt="" className="h-full w-full object-cover opacity-60" /> : <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-4 w-4 text-zinc-700" /></div>}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Season {seasonNumber} · Episode {episode.episode_number}</p>
+                <p className="mt-1 truncate text-sm font-black text-white">{episode.name || `Episode ${episode.episode_number}`}</p>
+                {watched && latestWatchDate ? <p className="mt-1 text-[10px] text-emerald-400/80">Watched · {formatWatchDate(latestWatchDate)}{watchedDates.length > 1 ? ` · ${watchedDates.length} watches` : ''}</p> : <p className="mt-1 text-[10px] text-zinc-500">Not watched</p>}
+              </div>
+              <button type="button" onClick={close} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-500"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
+              {step === 'root' && watched && (
+                <div className="space-y-2">
+                  <button type="button" onClick={() => openDates('change')} className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-left"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10 text-amber-300"><CalendarDays className="h-4 w-4" /></span><span><span className="block text-xs font-black text-white">Change watch date</span><span className="mt-0.5 block text-[10px] text-zinc-500">Update the latest watch</span></span></button>
+                  <button type="button" onClick={() => openDates('rewatch')} className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 text-left"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300"><RotateCcw className="h-4 w-4" /></span><span><span className="block text-xs font-black text-white">Add rewatch</span><span className="mt-0.5 block text-[10px] text-zinc-500">Keep previous watch dates</span></span></button>
+                  <button type="button" onClick={remove} className="flex w-full items-center gap-3 rounded-2xl border border-red-500/10 bg-red-500/[0.04] p-3.5 text-left"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 text-red-400"><Trash2 className="h-4 w-4" /></span><span><span className="block text-xs font-black text-red-300">Remove from History</span><span className="mt-0.5 block text-[10px] text-zinc-500">Delete all watch dates for this episode</span></span></button>
+                </div>
+              )}
+
+              {step === 'date-options' && (
+                <div>
+                  {watched && <button type="button" onClick={() => setStep('root')} className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500"><ChevronLeft className="h-3.5 w-3.5" />Back</button>}
+                  <div className="mb-3 px-1"><h3 className="text-sm font-black text-white">{mode === 'rewatch' ? 'When did you rewatch it?' : mode === 'change' ? 'Change watch date' : 'When did you watch it?'}</h3><p className="mt-1 text-[10px] text-zinc-500">Choose a quick date or use the calendar.</p></div>
+                  <div className="space-y-2">
+                    <button type="button" onClick={() => save(new Date(), mode)} className="flex w-full items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 text-left"><span className="text-xs font-black text-white">Just Now</span><span className="text-[10px] text-zinc-500">Today</span></button>
+                    <button type="button" disabled={!validReleaseDate} onClick={() => validReleaseDate && save(validReleaseDate, mode)} className="flex w-full items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 text-left disabled:opacity-35"><span className="text-xs font-black text-white">Release Date</span><span className="text-[10px] text-zinc-500">{validReleaseDate ? formatWatchDate(validReleaseDate) : 'Unavailable'}</span></button>
+                    <button type="button" onClick={openCalendar} className="flex w-full items-center justify-between rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] px-4 py-3.5 text-left"><span className="flex items-center gap-2 text-xs font-black text-emerald-300"><CalendarDays className="h-4 w-4" />Choose Date</span><ChevronRight className="h-4 w-4 text-zinc-600" /></button>
+                  </div>
+                </div>
+              )}
+
+              {step === 'calendar' && (
+                <div>
+                  <button type="button" onClick={() => setStep('date-options')} className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500"><ChevronLeft className="h-3.5 w-3.5" />Back</button>
+                  <div className="mb-3 flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] p-2"><button type="button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400"><ChevronLeft className="h-4 w-4" /></button><span className="text-xs font-black text-white">{calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span><button type="button" disabled={!canGoNextMonth} onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button></div>
+                  <div className="grid grid-cols-7 gap-1 text-center">{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[9px] font-black text-zinc-600">{day}</span>)}{calendarDays.map((date) => { const key = dateKey(date); const outsideMonth = date.getMonth() !== calendarMonth.getMonth(); const future = date > todayEnd; const selected = selectedDateKey === key; return <button type="button" key={key} disabled={future} onClick={() => setSelectedDateKey(key)} className={`aspect-square rounded-xl text-[10px] font-bold ${selected ? 'bg-emerald-500 text-white' : outsideMonth ? 'text-zinc-700' : 'text-zinc-300'} disabled:opacity-20`}>{date.getDate()}</button>; })}</div>
+                  <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-center text-[10px] font-semibold text-zinc-400">Selected · {formatWatchDate(keyToDate(selectedDateKey))}</div>
+                  <button type="button" onClick={() => save(keyToDate(selectedDateKey), mode)} className="mt-3 w-full rounded-2xl bg-emerald-500 py-3.5 text-xs font-black text-white">{mode === 'rewatch' ? 'Add Rewatch' : mode === 'change' ? 'Update Watch Date' : 'Mark as Watched'}</button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>, document.body,
+      )}
+    </>
+  );
+};
+
 const TvDetails = () => {
   const castContainerRef = useRef<HTMLDivElement>(null);
   const crewContainerRef = useRef<HTMLDivElement>(null);
@@ -2350,164 +2557,61 @@ const TvDetails = () => {
             </div>
           </div>
 
-          <div className="md:hidden">
-            <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-white/[0.02] shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-              <div className="relative aspect-[16/8.6] overflow-hidden bg-zinc-950">
-                {selectedEpisodeData?.still_url ? (
-                  <ProgressiveImage
-                    src={selectedEpisodeData.still_url}
-                    lowSrc={selectedEpisodeData.still_path ? `https://image.tmdb.org/t/p/w185${selectedEpisodeData.still_path}` : undefined}
-                    alt={selectedEpisodeData.name || `Episode ${selectedEpisodeData.episode_number}`}
-                    wrapperClassName="absolute inset-0"
-                    className="h-full w-full object-cover"
-                    eager
-                  />
-                ) : showDetails.poster_path ? (
-                  <img src={`https://image.tmdb.org/t/p/w780${showDetails.poster_path}`} alt="" className="h-full w-full object-cover opacity-45 blur-[1px]" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-7 w-7 text-zinc-700" /></div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/5" />
-                <div className="absolute inset-x-0 bottom-0 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded-lg border border-blue-400/20 bg-blue-500/15 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-blue-300 backdrop-blur-xl">S{currentSeason} · E{currentEpisode}</span>
-                    {Number.isFinite(selectedEpisodeData?.vote_average) && selectedEpisodeData?.vote_average > 0 ? <span className="text-[9px] font-bold text-amber-300">★ {Number(selectedEpisodeData.vote_average).toFixed(1)}</span> : null}
-                  </div>
-                  <h3 className="line-clamp-2 text-[15px] font-black leading-tight text-white">{selectedEpisodeData?.name || `Episode ${currentEpisode}`}</h3>
-                  <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-zinc-400">{selectedEpisodeData?.overview || 'Browse every episode in this season from one compact sheet.'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-3">
-                <button type="button" onClick={openMobileEpisodeBrowser} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl border border-blue-400/25 bg-gradient-to-r from-blue-600 to-indigo-600 px-4 text-xs font-black text-white shadow-lg shadow-blue-500/20 active:scale-[0.98]">
-                  <TvMinimalPlay className="h-4 w-4" />Browse Episodes
-                </button>
-                <button type="button" onClick={() => playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 text-zinc-300 shadow-lg shadow-black/30 active:scale-95" aria-label="Jump to player">
-                  <Play className="h-4 w-4 fill-current" />
-                </button>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between px-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-600">
-              <span>{showDetails.number_of_seasons || showDetails.seasons.filter((season) => season.season_number > 0).length} seasons</span>
-              <span>{showDetails.number_of_episodes || '—'} episodes total</span>
-            </div>
-          </div>
-
-          <div className="hidden md:block">
-            <div className="-mx-4 mb-6 flex snap-x gap-2 overflow-x-auto px-4 pb-3 no-scrollbar sm:mx-0 sm:px-0">
-              {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => {
-                const selected = selectedSeason === season.season_number;
-                return (
-                  <button type="button" key={season.season_number} onClick={() => { setSelectedSeason(season.season_number); setSelectedEpisode(1); }} className={`snap-start shrink-0 rounded-xl border px-4 py-2.5 text-xs font-black transition ${selected ? 'border-blue-400/35 bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white'}`}>
-                    <span>{season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}</span>
-                    <span className={`ml-2 rounded-md px-1.5 py-0.5 text-[9px] ${selected ? 'bg-black/20 text-blue-50' : 'bg-black/25 text-zinc-600'}`}>{season.episode_count}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {selectedSeason !== null && (
-              <div className="min-h-[110px]">
-                {episodesLoading && <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-400" /></div>}
-                {episodesError && <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.05] p-4 text-center text-xs font-bold text-red-400">{episodesError}</div>}
-                {!episodesLoading && !episodesError && episodes.length === 0 && <div className="rounded-2xl border border-dashed border-white/[0.06] bg-white/[0.015] px-4 py-10 text-center text-xs font-medium text-zinc-600">No episodes available for this season.</div>}
-                {!episodesLoading && !episodesError && episodes.length > 0 && (
-                  <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
-                    {episodes.map((episode) => {
-                      const selected = selectedEpisode === episode.episode_number;
-                      return (
-                        <button type="button" key={episode.id} onClick={() => setSelectedEpisode(episode.episode_number)} className={`group flex items-start gap-3.5 rounded-2xl border p-3 text-left transition ${selected ? 'border-blue-400/35 bg-blue-500/[0.08] shadow-lg shadow-blue-500/5' : 'border-white/[0.05] bg-white/[0.02] hover:border-white/[0.10] hover:bg-white/[0.045]'}`}>
-                          <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-xl border border-white/[0.05] bg-zinc-950 sm:w-32">
-                            {episode.still_url ? <ProgressiveImage src={episode.still_url} lowSrc={episode.still_path ? `https://image.tmdb.org/t/p/w185${episode.still_path}` : undefined} alt={episode.name || `Episode ${episode.episode_number}`} wrapperClassName="h-full w-full" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-5 w-5 text-zinc-700" /></div>}
-                            <div className={`absolute inset-0 flex items-center justify-center bg-black/55 transition ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}><span className={`flex h-8 w-8 items-center justify-center rounded-full ${selected ? 'bg-blue-500' : 'bg-white/10'}`}><Play className="h-3.5 w-3.5 fill-current" /></span></div>
-                            <span className="absolute left-2 top-2 rounded-md border border-white/10 bg-black/55 px-1.5 py-0.5 text-[9px] font-black text-amber-300 backdrop-blur-md">EP {episode.episode_number}</span>
-                          </div>
-                          <div className="min-w-0 flex-1 pt-0.5">
-                            <p className={`truncate text-xs font-black sm:text-sm ${selected ? 'text-blue-300' : 'text-zinc-200 group-hover:text-white'}`}>{episode.name || `Episode ${episode.episode_number}`}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] font-semibold text-zinc-600">
-                              <span>{episode.air_date ? formatWatchDate(`${episode.air_date}T12:00:00`) : 'TBA'}</span>
-                              {Number.isFinite(episode.vote_average) && episode.vote_average > 0 ? <><span>•</span><span className="text-amber-400/80">★ {Number(episode.vote_average).toFixed(1)}</span></> : null}
-                            </div>
-                            <p className="mt-1.5 line-clamp-2 text-[10px] leading-relaxed text-zinc-500">{episode.overview || 'No synopsis available.'}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => (
+              <button key={season.season_number} type="button" onClick={() => { setSelectedSeason(season.season_number); setShowMobileEpisodeBrowser(true); }} className={`group flex min-h-[84px] items-center gap-3 rounded-[22px] border p-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] ${selectedSeason === season.season_number ? 'border-blue-400/30 bg-gradient-to-r from-blue-500/[0.13] to-indigo-500/[0.05]' : 'border-white/[0.08] bg-white/[0.025] hover:border-blue-400/20 hover:bg-white/[0.05]'}`}>
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-500/10 text-lg font-black text-blue-200">{season.season_number === 0 ? '★' : String(season.season_number).padStart(2, '0')}</span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-white">{season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}</span><span className="mt-1 block text-[11px] text-zinc-500">{season.episode_count} episodes{season.air_date ? ` · ${season.air_date.slice(0, 4)}` : ''}</span></span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition group-hover:border-blue-400/30 group-hover:text-blue-300"><ChevronRight className="h-4 w-4" /></span>
+              </button>
+            ))}
           </div>
         </motion.section>
 
         {showMobileEpisodeBrowser && createPortal(
-          <div className="fixed inset-0 z-[10060] flex items-end justify-center md:hidden">
-            <button type="button" aria-label="Close episode browser" onClick={() => setShowMobileEpisodeBrowser(false)} className="absolute inset-0 bg-black/75 backdrop-blur-xl" />
-            <motion.div initial={{ y: 48, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[30px] border border-white/10 bg-zinc-950/95 shadow-[0_-24px_80px_rgba(0,0,0,0.72)] backdrop-blur-3xl">
-              <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/15" />
-              <div className="flex items-center gap-3 border-b border-white/[0.07] px-4 pb-3 pt-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-500/10 text-blue-300"><TvMinimalPlay className="h-4 w-4" /></div>
-                <div className="min-w-0 flex-1"><p className="text-sm font-black text-white">Episode Browser</p><p className="mt-0.5 truncate text-[10px] font-semibold text-zinc-500">{showDetails.name} · Season {currentSeason}</p></div>
-                <button type="button" onClick={() => setShowMobileEpisodeBrowser(false)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-400 active:scale-90"><X className="h-4 w-4" /></button>
+          <div className="fixed inset-0 z-[10060] flex items-end justify-center sm:items-center sm:p-5 lg:p-8" role="dialog" aria-modal="true" aria-label="Episode browser">
+            <button type="button" aria-label="Close episode browser" onClick={() => setShowMobileEpisodeBrowser(false)} className="absolute inset-0 bg-black/85 backdrop-blur-xl" />
+            <motion.div initial={{ y: 45, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 30, opacity: 0 }} transition={{ type: 'spring', stiffness: 290, damping: 30 }} className="relative z-10 flex h-[93dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[32px] border border-white/[0.12] bg-[#090b12]/95 shadow-[0_0_100px_rgba(37,99,235,0.15),0_30px_100px_rgba(0,0,0,0.85)] backdrop-blur-3xl sm:h-[min(88dvh,850px)] sm:rounded-[32px]">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-blue-600/[0.13] via-indigo-600/[0.05] to-transparent" />
+              <div className="relative mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-white/20 sm:hidden" />
+              <div className="relative flex items-center gap-3 border-b border-white/[0.07] px-4 py-4 sm:px-7">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/15 text-blue-300 shadow-[0_0_30px_rgba(59,130,246,0.12)]"><TvMinimalPlay className="h-5 w-5" /></span>
+                <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-300/70">Cinescape / Episode Explorer</p><h3 className="mt-0.5 truncate text-base font-black text-white sm:text-xl">{showDetails.name}</h3></div>
+                <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold text-zinc-400 sm:block">{episodes.length} episodes</span>
+                <button type="button" aria-label="Close" onClick={() => setShowMobileEpisodeBrowser(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition hover:bg-white/15"><X className="h-4 w-4" /></button>
               </div>
-              <div className="border-b border-white/[0.06] px-4 py-3">
-                <p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Season</p>
-                <div className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
-                  {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => {
-                    const selected = selectedSeason === season.season_number;
-                    return <button type="button" key={season.season_number} onClick={() => { setSelectedSeason(season.season_number); setSelectedEpisode(1); }} className={`snap-start shrink-0 rounded-xl border px-3.5 py-2.5 text-[10px] font-black transition active:scale-95 ${selected ? 'border-blue-400/30 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/15' : 'border-white/[0.07] bg-white/[0.035] text-zinc-400'}`}>{season.season_number === 0 ? 'Specials' : `S${season.season_number}`}<span className={`ml-1.5 text-[8px] ${selected ? 'text-white/65' : 'text-zinc-600'}`}>{season.episode_count}</span></button>;
-                  })}
+              <div className="relative border-b border-white/[0.07] px-4 py-3 sm:px-7">
+                <div className="mb-2 flex items-center justify-between"><span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Choose season</span><span className="text-[10px] font-bold text-zinc-500">Season {currentSeason}</span></div>
+                <div className="flex snap-x gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => <button key={season.season_number} type="button" onClick={() => { setSelectedSeason(season.season_number); setSelectedEpisode(1); }} className={`snap-start shrink-0 rounded-xl border px-4 py-2.5 text-[11px] font-black transition active:scale-95 ${selectedSeason === season.season_number ? 'border-blue-400/40 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20' : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08]'}`}>{season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}<span className="ml-2 opacity-60">{season.episode_count}</span></button>)}
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-                {episodesLoading ? <div className="flex h-64 flex-col items-center justify-center gap-2"><Loader2 className="h-6 w-6 animate-spin text-blue-400" /><span className="text-[10px] font-semibold text-zinc-600">Loading episodes…</span></div> : episodesError ? <div className="rounded-2xl border border-red-500/10 bg-red-500/[0.05] p-4 text-center text-xs font-bold text-red-400">{episodesError}</div> : !episodes.length ? <div className="rounded-2xl border border-dashed border-white/[0.07] bg-white/[0.02] px-4 py-12 text-center text-xs font-semibold text-zinc-600">No episodes available for this season.</div> : <>
-                  <div className="mb-3 flex items-end justify-between gap-3">
-                    <div><p className="text-xs font-black text-white">Season {currentSeason}</p><p className="mt-0.5 text-[9px] font-semibold text-zinc-600">All {episodes.length} episodes</p></div>
-                    <span className="rounded-full border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-[9px] font-black text-zinc-500">One page</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {episodes.map((episode) => {
-                      const selected = selectedEpisode === episode.episode_number;
-                      return <button
-                        type="button"
-                        key={episode.id}
-                        onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }}
-                        className={`group min-w-0 overflow-hidden rounded-[18px] border text-left transition active:scale-[0.98] ${selected ? 'border-blue-400/35 bg-blue-500/[0.10] shadow-[0_12px_28px_rgba(59,130,246,0.12)]' : 'border-white/[0.07] bg-white/[0.025]'}`}
-                      >
-                        <div className="relative aspect-video overflow-hidden bg-zinc-900">
-                          {episode.still_url ? (
-                            <ProgressiveImage
-                              src={episode.still_url}
-                              lowSrc={episode.still_path ? `https://image.tmdb.org/t/p/w185${episode.still_path}` : undefined}
-                              alt={episode.name || `Episode ${episode.episode_number}`}
-                              wrapperClassName="absolute inset-0"
-                              className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.02]"
-                            />
-                          ) : showDetails.poster_path ? (
-                            <img
-                              src={`https://image.tmdb.org/t/p/w500${showDetails.poster_path}`}
-                              alt={episode.name || `Episode ${episode.episode_number}`}
-                              className="h-full w-full object-cover opacity-55"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-5 w-5 text-zinc-700" /></div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/10" />
-                          <span className={`absolute left-2 top-2 rounded-lg border px-1.5 py-1 text-[8px] font-black backdrop-blur-xl ${selected ? 'border-blue-300/25 bg-blue-500/85 text-white' : 'border-white/10 bg-black/55 text-white/85'}`}>E{episode.episode_number}</span>
-                          {Number.isFinite(episode.vote_average) && episode.vote_average > 0 ? <span className="absolute right-2 top-2 rounded-lg border border-amber-300/15 bg-black/55 px-1.5 py-1 text-[8px] font-black text-amber-300 backdrop-blur-xl">★ {Number(episode.vote_average).toFixed(1)}</span> : null}
-                          {selected && <span className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30"><Play className="h-3 w-3 fill-current" /></span>}
+              <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-7 sm:py-5">
+                {episodesLoading ? <div className="flex h-52 flex-col items-center justify-center gap-3"><Loader2 className="h-7 w-7 animate-spin text-blue-400" /><span className="text-xs text-zinc-500">Loading episodes…</span></div> : episodesError ? <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 text-sm text-red-300">{episodesError}</div> : !episodes.length ? <div className="py-20 text-center text-sm text-zinc-500">No episodes available for this season.</div> : <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  {episodes.map((episode) => {
+                    const selected = selectedEpisode === episode.episode_number;
+                    const minutes = episode.runtime || showDetails.episode_run_time?.[0];
+                    return <div key={episode.id} className={`group overflow-hidden rounded-[22px] border transition-all duration-300 ${selected ? 'border-blue-400/35 bg-blue-500/[0.09] shadow-[0_12px_40px_rgba(37,99,235,0.09)]' : 'border-white/[0.08] bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.05]'}`}>
+                      <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
+                        <button type="button" onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }} aria-label={`Select episode ${episode.episode_number}`} className="relative aspect-video w-[39%] max-w-[195px] shrink-0 overflow-hidden rounded-2xl bg-zinc-900 text-white">
+                          {episode.still_url ? <ProgressiveImage src={episode.still_url} lowSrc={episode.still_path ? `https://image.tmdb.org/t/p/w185${episode.still_path}` : undefined} alt={episode.name || `Episode ${episode.episode_number}`} wrapperClassName="absolute inset-0" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : showDetails.poster_path ? <img src={`https://image.tmdb.org/t/p/w500${showDetails.poster_path}`} alt="" loading="lazy" className="h-full w-full object-cover opacity-60" /> : <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-6 w-6 text-zinc-600" /></div>}
+                          <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/20" />
+                          <span className="absolute left-2 top-2 rounded-lg border border-white/15 bg-black/60 px-2 py-1 text-[9px] font-black backdrop-blur-md">E{String(episode.episode_number).padStart(2, '0')}</span>
+                          <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/25 bg-blue-600/90 shadow-xl backdrop-blur-md"><Play className="h-3.5 w-3.5 fill-current" /></span>
+                        </button>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <div className="flex items-start justify-between gap-1"><span className="text-[9px] font-black uppercase tracking-[0.13em] text-blue-300/80">Episode {episode.episode_number}</span><EpisodeHistoryControl show={showDetails} seasonNumber={currentSeason} episode={episode} compact onToast={showToast} /></div>
+                          <button type="button" onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }} className="mt-1 text-left text-xs font-black leading-snug text-white transition group-hover:text-blue-200 sm:text-sm">{episode.name || `Episode ${episode.episode_number}`}</button>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-zinc-400"><span>{episode.air_date ? formatWatchDate(`${episode.air_date}T12:00:00`) : 'TBA'}</span>{minutes ? <><span className="text-zinc-700">•</span><span>{minutes} min</span></> : null}{episode.vote_average > 0 ? <><span className="text-zinc-700">•</span><span className="text-amber-300">★ {Number(episode.vote_average).toFixed(1)}</span></> : null}</div>
+                          {selected && <span className="mt-2 w-fit rounded-full border border-blue-400/20 bg-blue-500/15 px-2 py-1 text-[9px] font-bold text-blue-300">Selected episode</span>}
                         </div>
-                        <div className="p-2.5">
-                          <p className={`line-clamp-2 min-h-[29px] text-[10px] font-black leading-[1.35] ${selected ? 'text-blue-200' : 'text-zinc-100'}`}>{episode.name || `Episode ${episode.episode_number}`}</p>
-                          <div className="mt-1.5 flex items-center gap-1.5 text-[8px] font-semibold text-zinc-600">
-                            {episode.air_date ? <span className="truncate">{new Date(`${episode.air_date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span> : <span>TBA</span>}
-                          </div>
-                        </div>
-                      </button>;
-                    })}
-                  </div>
-                </>}
+                      </div>
+                      <p className="px-3 pb-3 text-[11px] leading-relaxed text-zinc-400 sm:px-4 sm:pb-4">{episode.overview || 'No episode description available.'}</p>
+                    </div>;
+                  })}
+                </div>}
               </div>
-              <div className="border-t border-white/[0.06] px-4 pb-[max(14px,env(safe-area-inset-bottom))] pt-3"><button type="button" onClick={() => setShowMobileEpisodeBrowser(false)} className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 py-3 text-[11px] font-black text-zinc-300 active:scale-[0.99]">Done</button></div>
+              <div className="relative flex items-center justify-between gap-3 border-t border-white/[0.08] bg-black/20 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-7"><p className="text-[10px] text-zinc-500">Select an episode to continue watching</p><button type="button" onClick={() => setShowMobileEpisodeBrowser(false)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.08] px-5 py-2.5 text-[11px] font-black text-white transition hover:bg-white/15">Done</button></div>
             </motion.div>
           </div>, document.body,
         )}

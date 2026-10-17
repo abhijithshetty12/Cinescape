@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Star, } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase.ts";
+import PosterImage from './PosterImage.tsx';
 
 interface MovieCardProps {
   id: number;
@@ -95,11 +96,7 @@ const MovieCard: React.FC<MovieCardProps> = ({
     setTrailerUrl(null);
   };
 
-  const isTvShow = media_type === "tv" || (!title && name);
   const imagePath = backdrop_path || poster_path || "";
-  const imageSrc = imagePath
-    ? `https://image.tmdb.org/t/p/w780${imagePath}`
-    : "/placeholder-poster.png";
 
   const date = release_date || first_air_date || "";
   const year = date ? String(new Date(date).getFullYear()) : "—";
@@ -123,12 +120,12 @@ const MovieCard: React.FC<MovieCardProps> = ({
       }}
     >
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#070709] select-none">
-
-        <img
-          src={imageSrc}
+        <PosterImage
+          src={imagePath || null}
+          size="w780"
           alt={displayTitle}
-          className="h-full w-full object-cover transition-all duration-700 ease-out group-hover:scale-105 group-hover:blur-[2px] opacity-90 group-hover:opacity-40"
-          loading="lazy"
+          fallbackLabel="No preview image"
+          imageClassName="transition-transform duration-700 ease-out group-hover:scale-105"
         />
 
         <div className="absolute inset-0 pointer-events-none transition-all duration-500 group-hover:bg-gradient-to-b group-hover:from-white/[0.02] group-hover:to-transparent z-10" />

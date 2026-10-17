@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle, ArrowUpRight, Bookmark, BookmarkMinus, CalendarDays, Camera, Check, ChevronRight,
-  Clapperboard, Film, Grid3X3, Heart, ImageOff, Info, List, ListChecks, Loader2,
+  Clapperboard, Film, Grid3X3, Heart, Info, List, ListChecks, Loader2,
   MoreHorizontal, Music, PenTool, Play, RefreshCw, RotateCcw, Search,
   SlidersHorizontal, Star, Trash2, Tv, User, X,
 } from 'lucide-react';
@@ -15,6 +15,8 @@ import {
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import Toast from '../components/Toast.tsx';
+import PosterImage from '../components/PosterImage.tsx';
+import EmptyState from '../components/EmptyState.tsx';
 
 interface SearchResult {
   id: number;
@@ -273,38 +275,16 @@ const levenshtein = (a: string, b: string) => {
   return matrix[left.length][right.length];
 };
 
-const ResultImage = ({ item, className = '' }: { item: SearchResult; className?: string }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const src = imageUrl(item, 'w500');
-
-  useEffect(() => {
-    setLoaded(false);
-    setFailed(false);
-  }, [src]);
-
-  return (
-    <div className={`absolute inset-0 overflow-hidden bg-zinc-900 ${className}`}>
-      {!loaded && !failed && <div className="absolute inset-0 animate-[pulse_2.8s_ease-in-out_infinite] bg-gradient-to-r from-zinc-950 via-zinc-800/70 to-zinc-950" />}
-      {src && !failed ? (
-        <img
-          src={src}
-          alt={getTitle(item)}
-          loading="lazy"
-          decoding="async"
-          onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
-          className={`h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-[1.025] ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-zinc-950 text-zinc-700">
-          <ImageOff className="h-7 w-7 stroke-[1.5]" />
-          <span className="text-[9px] font-semibold uppercase tracking-[0.14em]">No image</span>
-        </div>
-      )}
-    </div>
-  );
-};
+const ResultImage = ({ item, className = '' }: { item: SearchResult; className?: string }) => (
+  <PosterImage
+    src={imageUrl(item, 'w500')}
+    size="w500"
+    alt={getTitle(item)}
+    fallbackLabel="No image"
+    className={className}
+    imageClassName="transition-transform duration-500 ease-out group-hover:scale-[1.025]"
+  />
+);
 
 const MediaTypeBadge = ({ type }: { type: string }) => (
   <span className="inline-flex h-5 w-5 items-center justify-center rounded-md sm:h-6 sm:w-6 sm:rounded-lg border border-white/[0.10] bg-zinc-950/45 text-white shadow-[0_5px_16px_rgba(0,0,0,.36),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl backdrop-saturate-150 sm:border-white/[0.12] sm:bg-black/65 sm:shadow-lg sm:backdrop-blur-xl" aria-label={type === 'tv' ? 'Series' : 'Movie'}>
@@ -379,10 +359,9 @@ const ProviderStrip = ({ providers, compact = false }: { providers: ProviderInfo
 
 const SkeletonResults = ({ viewMode, activeTab }: { viewMode: ViewMode; activeTab: TabType }) => {
   const grid = activeTab === 'talents' || activeTab === 'all' || viewMode === 'grid';
-  const shimmer = 'relative overflow-hidden bg-gradient-to-br from-white/[0.075] via-white/[0.035] to-white/[0.015] after:pointer-events-none after:absolute after:inset-0 after:-translate-x-full after:bg-gradient-to-r after:from-transparent after:via-white/[0.065] after:to-transparent after:animate-[cinescapeShimmer_2.4s_ease-in-out_infinite] motion-reduce:after:animate-none';
+  const shimmer = 'media-skeleton';
   return (
-    <div role="status" aria-live="polite" aria-label="Loading search results" className="space-y-5">
-      <style>{`@keyframes cinescapeShimmer { 0% { transform: translateX(-100%); } 65%, 100% { transform: translateX(100%); } } @media (prefers-reduced-motion: reduce) { .cinescape-loading-card { animation: none !important; } }`}</style>
+    <div role="status" aria-live="polite" aria-label="Loading search results" aria-busy="true" className="space-y-5">
       <div className="flex items-center gap-3 px-1">
         <div className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-red-400/15 bg-red-500/[0.07] text-red-300"><Film className="h-4 w-4" /></div>
         <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold tracking-wide text-zinc-300">Finding your next watch</p><p className="mt-0.5 text-[10px] text-zinc-600">Curating matching titles and talents</p></div>
@@ -1674,14 +1653,14 @@ const SearchResults = () => {
           {loading && <div className="mt-6 sm:mt-8"><SkeletonResults viewMode={viewMode} activeTab={activeTab} /></div>}
 
           {!loading && error && (
-            <div className="mt-6 flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-white/[0.07] bg-white/[0.02] px-5 text-center backdrop-blur-2xl sm:mt-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/15 bg-red-500/[0.08] text-red-400"><AlertCircle className="h-5 w-5" /></div>
-              <h3 className="mt-4 text-sm font-black text-white">Search unavailable</h3>
-              <p className="mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-600">{error}</p>
-              <button type="button" onClick={() => void fetchPage(1, false)} className={`mt-5 flex min-h-11 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 py-2.5 text-[11px] font-bold text-zinc-300 transition hover:bg-white/[0.07] hover:text-white ${FOCUS_RING}`}>
-                <RefreshCw className="h-3.5 w-3.5" /> Retry
-              </button>
-            </div>
+            <EmptyState
+              icon={<AlertCircle className="h-5 w-5" />}
+              title="Search unavailable"
+              description={error}
+              tone="error"
+              className="mt-6 min-h-[320px] sm:mt-8"
+              action={<button type="button" onClick={() => void fetchPage(1, false)} className={`focus-ring inline-flex min-h-11 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.045] px-4 text-[11px] font-bold text-zinc-300 transition hover:bg-white/[0.07] hover:text-white ${FOCUS_RING}`}><RefreshCw className="h-3.5 w-3.5" />Retry</button>}
+            />
           )}
 
           {!loading && !error && (query || genreParam) && activeTab === 'all' && tabCounts.all > 0 && (
@@ -1701,17 +1680,18 @@ const SearchResults = () => {
           )}
 
           {!loading && !error && (query || genreParam) && tabCounts[activeTab] === 0 && (
-            <div className="mt-6 flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/[0.075] bg-white/[0.015] px-5 text-center sm:mt-8">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.035] text-zinc-600"><Search className="h-[18px] w-[18px]" /></div>
-              <h3 className="mt-4 text-sm font-black text-zinc-300">No matching results here</h3>
-              <p className="mt-1 max-w-sm text-[11px] leading-relaxed text-zinc-600">Try another category, remove a library filter, or broaden the query.</p>
-              <div className="mt-5 flex max-w-md flex-wrap justify-center gap-2">
-                {activeTab !== 'all' && results.length > 0 && <button type="button" onClick={() => setActiveTab('all')} className={`min-h-11 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-[10px] font-black text-zinc-300 hover:text-white ${FOCUS_RING}`}>Search all categories</button>}
-                {activeFilterCount > 0 && <button type="button" onClick={() => setStatusFilters([])} className={`min-h-11 rounded-2xl border border-amber-400/15 bg-amber-400/[0.07] px-4 text-[10px] font-black text-amber-300 ${FOCUS_RING}`}>Clear filters</button>}
-                {suggestedCorrection && <button type="button" onClick={() => performSearch(suggestedCorrection)} className={`min-h-11 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] px-4 text-[10px] font-black text-cyan-300 ${FOCUS_RING}`}>Try “{suggestedCorrection}”</button>}
-                {query.split(/\s+/).filter(Boolean).length > 1 && <button type="button" onClick={() => performSearch(query.split(/\s+/)[0])} className={`min-h-11 rounded-2xl border border-violet-400/15 bg-violet-400/[0.06] px-4 text-[10px] font-black text-violet-300 ${FOCUS_RING}`}>Browse similar titles</button>}
-              </div>
-            </div>
+            <EmptyState
+              icon={<Search className="h-[18px] w-[18px]" />}
+              title="No matching results here"
+              description="Try another category, remove a library filter, or broaden the query."
+              className="mt-6 min-h-[320px] sm:mt-8"
+              action={<>
+                {activeTab !== 'all' && results.length > 0 && <button type="button" onClick={() => setActiveTab('all')} className={`focus-ring min-h-11 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-[10px] font-black text-zinc-300 hover:text-white ${FOCUS_RING}`}>Search all categories</button>}
+                {activeFilterCount > 0 && <button type="button" onClick={() => setStatusFilters([])} className={`focus-ring min-h-11 rounded-2xl border border-amber-400/15 bg-amber-400/[0.07] px-4 text-[10px] font-black text-amber-300 ${FOCUS_RING}`}>Clear filters</button>}
+                {suggestedCorrection && <button type="button" onClick={() => performSearch(suggestedCorrection)} className={`focus-ring min-h-11 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] px-4 text-[10px] font-black text-cyan-300 ${FOCUS_RING}`}>Try “{suggestedCorrection}”</button>}
+                {query.split(/\s+/).filter(Boolean).length > 1 && <button type="button" onClick={() => performSearch(query.split(/\s+/)[0])} className={`focus-ring min-h-11 rounded-2xl border border-violet-400/15 bg-violet-400/[0.06] px-4 text-[10px] font-black text-violet-300 ${FOCUS_RING}`}>Browse similar titles</button>}
+              </>}
+            />
           )}
 
           {!query && !genreParam && !loading && (
