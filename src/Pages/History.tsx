@@ -42,6 +42,17 @@ interface WatchedItem {
   backdropPath?: string;
 }
 
+interface EpisodeHistoryRecord {
+  id: string;
+  showId: number;
+  showTitle: string;
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  stillPath: string;
+  watchedDates: string[];
+}
+
 interface MediaEnrichment {
   voteAverage: number;
   runtimeMinutes: number;
@@ -208,13 +219,13 @@ const parseDateText = (value: string) => {
   let year = 0;
   let month = 0;
   let day = 0;
-  let match = text.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  let match = text.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
   if (match) {
     day = Number(match[1]);
     month = Number(match[2]);
     year = Number(match[3]);
   } else {
-    match = text.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+    match = text.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/);
     if (!match) return null;
     year = Number(match[1]);
     month = Number(match[2]);
@@ -316,6 +327,8 @@ const HistoryPage = () => {
   const initialPrefs = useRef(readPrefs()).current;
   const lastScrollY = useRef(0);
   const [fullHistory, setFullHistory] = useState<WatchedItem[]>([]);
+  const [episodeHistory, setEpisodeHistory] = useState<EpisodeHistoryRecord[]>([]);
+  const [episodeLayout, setEpisodeLayout] = useState<'series' | 'episodes'>('series');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>(initialPrefs.mediaType || 'movie');
@@ -440,6 +453,29 @@ const HistoryPage = () => {
       setError('Failed to load watch history. Please try again.');
       setLoading(false);
     });
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setEpisodeHistory([]);
+      return;
+    }
+    return onSnapshot(collection(db, `users/${user.uid}/episodeHistory`), (snapshot) => {
+      const records = snapshot.docs.map((entry) => {
+        const data = entry.data();
+        return {
+          id: entry.id,
+          showId: Number(data.showId ?? data.movieId ?? data.mediaId) || 0,
+          showTitle: String(data.showTitle || 'Untitled Series'),
+          seasonNumber: Number(data.seasonNumber) || 0,
+          episodeNumber: Number(data.episodeNumber) || 0,
+          title: String(data.title || `Episode ${data.episodeNumber || ''}`),
+          stillPath: String(data.stillPath || ''),
+          watchedDates: normalizeWatchedDates(data.watchedDates || [], data.watchedDate ?? data.timestamp ?? data.createdAt),
+        };
+      }).filter((entry) => entry.showId > 0 && entry.episodeNumber > 0 && entry.watchedDates.length > 0);
+      setEpisodeHistory(records);
+    }, () => setEpisodeHistory([]));
   }, [user?.uid]);
 
   useEffect(() => {
@@ -928,6 +964,18 @@ const HistoryPage = () => {
     if (!folderPickerItem) setSelectedIds(new Set());
   };
 
+  const episodeSeriesGroups = useMemo(() => {
+    const grouped = new Map<number, EpisodeHistoryRecord[]>();
+    episodeHistory.forEach((entry) => grouped.set(entry.showId, [...(grouped.get(entry.showId) || []), entry]));
+    return Array.from(grouped.entries()).map(([showId, episodes]) => ({
+      showId,
+      title: fullHistory.find((item) => item.mediaType === 'tv' && item.movieId === showId)?.title || episodes[0].showTitle,
+      episodes: episodes.sort((a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber),
+      latest: Math.max(...episodes.flatMap((episode) => episode.watchedDates.map((date) => new Date(date).getTime() || 0))),
+    })).filter((group) => !searchTerm.trim() || group.title.toLowerCase().includes(searchTerm.trim().toLowerCase()) || group.episodes.some((episode) => episode.title.toLowerCase().includes(searchTerm.trim().toLowerCase())))
+      .sort((a, b) => b.latest - a.latest);
+  }, [episodeHistory, fullHistory, searchTerm]);
+
   const totalMovies = fullHistory.filter((item) => item.mediaType === 'movie').length;
   const totalSeries = fullHistory.filter((item) => item.mediaType === 'tv').length;
   const noResultsBecauseFilters = Boolean(searchTerm.trim() || activeFilterChips.length);
@@ -1105,7 +1153,43 @@ const HistoryPage = () => {
           </div>
         )}
 
-        {filteredAndSortedHistory.length === 0 && (
+        {mediaType === 'tv' && (
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="inline-flex shrink-0 items-center rounded-full border border-white/10 bg-black p-1" role="group" aria-label="Series history view">
+              {(['series', 'episodes'] as const).map((layout) => (
+                <button key={layout} type="button" aria-pressed={episodeLayout === layout} onClick={() => setEpisodeLayout(layout)} className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${episodeLayout === layout ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                  {layout === 'series' ? 'Series' : 'Episodes'}
+                </button>
+              ))}
+            </div>
+            {episodeLayout === 'episodes' && <span className="text-right text-[11px] text-zinc-500">{episodeHistory.length} watched episodes</span>}
+          </div>
+        )}
+
+        {mediaType === 'tv' && episodeLayout === 'episodes' && (
+          <div className="mb-6">
+            {episodeSeriesGroups.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {episodeSeriesGroups.flatMap((group) => group.episodes.map((episode) => ({ ...episode, showId: group.showId, showTitle: group.title }))).sort((a, b) => new Date(b.watchedDates[b.watchedDates.length - 1]).getTime() - new Date(a.watchedDates[a.watchedDates.length - 1]).getTime()).map((episode) => (
+                  <button key={episode.id} type="button" onClick={() => navigate(`/tv/${episode.showId}`)} className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.08] bg-zinc-950 p-2.5 text-left transition hover:border-white/20 hover:bg-zinc-900">
+                    {episode.stillPath ? <img src={`https://image.tmdb.org/t/p/w300${episode.stillPath}`} alt="" loading="lazy" className="h-[72px] w-28 shrink-0 rounded-lg object-cover sm:w-24" /> : <span className="flex h-[72px] w-28 shrink-0 items-center justify-center rounded-lg bg-zinc-900 sm:w-24"><Tv className="h-5 w-5 text-zinc-600" /></span>}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] text-zinc-400">{episode.showTitle}</span>
+                      <span className="mt-0.5 block text-[11px] font-bold text-emerald-400">S{String(episode.seasonNumber).padStart(2, '0')} · E{String(episode.episodeNumber).padStart(2, '0')}</span>
+                      <span className="mt-0.5 block truncate text-xs font-semibold text-white">{episode.title}</span>
+                      <span className="mt-1 block text-[10px] text-zinc-500">{new Date(episode.watchedDates[episode.watchedDates.length - 1]).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-xs text-zinc-500">{searchTerm ? 'No watched episodes match your search.' : 'No watched episodes yet.'}</p>
+            )}
+          </div>
+        )}
+
+        {(mediaType !== 'tv' || episodeLayout === 'series') && filteredAndSortedHistory.length === 0 && (
           <EmptyState
             icon={<History className="h-6 w-6" />}
             title={noResultsBecauseFilters ? 'No matches found' : 'No watch history yet'}
@@ -1117,7 +1201,7 @@ const HistoryPage = () => {
           />
         )}
 
-        {viewMode === 'grid' && filteredAndSortedHistory.length > 0 && (
+        {(mediaType !== 'tv' || episodeLayout === 'series') && viewMode === 'grid' && filteredAndSortedHistory.length > 0 && (
           <div className="grid w-full grid-cols-2 gap-x-3.5 gap-y-6 sm:grid-cols-3 sm:gap-x-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {filteredAndSortedHistory.map((item) => {
               const key = mediaKey(item);
@@ -1129,7 +1213,7 @@ const HistoryPage = () => {
               return (
                 <motion.article key={item.id} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }} onPointerDown={() => startLongPress(item)} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress} onPointerMove={cancelLongPress} className={`group relative min-w-0 rounded-2xl border bg-zinc-950 shadow-md transition-all duration-300 hover:shadow-[0_14px_34px_rgba(0,0,0,0.42)] ${selected ? 'border-emerald-400/55 ring-2 ring-emerald-400/15' : 'border-zinc-900 hover:border-zinc-800'}`}>
                   <div className="relative aspect-[2/3] overflow-hidden rounded-t-2xl bg-zinc-900">
-<HistoryPoster item={item} />
+                    <HistoryPoster item={item} />
                     <button
                       type="button"
                       onClick={() => handleCardOpen(item)}
@@ -1215,7 +1299,7 @@ const HistoryPage = () => {
           </div>
         )}
 
-        {viewMode === 'list' && filteredAndSortedHistory.length > 0 && (
+        {(mediaType !== 'tv' || episodeLayout === 'series') && viewMode === 'list' && filteredAndSortedHistory.length > 0 && (
           <div className="space-y-2.5">
             {filteredAndSortedHistory.map((item) => {
               const key = mediaKey(item);
@@ -1288,7 +1372,7 @@ const HistoryPage = () => {
           </div>
         )}
 
-        {viewMode === 'timeline' && filteredAndSortedHistory.length > 0 && (
+        {(mediaType !== 'tv' || episodeLayout === 'series') && viewMode === 'timeline' && filteredAndSortedHistory.length > 0 && (
           <div className="space-y-8">
             {timelineGroups.map((group) => (
               <section key={group.key} className="relative">
@@ -1315,7 +1399,7 @@ const HistoryPage = () => {
                     return (
                       <motion.div key={`${group.key}-${event.id}`} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} className={`group flex items-center gap-3 rounded-2xl border bg-zinc-950/65 p-2.5 backdrop-blur-xl transition ${selected ? 'border-emerald-400/45 ring-2 ring-emerald-400/10' : 'border-white/[0.05] hover:border-white/10'}`}>
                         <button type="button" onClick={() => handleCardOpen(item)} onPointerDown={() => startLongPress(item)} onPointerUp={cancelLongPress} onPointerCancel={cancelLongPress} onPointerLeave={cancelLongPress} aria-label={`${selectionMode ? 'Select' : 'Open'} ${item.title || item.name}`} className="focus-ring relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900">
-<HistoryPoster item={item} />
+                          <HistoryPoster item={item} />
                         </button>
                         <button type="button" onClick={() => handleCardOpen(item)} className="focus-ring min-w-0 flex-1 rounded-sm text-left">
                           <h4 className="truncate text-sm font-bold text-white">{item.title || item.name}</h4>
@@ -1329,7 +1413,7 @@ const HistoryPage = () => {
                           {userRating !== undefined && <UserRatingBadge rating={userRating} />}
                           <MiniStatusCluster favorite={favorite} inMyList={inMyList} inWatchlist={inWatchlist} />
                           {selectionMode ? (
-                      <button type="button" onClick={() => toggleSelection(item)} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected} className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}><Check className="h-4 w-4 stroke-[3]" /></button>
+                            <button type="button" onClick={() => toggleSelection(item)} aria-label={selected ? `Deselect ${item.title || item.name}` : `Select ${item.title || item.name}`} aria-pressed={selected} className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl border ${selected ? 'border-emerald-300/40 bg-emerald-400 text-black' : 'border-white/10 bg-white/[0.03] text-zinc-500'}`}><Check className="h-4 w-4 stroke-[3]" /></button>
                           ) : (
                             <button type="button" onClick={() => setActionItem(item)} aria-label={`More actions for ${item.title || item.name}`} className="focus-ring flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-white"><MoreHorizontal className="h-4 w-4" /></button>
                           )}
@@ -1343,7 +1427,7 @@ const HistoryPage = () => {
           </div>
         )}
 
-        {filteredAndSortedHistory.length > 0 && <div className="mt-12 text-center"><div className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900/20 px-4 py-1.5"><span className="text-xs text-zinc-500">Showing <span className="font-semibold text-zinc-400">{filteredAndSortedHistory.length}</span> history entries</span></div></div>}
+        {(mediaType !== 'tv' || episodeLayout === 'series') && filteredAndSortedHistory.length > 0 && <div className="mt-12 text-center"><div className="inline-flex items-center gap-2 rounded-full border border-zinc-900 bg-zinc-900/20 px-4 py-1.5"><span className="text-xs text-zinc-500">Showing <span className="font-semibold text-zinc-400">{filteredAndSortedHistory.length}</span> history entries</span></div></div>}
       </div>
 
       {typeof document !== 'undefined' && actionItem && createPortal(

@@ -144,7 +144,7 @@ const SignUpModal: React.FC = () => {
         <div className="pt-2">
           <button
             type="submit"
-            disabled={isLoading || !passwordMeetsPolicy(password) || password !== confirmPassword}
+            disabled={isLoading}
             className={`w-full flex items-center justify-center py-3.5 px-6 rounded-2xl font-bold text-xs sm:text-sm tracking-wider uppercase text-white transition-all duration-300 shadow-lg border border-red-400/30
             bg-gradient-to-r from-red-500 via-red-600 to-orange-600 hover:brightness-110 active:scale-[0.98] shadow-red-600/30
             ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}

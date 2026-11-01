@@ -10,7 +10,6 @@ import { collection, addDoc, query, where, getDoc, getDocs, deleteDoc, onSnapsho
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import GlassSweep from "../components/GlassSweep.tsx";
-import Lenis from '@studio-freight/lenis';
 
 interface ColorRGB {
   r: number;
@@ -183,7 +182,6 @@ const Talentsdetails = () => {
   const knownForRef = useRef<HTMLDivElement>(null);
   const gallerySectionRef = useRef<HTMLDivElement>(null);
   const filmographyRef = useRef<HTMLDivElement>(null);
-  const lenisRef = useRef<Lenis | null>(null);
   const pendingNavTargetRef = useRef<{
     id: 'overview' | 'watched' | 'known-for' | 'gallery' | 'filmography';
     ref: React.RefObject<HTMLDivElement | null>;
@@ -198,51 +196,6 @@ const Talentsdetails = () => {
     { id: 'oldest', label: 'Oldest Release', icon: Calendar },
     { id: 'popularity', label: 'Most Popular', icon: Flame }
   ] as const;
-
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const coarsePointer = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-
-    if (prefersReducedMotion || coarsePointer) {
-      lenisRef.current = null;
-      return;
-    }
-
-    const lenis = new Lenis({
-      duration: 0.78,
-      easing: (t) => 1 - Math.pow(1 - t, 4),
-      orientation: 'vertical',
-      gestureOrientation: 'vertical',
-      smoothWheel: true,
-      wheelMultiplier: 0.92,
-      touchMultiplier: 1,
-    });
-    lenisRef.current = lenis;
-
-    let rafId = 0;
-    const raf = (time: number) => {
-      lenis.raf(time);
-      rafId = requestAnimationFrame(raf);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        lenis.stop();
-      } else {
-        lenis.start();
-      }
-    };
-
-    rafId = requestAnimationFrame(raf);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      lenis.destroy();
-      lenisRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -850,14 +803,10 @@ const Talentsdetails = () => {
       };
       setActiveNavSection(sectionId);
 
-      if (lenisRef.current) {
-        lenisRef.current.scrollTo(offsetPosition, { duration: 1.2 });
-      } else {
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth'
-        });
-      }
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+      });
     }
   };
 
@@ -1189,7 +1138,7 @@ const Talentsdetails = () => {
   const quickActionYear = quickActionReleaseDate ? String(quickActionReleaseDate).slice(0, 4) : 'TBD';
 
   return (
-    <div className="relative min-h-screen font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]">
+    <div className="cinescape-liquid-glass relative min-h-screen font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]">
       <style>{`
         .filmography-card-static:hover,
         .filmography-card-static:hover > a,
@@ -1205,18 +1154,24 @@ const Talentsdetails = () => {
           background-image: none !important;
           background-color: transparent !important;
         }
-        html.lenis,
-        html.lenis body {
-          height: auto;
+        @supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+          .cinescape-liquid-glass {
+            background-color: rgba(15, 15, 19, 0.97) !important;
+          }
         }
-        .lenis.lenis-smooth {
-          scroll-behavior: auto !important;
+        @media (prefers-reduced-transparency: reduce) {
+          .cinescape-liquid-glass {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background-color: rgba(15, 15, 19, 0.97) !important;
+          }
         }
-        .lenis.lenis-smooth [data-lenis-prevent] {
-          overscroll-behavior: contain;
-        }
-        .lenis.lenis-stopped {
-          overflow: hidden;
+        @media (prefers-reduced-motion: reduce) {
+          .cinescape-liquid-glass, .cinescape-liquid-glass * {
+            scroll-behavior: auto !important;
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+          }
         }
         [data-lenis-prevent] {
           overscroll-behavior-x: contain;
@@ -1350,7 +1305,7 @@ const Talentsdetails = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative mb-6 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.075] to-white/[0.025] px-4 py-3.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),0_10px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:mb-8 sm:px-5 sm:py-4"
+          className="cinescape-liquid-glass relative mb-6 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.075] to-white/[0.025] px-4 py-3.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),0_10px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:mb-8 sm:px-5 sm:py-4"
         >
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
           <div className="mb-2.5 flex items-center justify-between gap-4">
@@ -1383,7 +1338,7 @@ const Talentsdetails = () => {
         </motion.div>
 
         <div className="sticky top-[72px] sm:top-[80px] lg:top-[84px] z-40 mb-8 w-full max-w-fit mx-auto sm:mx-0 px-2 sm:px-0">
-          <nav className="flex items-center gap-1 sm:gap-2 p-1.5 bg-zinc-950/90 backdrop-blur-md sm:backdrop-blur-xl border border-white/10 rounded-full shadow-xl overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] sm:max-w-none touch-pan-x overscroll-x-contain -webkit-overflow-scrolling-touch transform-gpu">
+          <nav className="cinescape-liquid-glass flex items-center gap-1 sm:gap-2 p-1.5 bg-zinc-950/80 backdrop-blur-md sm:backdrop-blur-xl border border-white/20 rounded-full shadow-[inset_1px_1px_0_rgba(255,255,255,0.17),0_16px_42px_rgba(0,0,0,0.35)] overflow-x-auto no-scrollbar max-w-[calc(100vw-2rem)] sm:max-w-none touch-pan-x overscroll-x-contain -webkit-overflow-scrolling-touch transform-gpu">
             <button
               onClick={() => scrollToSection(heroRef, 'overview')}
               className={`h-10 w-10 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:min-h-[44px] rounded-full text-xs font-semibold tracking-wide transition-all whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 active:scale-95 ${activeNavSection === 'overview'
@@ -2108,7 +2063,7 @@ const Talentsdetails = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/80 backdrop-blur-xl"
+            className="fixed inset-x-0 bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 flex items-end sm:items-center justify-center p-0 sm:px-6 sm:pb-6 sm:pt-3 bg-black/80 backdrop-blur-xl"
           >
             <motion.div
               initial={isMobileViewport ? { y: "100%" } : { scale: 0.9, opacity: 0 }}
@@ -2116,8 +2071,8 @@ const Talentsdetails = () => {
               exit={isMobileViewport ? { y: "100%" } : { scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className={`relative w-full ${isMobileViewport
-                ? "h-[85vh] rounded-t-[32px] border-t border-white/20"
-                : "max-w-5xl max-h-[85vh] rounded-3xl border border-white/10"
+                ? "h-full rounded-t-[28px] border-t border-white/20"
+                : "max-w-5xl max-h-full rounded-3xl border border-white/10"
                 } bg-zinc-950/95 overflow-hidden flex flex-col shadow-2xl`}
             >
               {isMobileViewport && (
@@ -2142,7 +2097,7 @@ const Talentsdetails = () => {
                 </button>
               </div>
 
-              <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 auto-rows-max" data-lenis-prevent>
+              <div className="p-4 sm:p-6 overflow-y-auto grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 auto-rows-max overscroll-contain" >
                 {images.map((img, idx) => (
                   <div
                     key={img.file_path || idx}
@@ -2185,7 +2140,7 @@ const Talentsdetails = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleCloseLightbox}
-            className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-6"
+            className="fixed inset-x-0 bottom-0 top-[calc(4.5rem+env(safe-area-inset-top))] z-[60] bg-black/90 backdrop-blur-md flex items-center justify-center p-0 sm:p-6"
           >
             <motion.div
               drag={isMobileViewport ? "y" : false}

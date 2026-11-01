@@ -323,7 +323,7 @@ const LoginPage: React.FC = () => {
                         </label>
                         <input
                           type={showPassword ? 'text' : 'password'}
-                           autoComplete={isRegistering ? "new-password" : "current-password"}
+                          autoComplete={isRegistering ? "new-password" : "current-password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
@@ -342,23 +342,23 @@ const LoginPage: React.FC = () => {
                     </div>
 
                     {isRegistering && (
-                       <div className="space-y-3">
-                         <div className="flex items-center gap-2 px-1" aria-live="polite">
-                           {passwordMeetsPolicy(password) ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Circle className="h-4 w-4 text-zinc-500" />}
-                           <span className={`text-xs ${passwordMeetsPolicy(password) ? 'text-emerald-400' : 'text-zinc-400'}`}>At least 12 characters</span>
-                         </div>
-                         <div className="relative flex items-center bg-zinc-900/50 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-red-500/50 transition-colors">
-                           <Lock className="w-5 h-5 text-zinc-500 shrink-0 mr-3" />
-                           <div className="w-full flex flex-col pr-8">
-                             <label htmlFor="register-confirm-password" className="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">Confirm Password</label>
-                             <input id="register-confirm-password" type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" placeholder="Confirm your password" className="bg-transparent text-white text-sm focus:outline-none placeholder-zinc-600 w-full pt-0.5" required />
-                           </div>
-                           <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 text-zinc-500 hover:text-zinc-300" aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}>
-                             {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                           </button>
-                         </div>
-                       </div>
-                     )}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 px-1" aria-live="polite">
+                          {passwordMeetsPolicy(password) ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Circle className="h-4 w-4 text-zinc-500" />}
+                          <span className={`text-xs ${passwordMeetsPolicy(password) ? 'text-emerald-400' : 'text-zinc-400'}`}>At least 12 characters</span>
+                        </div>
+                        <div className="relative flex items-center bg-zinc-900/50 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-red-500/50 transition-colors">
+                          <Lock className="w-5 h-5 text-zinc-500 shrink-0 mr-3" />
+                          <div className="w-full flex flex-col pr-8">
+                            <label htmlFor="register-confirm-password" className="text-[10px] uppercase font-semibold text-zinc-500 tracking-wider">Confirm Password</label>
+                            <input id="register-confirm-password" type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" placeholder="Confirm your password" className="bg-transparent text-white text-sm focus:outline-none placeholder-zinc-600 w-full pt-0.5" required />
+                          </div>
+                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 text-zinc-500 hover:text-zinc-300" aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}>
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {!isRegistering && (
                       <div className="flex items-center justify-between pt-1">
@@ -366,8 +366,8 @@ const LoginPage: React.FC = () => {
                           <div
                             onClick={() => setRememberMe(!rememberMe)}
                             className={`w-4 h-4 rounded-md border transition-all duration-200 flex items-center justify-center shadow-sm ${rememberMe
-                                ? 'bg-gradient-to-br from-red-500 to-red-600 border-red-500'
-                                : 'bg-zinc-900/80 border-zinc-700/80 group-hover:border-zinc-500'
+                              ? 'bg-gradient-to-br from-red-500 to-red-600 border-red-500'
+                              : 'bg-zinc-900/80 border-zinc-700/80 group-hover:border-zinc-500'
                               }`}
                           >
                             {rememberMe && <Check className="w-3 h-3 text-white stroke-[3]" />}
@@ -389,7 +389,7 @@ const LoginPage: React.FC = () => {
                     <div className="pt-2">
                       <button
                         type="submit"
-                        disabled={isLoading || (isRegistering && (!passwordMeetsPolicy(password) || password !== confirmPassword))}
+                        disabled={isLoading}
                         className={`w-full flex items-center justify-center py-3.5 px-6 rounded-2xl font-bold text-xs sm:text-sm tracking-wider uppercase transition-all duration-300 shadow-lg border border-red-400/30
                         bg-gradient-to-r from-red-500 via-red-600 to-orange-600 hover:brightness-110 active:scale-[0.98] shadow-red-600/30
                         ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
@@ -398,7 +398,7 @@ const LoginPage: React.FC = () => {
                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
                           <span className="drop-shadow-sm">
-                            {isRegistering ? 'SIGN UP' : 'SIGN IN'}
+                            {isRegistering ? 'SIGN UP' : 'LOGIN'}
                           </span>
                         )}
                       </button>
@@ -459,7 +459,7 @@ const LoginPage: React.FC = () => {
                   }}
                   className="ml-2 text-red-400 hover:text-red-300 font-semibold text-xs sm:text-sm transition-colors"
                 >
-                  {isRegistering ? 'Sign in' : 'Sign up'}
+                  {isRegistering ? 'Login' : 'Sign up'}
                 </button>
               </div>
             </div>

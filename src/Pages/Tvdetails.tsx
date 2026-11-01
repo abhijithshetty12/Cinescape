@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Star, Calendar, Bookmark, ThumbsDown, ThumbsUp, BookmarkCheck, TvMinimalPlay, ImageOff, Check, Plus, Loader2, Play, Users, Award, MessageCircle, MoreHorizontal, Edit2, Trash2, Quote, Lock, Send, SquarePen, Share2, Heart, ListChecks, RotateCcw, CalendarDays, ChevronLeft, ChevronRight, X, CheckCheck, Info, ExternalLink, Pencil, Bell, EyeOff, } from 'lucide-react';
+import { Star, Calendar, Bookmark, ThumbsDown, ThumbsUp, BookmarkCheck, TvMinimalPlay, ImageOff, Check, Plus, Loader2, Play, Users, Award, MessageCircle, MoreHorizontal, Edit2, Trash2, Tv2, Quote, Lock, Send, SquarePen, Share2, Heart, ListChecks, RotateCcw, CalendarDays, ChevronLeft, ChevronRight, ChevronDown, X, CheckCheck, Info, ExternalLink, Pencil, Settings2, Bell, EyeOff, ArrowUpRight, TvMinimal, } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
 import { where } from 'firebase/firestore';
-import { collection, addDoc, query, setDoc, doc, getDocs, deleteDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, setDoc, doc, getDocs, deleteDoc, updateDoc, onSnapshot, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
@@ -38,6 +38,7 @@ interface TvShow {
   episode_run_time: number[];
   vote_average: number;
   poster_path: string;
+  backdrop_path?: string | null;
   cast: { id: number; name: string; role: string; profile_path: string; category?: string }[] | null;
   reviews: { id: string; author: string; content: string; likes?: number; dislikes?: number }[];
   trailers: { key: string; name: string }[];
@@ -303,6 +304,37 @@ const WatchedButton = ({
         const historyRef = collection(db, `users/${user.uid}/history`);
         await addDoc(historyRef, payload);
       }
+      if (mode === 'mark') {
+        const seasons = (show.seasons || []).filter((season) => season.episode_count > 0);
+        const seasonResponses = await Promise.allSettled(seasons.map((season) => axios.get(`https://api.themoviedb.org/3/tv/${show.id}/season/${season.season_number}?api_key=${TMDB_KEY}`)));
+        const existingEpisodes = await getDocs(collection(db, `users/${user.uid}/episodeHistory`));
+        const existingIds = new Set(existingEpisodes.docs.map((entry) => entry.id));
+        const today = new Date();
+        const pending: { id: string; payload: Record<string, any> }[] = [];
+        seasonResponses.forEach((result, index) => {
+          if (result.status !== 'fulfilled') return;
+          const seasonNumber = seasons[index].season_number;
+          (result.value.data.episodes || []).forEach((episode: any) => {
+            if (!episode.episode_number || !episode.air_date || new Date(`${episode.air_date}T00:00:00`) > today) return;
+            const episodeId = `${show.id}_${seasonNumber}_${episode.episode_number}`;
+            if (existingIds.has(episodeId)) return;
+            pending.push({
+              id: episodeId, payload: {
+                showId: show.id, movieId: show.id, mediaId: show.id, mediaType: 'tv_episode',
+                showTitle: show.name, title: episode.name || `Episode ${episode.episode_number}`,
+                posterPath: show.poster_path || '', stillPath: episode.still_path || '',
+                seasonNumber, episodeNumber: episode.episode_number, releaseDate: episode.air_date,
+                watchedDate: iso, watchedDates: [iso], timestamp: serverTimestamp(),
+              }
+            });
+          });
+        });
+        for (let offset = 0; offset < pending.length; offset += 400) {
+          const batch = writeBatch(db);
+          pending.slice(offset, offset + 400).forEach((entry) => batch.set(doc(db, `users/${user.uid}/episodeHistory/${entry.id}`), entry.payload));
+          await batch.commit();
+        }
+      }
       if (mode === 'mark' || mode === 'rewatch') await removeFromWatchlist();
       if (mode !== 'change') {
         confetti({
@@ -454,33 +486,57 @@ const WatchedButton = ({
               {watchMenuStep === 'calendar' && (
                 <div>
                   <button type="button" onClick={() => setWatchMenuStep('date-options')} className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-white"><ChevronLeft className="h-3.5 w-3.5" />Back</button>
-                  <div className="mb-3 flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] p-2">
-                    <button type="button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06] hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
-                    <span className="text-xs font-black text-white">{calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
-                    <button type="button" disabled={!canGoNextMonth} onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06] hover:text-white disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button>
+                  <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-3 sm:p-4">
+                    <div className="mb-3 grid grid-cols-[36px_minmax(0,1fr)_92px_36px] items-center gap-2">
+                      <button type="button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.035] text-zinc-400 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
+                      <div className="relative min-w-0">
+                        <select value={calendarMonth.getMonth()} onChange={(event) => { const month = Number(event.target.value); const year = calendarMonth.getFullYear(); const safeMonth = year === new Date().getFullYear() ? Math.min(month, new Date().getMonth()) : month; setCalendarMonth(new Date(year, safeMonth, 1)); }} className="h-9 w-full appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/90 px-3 pr-8 text-xs font-bold text-white outline-none focus:border-emerald-400/30">
+                          {Array.from({ length: 12 }, (_, month) => <option key={month} value={month} disabled={calendarMonth.getFullYear() === new Date().getFullYear() && month > new Date().getMonth()}>{new Date(2000, month, 1).toLocaleDateString(undefined, { month: 'long' })}</option>)}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+                      </div>
+                      <div className="relative">
+                        <select value={calendarMonth.getFullYear()} onChange={(event) => { const year = Number(event.target.value); const month = year === new Date().getFullYear() ? Math.min(calendarMonth.getMonth(), new Date().getMonth()) : calendarMonth.getMonth(); setCalendarMonth(new Date(year, month, 1)); }} className="h-9 w-full appearance-none rounded-xl border border-white/[0.07] bg-zinc-900/90 px-3 pr-7 text-xs font-bold tabular-nums text-white outline-none focus:border-emerald-400/30">
+                          {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, index) => new Date().getFullYear() - index).map((year) => <option key={year} value={year}>{year}</option>)}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+                      </div>
+                      <button type="button" disabled={!canGoNextMonth} onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.035] text-zinc-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button>
+                    </div>
+                    <div className="mb-3 rounded-2xl border border-white/[0.07] bg-black/25 p-2.5">
+                      <label className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Type watch date</label>
+                      <div className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.035] px-3">
+                        <CalendarDays className="h-4 w-4 shrink-0 text-emerald-400/80" />
+                        <input type="text" inputMode="numeric" autoComplete="off" placeholder="DD/MM/YYYY" value={selectedDateKey ? selectedDateKey.split('-').join('/') : ''} onChange={(event) => {
+                          const digits = event.target.value.replace(/[^0-9/.-]/g, '').slice(0, 10);
+                          if (!digits) return;
+                          const [day, month, year] = digits.split(/[./-]/).filter(Boolean).map((part) => Number(part));
+                          if (!day || !month || !year) return;
+                          const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+                          if (!Number.isNaN(date.getTime())) {
+                            setSelectedDateKey(dateKey(date));
+                            setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+                          }
+                        }} className="h-10 min-w-0 flex-1 bg-transparent text-sm font-bold tabular-nums text-white outline-none placeholder:text-zinc-700" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-center">
+                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[9px] font-black text-zinc-600">{day}</span>)}
+                      {calendarDays.map((date) => {
+                        const key = dateKey(date);
+                        const outsideMonth = date.getMonth() !== calendarMonth.getMonth();
+                        const future = date > todayEnd;
+                        const selected = selectedDateKey === key;
+                        return (
+                          <button type="button" key={key} disabled={future} onClick={() => setSelectedDateKey(key)} className={`aspect-square rounded-xl text-[10px] font-bold transition ${selected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : outsideMonth ? 'text-zinc-700 hover:bg-white/[0.04]' : 'text-zinc-300 hover:bg-white/[0.06]'} disabled:cursor-not-allowed disabled:opacity-20`}>
+                            {date.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-center text-[10px] font-semibold text-zinc-400">Selected · {formatWatchDate(keyToDate(selectedDateKey))}</div>
+                    <button type="button" onClick={() => saveWatchEvent(keyToDate(selectedDateKey), watchActionMode)} className="mt-3 w-full rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 py-3.5 text-xs font-black text-white shadow-lg shadow-emerald-500/20 active:scale-[0.99]">{watchActionMode === 'rewatch' ? 'Add Rewatch' : watchActionMode === 'change' ? 'Update Watch Date' : 'Mark as Watched'}</button>
                   </div>
-                  <div className="grid grid-cols-7 gap-1 text-center">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[9px] font-black text-zinc-600">{day}</span>)}
-                    {calendarDays.map((date) => {
-                      const key = dateKey(date);
-                      const outsideMonth = date.getMonth() !== calendarMonth.getMonth();
-                      const future = date > todayEnd;
-                      const selected = selectedDateKey === key;
-                      return (
-                        <button
-                          type="button"
-                          key={key}
-                          disabled={future}
-                          onClick={() => setSelectedDateKey(key)}
-                          className={`aspect-square rounded-xl text-[10px] font-bold transition ${selected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : outsideMonth ? 'text-zinc-700 hover:bg-white/[0.04]' : 'text-zinc-300 hover:bg-white/[0.06]'} disabled:cursor-not-allowed disabled:opacity-20`}
-                        >
-                          {date.getDate()}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-center text-[10px] font-semibold text-zinc-400">Selected · {formatWatchDate(keyToDate(selectedDateKey))}</div>
-                  <button type="button" onClick={() => saveWatchEvent(keyToDate(selectedDateKey), watchActionMode)} className="mt-3 w-full rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 py-3.5 text-xs font-black text-white shadow-lg shadow-emerald-500/20 active:scale-[0.99]">{watchActionMode === 'rewatch' ? 'Add Rewatch' : watchActionMode === 'change' ? 'Update Watch Date' : 'Mark as Watched'}</button>
                 </div>
               )}
             </div>
@@ -917,6 +973,23 @@ const TvDetails = () => {
   const [sortOption, setSortOption] = useState('mostHelpful');
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [heroBackdropUrl, setHeroBackdropUrl] = useState<string | null>(null);
+  const [artworkEditor, setArtworkEditor] = useState(false);
+  const [artworkTab, setArtworkTab] = useState<'poster' | 'backdrop'>('poster');
+  const [artworkOverrides, setArtworkOverrides] = useState<{ poster?: string; backdrop?: string }>({});
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(`cinescape:artwork:tv:${id}`);
+      setArtworkOverrides(stored ? JSON.parse(stored) : {});
+    } catch { setArtworkOverrides({}); }
+  }, [id]);
+  const saveArtwork = (type: 'poster' | 'backdrop', path: string | null) => {
+    const next = { ...artworkOverrides };
+    if (path) next[type] = path;
+    else delete next[type];
+    setArtworkOverrides(next);
+    try { localStorage.setItem(`cinescape:artwork:tv:${id}`, JSON.stringify(next)); } catch { }
+  };
+
   const [crew, setCrew] = useState<any[]>([]);
   const [toast, setToast] = useState<{
     message: string;
@@ -1758,8 +1831,8 @@ const TvDetails = () => {
 
   const language = LANGUAGE_MAP[showDetails.language] ?? showDetails.language ?? 'Unknown';
   const episodeCountLabel = showDetails.number_of_episodes ? `${showDetails.number_of_episodes.toLocaleString()} episodes` : 'N/A';
-  const posterUrl = `https://image.tmdb.org/t/p/w780/${showDetails.poster_path}`;
-  const heroBackdrop = heroBackdropUrl ?? posterUrl;
+  const posterUrl = `https://image.tmdb.org/t/p/w780${artworkOverrides.poster || showDetails.poster_path}`;
+  const heroBackdrop = artworkOverrides.backdrop ? `https://image.tmdb.org/t/p/original${artworkOverrides.backdrop}` : (heroBackdropUrl ?? posterUrl);
 
   const genres = showDetails.genres ?? [];
   const segments = genres.map((genre) => ({
@@ -1828,6 +1901,39 @@ const TvDetails = () => {
         isVisible={toast.isVisible}
         onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
       />
+
+      {artworkEditor && createPortal(
+        <div className="fixed inset-0 z-[10100] flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Artwork settings" onKeyDown={(event) => { if (event.key === 'Escape') setArtworkEditor(false); }}>
+          <button type="button" aria-label="Close artwork settings" onClick={() => setArtworkEditor(false)} className="absolute inset-0 bg-black/75 backdrop-blur-[5px]" />
+          <div className="relative flex h-[min(85dvh,820px)] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-white/15 bg-black shadow-[0_30px_100px_rgba(0,0,0,.85),inset_0_1px_0_rgba(255,255,255,.10)] sm:h-[min(82dvh,760px)] sm:rounded-[30px] sm:bg-black">
+            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/25 sm:hidden" />
+            <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-3 sm:px-6 sm:pt-5">
+              <div className="min-w-0"><h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-white sm:text-lg"><Settings2 className="h-4 w-4 text-white/70" /> Artwork settings</h2><p className="mt-1 text-xs text-zinc-400">Customize this show's appearance</p></div>
+              <button type="button" aria-label="Close" onClick={() => setArtworkEditor(false)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 transition-colors hover:bg-white/20 active:scale-95"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="shrink-0 border-b border-white/10 px-4 pb-3 sm:px-6">
+              <div className="grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-black/40 p-1" role="tablist" aria-label="Artwork type">
+                {(['poster', 'backdrop'] as const).map((tab) => <button type="button" role="tab" key={tab} aria-selected={artworkTab === tab} onClick={() => setArtworkTab(tab)} className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[.98] ${artworkTab === tab ? 'border border-white/15 bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_3px_12px_rgba(0,0,0,.2)]' : 'border border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'}`}>{tab}</button>)}
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:p-5" role="tabpanel">
+              <div className={artworkTab === 'poster' ? 'grid grid-cols-2 gap-3 min-[380px]:grid-cols-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-5' : 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4'}>
+                {Array.from(new Set([...(artworkTab === 'poster' ? [showDetails.poster_path] : [showDetails.backdrop_path]), ...(showDetails.images?.[artworkTab === 'poster' ? 'posters' : 'backdrops'] || []).map((item) => item.file_path)])).filter((path): path is string => typeof path === 'string' && path.length > 0).map((path) => {
+                  const selected = (artworkOverrides[artworkTab] || (artworkTab === 'poster' ? showDetails.poster_path : showDetails.backdrop_path)) === path;
+                  return <button type="button" key={path} onClick={() => saveArtwork(artworkTab, path)} aria-label={`Select ${artworkTab} artwork`} aria-pressed={selected} className={`group relative overflow-hidden rounded-2xl border text-left transition-[transform,border-color,box-shadow] duration-200 active:scale-[.97] sm:hover:-translate-y-1 ${selected ? 'border-white/80 shadow-[0_0_0_2px_rgba(255,255,255,.2)]' : 'border-white/10 hover:border-white/40'}`}>
+                    <img src={`https://image.tmdb.org/t/p/w500${path}`} alt="" loading="lazy" decoding="async" className={`w-full object-cover ${artworkTab === 'poster' ? 'aspect-[2/3]' : 'aspect-video'}`} />
+                    {selected && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-black shadow-lg"><Check className="h-4 w-4" /></span>}
+                  </button>;
+                })}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">
+              <button type="button" onClick={() => saveArtwork(artworkTab, null)} className="min-h-11 rounded-full border border-white/15 bg-white/10 px-4 text-xs font-medium text-white transition-colors hover:bg-white/20 sm:text-sm">Restore default</button>
+              <button type="button" onClick={() => setArtworkEditor(false)} className="min-h-11 rounded-full bg-white px-6 text-sm font-semibold text-black transition-[transform,background-color] hover:bg-zinc-200 active:scale-95">Done</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
 
       <ShareSheet
         open={shareOpen}
@@ -1964,7 +2070,7 @@ const TvDetails = () => {
             className="absolute -inset-8 scale-110 bg-cover bg-center opacity-90 blur-[24px] saturate-[1.12] transition-all duration-1000 sm:blur-[20px] md:blur-[14px] lg:blur-[10px]"
             style={{ backgroundImage: `url(${heroBackdrop})` }}
           />
-          <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-black/10" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/62 to-black/10" />
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-transparent to-black/70" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
@@ -1976,6 +2082,7 @@ const TvDetails = () => {
           />
         </div>
 
+        <button type="button" onClick={() => { setArtworkTab('poster'); setArtworkEditor(true); }} className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_8px_24px_rgba(0,0,0,.35)] backdrop-blur-xl transition-[transform,background-color] duration-200 hover:bg-white/20 active:scale-95 sm:right-8 sm:top-20 sm:h-11 sm:w-11" aria-label="Artwork settings" title="Artwork settings"><Settings2 className="h-4 w-4 sm:h-[18px] sm:w-[18px]" /></button>
         <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -2191,19 +2298,22 @@ const TvDetails = () => {
                       setShowMyListPicker(true);
                     }}
                     disabled={isUpdatingLibrary}
-                    className={`relative group flex h-12 w-12 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full font-bold text-white shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:h-auto md:w-auto md:min-h-[46px] md:rounded-2xl md:px-4 md:py-3 md:text-xs md:whitespace-nowrap lg:px-5 lg:text-sm ${myListFolderIds.size
-                      ? 'border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-600 to-violet-600 shadow-fuchsia-500/30 hover:from-fuchsia-700 hover:to-violet-700'
-                      : 'border border-white/10 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 text-zinc-200 shadow-black/40 hover:border-fuchsia-500/30 hover:text-white'
+                    className={`relative group flex h-12 w-12 shrink-0 items-center justify-center gap-2 overflow-visible rounded-full font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:h-auto md:w-auto md:min-h-[46px] md:overflow-hidden md:rounded-2xl md:px-4 md:py-3 md:text-xs md:whitespace-nowrap lg:px-5 lg:text-sm ${myListFolderIds.size
+                      ? 'border border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500 to-violet-600 shadow-none md:shadow-xl md:shadow-fuchsia-500/30 hover:from-fuchsia-600 hover:to-violet-700'
+                      : 'border border-white/10 bg-gradient-to-br from-zinc-800 to-zinc-900 text-zinc-200 shadow-none md:shadow-xl md:shadow-black/40 hover:border-fuchsia-500/30 hover:text-white'
                       }`}
                     title="Manage Lists"
                   >
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 transition-transform duration-700 group-hover:translate-x-full" />
-                    <ListChecks className={`relative z-10 h-5 w-5 transition-colors duration-300 md:h-4 md:w-4 ${myListFolderIds.size ? 'text-fuchsia-50 drop-shadow-[0_0_6px_rgba(255,255,255,0.75)]' : 'text-zinc-400 group-hover:text-fuchsia-500'}`} />
+                    <div className="hidden md:block absolute inset-0 -translate-x-full rounded-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 transition-transform duration-700 group-hover:translate-x-full md:rounded-none" />
+
+                    <ListChecks className={`relative z-10 h-5 w-5 transition-colors duration-300 md:h-4 md:w-4 ${myListFolderIds.size ? 'text-fuchsia-50 md:drop-shadow-[0_0_6px_rgba(255,255,255,0.75)]' : 'text-zinc-400 group-hover:text-fuchsia-500'}`} />
+
                     {myListFolderIds.size > 0 && (
-                      <span className="absolute -right-1 -top-1 rounded-full border border-white/15 bg-fuchsia-500 px-1.5 py-0.5 text-[8px] font-black leading-none text-white shadow-md shadow-fuchsia-500/20 md:static md:rounded-md md:bg-black/15 md:text-[9px] md:text-fuchsia-100">
+                      <span className="absolute -right-1 -top-1 z-20 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white/20 bg-fuchsia-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm md:static md:ml-1 md:h-auto md:min-w-0 md:border-none md:bg-black/20 md:px-1.5 md:py-0.5 md:text-[9px] md:font-semibold md:text-fuchsia-100 md:shadow-none">
                         {myListFolderIds.size}
                       </span>
                     )}
+
                     <span className="relative z-10 hidden md:inline">Manage Lists</span>
                   </button>
 
@@ -2352,13 +2462,13 @@ const TvDetails = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="relative lg:col-span-2 w-full bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_16px_48px_rgba(0,0,0,0.6)] overflow-hidden group flex flex-col justify-between gap-8"
+          className="relative isolate lg:col-span-2 w-full overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/40 p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),inset_0_0_20px_rgba(255,255,255,0.02),0_0_24px_-5px_rgba(255,255,255,0.08),0_16px_48px_rgba(0,0,0,0.6)] backdrop-blur-3xl group flex flex-col justify-between gap-8 transform-gpu md:p-8"
         >
-          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/25 to-transparent blur-sm pointer-events-none" />
-          <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-gradient-to-br from-red-600/5 via-orange-600/5 to-transparent rounded-full blur-3xl opacity-60 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none" />
+          <div className="pointer-events-none absolute inset-x-12 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent blur-[1px]" />
+          <div className="pointer-events-none absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-gradient-to-br from-red-600/10 via-orange-600/10 to-transparent opacity-60 blur-3xl transition-opacity duration-700 group-hover:opacity-100" />
 
           <div className="relative z-10">
-            <h2 className="text-xl md:text-2xl font-black mb-4 text-white tracking-tight">Synopsis</h2>
+            <h2 className="text-xl md:text-2xl font-black mb-4 text-white tracking-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">Synopsis</h2>
             {showDetails.overview ? (
               <p className="text-sm sm:text-base text-zinc-300 leading-relaxed tracking-wide">
                 {showDetails.overview}
@@ -2370,24 +2480,24 @@ const TvDetails = () => {
             )}
           </div>
 
-          <div className="relative z-10 pt-6 border-t border-white/[0.06]">
+          <div className="relative z-10 pt-6 border-t border-white/[0.08]">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl hover:bg-white/[0.04] transition-colors duration-300">
+              <div className="p-3.5 bg-white/[0.02] border border-white/[0.05] rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] transition-colors duration-300 hover:bg-white/[0.04] hover:border-white/10">
                 <dt className="text-zinc-500 text-[11px] font-bold tracking-wider uppercase mb-1">Language</dt>
                 <dd className="text-zinc-200 font-semibold text-sm">{language}</dd>
               </div>
-              <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl hover:bg-white/[0.04] transition-colors duration-300">
+              <div className="p-3.5 bg-white/[0.02] border border-white/[0.05] rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] transition-colors duration-300 hover:bg-white/[0.04] hover:border-white/10">
                 <dt className="text-zinc-500 text-[11px] font-bold tracking-wider uppercase mb-1">Episodes</dt>
-                <dd className="flex items-center gap-1.5 text-emerald-400 font-bold text-sm">
+                <dd className="flex items-center gap-1.5 text-emerald-400 font-bold text-sm drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]">
                   <TvMinimalPlay className="w-4 h-4 stroke-[2.5]" />
                   <span>{episodeCountLabel}</span>
                 </dd>
               </div>
-              <div className="p-3.5 bg-white/[0.02] border border-white/[0.02] rounded-2xl hover:bg-white/[0.04] transition-colors duration-300">
+              <div className="p-3.5 bg-white/[0.02] border border-white/[0.05] rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] transition-colors duration-300 hover:bg-white/[0.04] hover:border-white/10">
                 <dt className="text-zinc-500 text-[11px] font-bold tracking-wider uppercase mb-1">Creator</dt>
                 <dd className="text-sm font-semibold">
                   {showDetails.creators?.[0]?.id ? (
-                    <Link to={`/talent/${showDetails.creators?.[0]?.id}`} className="inline-flex items-center gap-1.5 text-zinc-200 transition-colors hover:text-amber-300">
+                    <Link to={`/talent/${showDetails.creators?.[0]?.id}`} className="inline-flex items-center gap-1.5 text-zinc-200 transition-colors hover:text-amber-300 hover:drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]">
                       <span>{showDetails.creators?.[0]?.name || 'Unknown Creator'}</span>
                       <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
                     </Link>
@@ -2426,84 +2536,93 @@ const TvDetails = () => {
         <section className="mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 md:px-8 md:pt-10">
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Lists</h2>
-              <p className="mt-1 text-xs font-medium text-zinc-500">Your collections featuring this title</p>
+              <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>Lists</h2>
+              <p className="mt-1 text-[13px] font-medium text-zinc-400">Your collections featuring this title</p>
             </div>
             <button
               type="button"
               onClick={() => setShowMyListPicker(true)}
-              className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold text-zinc-400 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+              className="rounded-full bg-white/10 px-4 py-2 text-[13px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
             >
               Manage
             </button>
           </div>
 
           {featuredListFolders.length ? (
-            <div className="-mx-4 flex snap-x snap-proximity gap-4 overflow-x-auto px-4 pb-3 no-scrollbar sm:mx-0 sm:px-0">
+            <div className="-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-12 pt-4 no-scrollbar sm:mx-0 sm:px-0">
               {featuredListFolders.map((folder) => {
                 const previewPaths = [...new Set([...(folder.posterPaths || []), showDetails.poster_path])].filter(Boolean).slice(0, 3);
                 return (
                   <Link
                     key={folder.id}
                     to="/mylist"
-                    className="group block w-[82vw] max-w-[430px] shrink-0 snap-start sm:w-[360px]"
+                    className="group relative block w-[82vw] max-w-[340px] shrink-0 snap-center sm:w-[320px]"
                   >
-                    <div className="relative h-44 overflow-hidden rounded-[30px] border border-white/[0.12] bg-white/[0.035] shadow-[0_24px_60px_rgba(0,0,0,0.46),inset_0_1px_1px_rgba(255,255,255,0.16)] sm:h-52">
-                      {previewPaths[0] && (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w780${previewPaths[0].startsWith('/') ? previewPaths[0] : `/${previewPaths[0]}`}`}
-                          alt=""
-                          className="absolute inset-0 h-full w-full scale-125 object-cover opacity-35 blur-2xl"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.12] via-black/20 to-black/65" />
-                      <div className="absolute inset-2 rounded-[26px] border border-white/[0.11] bg-black/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl" />
-                      <div className="pointer-events-none absolute inset-x-12 top-2 h-px bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+                    <div className="relative w-full aspect-[4/3.4]">
+                      <svg className="absolute w-0 h-0">
+                        <defs>
+                          <clipPath id="folder-clip" clipPathUnits="objectBoundingBox">
+                            <path d="M 0 0.15 C 0 0.05 0.05 0 0.15 0 L 0.35 0 C 0.4 0 0.45 0.05 0.5 0.15 L 0.55 0.2 C 0.6 0.25 0.65 0.25 0.7 0.25 L 0.85 0.25 C 0.95 0.25 1 0.3 1 0.35 L 1 0.85 C 1 0.95 0.95 1 0.85 1 L 0.15 1 C 0.05 1 0 0.95 0 0.85 Z" />
+                          </clipPath>
+                        </defs>
+                      </svg>
 
-                      <div className="absolute inset-0 flex items-center justify-center pt-1">
+                      <div className="absolute inset-x-0 top-0 bottom-[25%] flex justify-center items-end">
                         {[0, 1, 2].map((index) => {
                           const path = previewPaths[index] || previewPaths[0];
-                          const transforms = [
-                            '-translate-x-[58%] -rotate-[8deg] scale-[0.90]',
-                            'z-30 scale-100',
-                            'translate-x-[58%] rotate-[8deg] scale-[0.90]',
-                          ];
+                          const rotations = ['-rotate-[14deg] -translate-x-[28%] translate-y-[8%]', 'rotate-[14deg] translate-x-[28%] translate-y-[8%]', 'rotate-0 -translate-y-1'];
+                          const zIndexes = ['z-10', 'z-10', 'z-20'];
                           return path ? (
                             <div
                               key={`${folder.id}-${index}`}
-                              className={`absolute h-[78%] w-[31%] overflow-hidden rounded-[18px] border border-white/20 bg-zinc-900 shadow-[0_18px_36px_rgba(0,0,0,0.48),inset_0_1px_1px_rgba(255,255,255,0.18)] transition-all duration-500 group-hover:-translate-y-1 ${transforms[index]}`}
+                              className={`absolute h-[85%] w-[45%] overflow-hidden rounded-[20px] border border-white/20 bg-zinc-800 shadow-[0_12px_24px_rgba(0,0,0,0.4)] transition-all duration-500 group-hover:-translate-y-3 ${rotations[index]} ${zIndexes[index]}`}
+                              style={{
+                                backgroundImage: `url(https://image.tmdb.org/t/p/w500${path.startsWith('/') ? path : `/${path}`})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                              }}
                             >
-                              <img
-                                src={`https://image.tmdb.org/t/p/w500${path.startsWith('/') ? path : `/${path}`}`}
-                                alt=""
-                                className="h-full w-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.16] via-transparent to-transparent" />
-                              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/35 to-transparent" />
+                              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-40" />
                             </div>
                           ) : null;
                         })}
                       </div>
 
-                      <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3 rounded-[18px] border border-white/[0.10] bg-black/38 px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.28),inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-2xl">
-                        <div className="min-w-0">
-                          <p className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-white/85">My List</p>
-                          <p className="mt-0.5 truncate text-[9px] font-semibold text-white/45">{Math.max(folder.posterPaths?.length || 0, 1)} items · In this list</p>
-                        </div>
-                        <div className="flex items-center gap-1.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-400 via-violet-500 to-purple-700 text-white shadow-[0_5px_16px_rgba(168,85,247,0.35),inset_0_1px_1px_rgba(255,255,255,0.30)]"><Check className="h-3.5 w-3.5 stroke-[3]" /></span><span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/35 text-white/65"><MoreHorizontal className="h-4 w-4" /></span></div>
-                      </div>
-                    </div>
-                    <div className="px-1 pt-3">
-                      <h3 className="truncate text-base font-bold text-white transition-colors group-hover:text-violet-200">{folder.name}</h3>
-                      <div className="mt-1.5 flex items-center gap-2 text-[11px] font-medium text-zinc-500">
-                        {userPhoto ? (
-                          <img src={userPhoto} alt="" className="h-5 w-5 rounded-full border border-white/10 object-cover" />
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[8px] font-black text-zinc-400">
-                            {(user.displayName || 'U').slice(0, 1).toUpperCase()}
+                      <div
+                        className="absolute inset-x-0 bottom-0 h-[75%] z-30 overflow-hidden"
+                        style={{
+                          clipPath: 'url(#folder-clip)',
+                          filter: 'drop-shadow(0 24px 32px rgba(0,0,0,0.5))'
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-3xl backdrop-saturate-150" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/5 to-transparent opacity-80" />
+                        <div className="absolute top-0 left-0 w-2/3 h-1/3 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.3),transparent_60%)] mix-blend-overlay" />
+
+                        <div className="absolute inset-0 border border-white/20 opacity-40" style={{ clipPath: 'url(#folder-clip)' }} />
+
+                        <div className="relative z-10 flex h-full flex-col justify-between p-5 pt-12 sm:p-6 sm:pt-14">
+                          <div>
+                            <h3 className="truncate text-[17px] font-bold text-white tracking-tight">{folder.name}</h3>
+                            <div className="mt-1.5 flex items-center gap-2 text-[12px] font-medium text-zinc-400">
+                              {userPhoto ? (
+                                <img src={userPhoto} alt="" className="h-5 w-5 rounded-full object-cover border border-white/20 shadow-sm" />
+                              ) : (
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[9px] font-bold text-white border border-white/20 shadow-sm">
+                                  {(user.displayName || 'U').slice(0, 1).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="truncate">{user.displayName || 'Your list'}</span>
+                            </div>
                           </div>
-                        )}
-                        <span className="truncate">{user.displayName || 'Your list'}</span>
+
+                          <div className="flex items-end justify-between mt-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 shadow-[0_8px_16px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.5)] backdrop-blur-xl border border-white/30 transition-all duration-300 group-hover:scale-110 group-hover:bg-white/30">
+                              <ArrowUpRight className="h-5 w-5 text-white" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -2514,18 +2633,25 @@ const TvDetails = () => {
             <button
               type="button"
               onClick={() => setShowMyListPicker(true)}
-              className="group relative flex w-full max-w-xl items-center gap-4 overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.035] p-3 text-left shadow-[0_16px_44px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition hover:bg-white/[0.055]"
+              className="group relative flex w-full max-w-xl items-center gap-5 overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-white/10 to-white/5 p-4 text-left shadow-[0_16px_32px_-10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-xl transition hover:bg-white/10"
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
             >
-              <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-900">
-                <img src={posterUrl} alt="" className="h-full w-full object-cover opacity-75 blur-[1px] transition group-hover:scale-105" />
-                <div className="absolute inset-0 bg-black/25" />
-                <div className="absolute inset-0 flex items-center justify-center"><ListChecks className="h-6 w-6 text-violet-300" /></div>
+              <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-zinc-900 shadow-inner">
+                <img src={posterUrl} alt="" className="h-full w-full object-cover opacity-90 blur-[0.5px] transition duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 border border-white/30 backdrop-blur-md shadow-lg">
+                    <ListChecks className="h-5 w-5 text-white" />
+                  </div>
+                </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-white">Add to one of your lists</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">Create a curated collection around this TV show or add it to an existing list.</p>
+                <p className="text-[15px] font-bold text-white">Add to one of your lists</p>
+                <p className="mt-1 text-[13px] leading-snug font-medium text-zinc-400">Create a curated collection around this TV show or add it to an existing list.</p>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md transition group-hover:bg-white/20">
+                <ChevronRight className="h-5 w-5 text-white" />
+              </div>
             </button>
           )}
         </section>
@@ -2537,32 +2663,51 @@ const TvDetails = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-zinc-950/45 p-4 shadow-2xl backdrop-blur-3xl sm:p-6 md:p-8"
+          className="relative isolate overflow-hidden rounded-[28px] border border-white/10 bg-zinc-950/40 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),inset_0_0_20px_rgba(255,255,255,0.02),0_0_24px_-5px_rgba(255,255,255,0.08),0_16px_48px_rgba(0,0,0,0.6)] backdrop-blur-3xl group transform-gpu sm:rounded-[34px] sm:p-6 md:p-8"
         >
-          <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/35 to-transparent" />
-          <div className="mb-5 flex items-center justify-between gap-3 md:mb-6">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-500/10 blur-[80px]" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-indigo-500/5 blur-[80px]" />
+          <div className="pointer-events-none absolute inset-x-12 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent blur-[1px]" />
+
+          <div className="relative z-10 mb-5 flex items-center justify-between gap-3 md:mb-6">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-2.5"><TvMinimalPlay className="h-5 w-5 text-blue-400" /></div>
+              <div className="rounded-2xl border border-blue-400/30 bg-gradient-to-b from-blue-500/20 to-blue-500/5 p-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_rgba(59,130,246,0.15)]">
+                <Tv2 className="h-5 w-5 text-blue-300 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+              </div>
               <div className="min-w-0">
-                <h2 className="truncate text-lg font-black tracking-tight text-white sm:text-2xl">Seasons & Episodes</h2>
-                <p className="mt-0.5 truncate text-[10px] font-medium text-zinc-500 sm:text-xs">
+                <h2 className="truncate text-lg font-semibold tracking-tight text-white sm:text-2xl drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">Seasons & Episodes</h2>
+                <p className="mt-0.5 truncate text-[10px] font-medium text-zinc-400 sm:text-xs">
                   {selectedSeason !== null
                     ? `Season ${selectedSeason} · ${showDetails.seasons.find((season) => season.season_number === selectedSeason)?.episode_count ?? 0} episodes`
                     : 'Select a season to browse episodes'}
                 </p>
               </div>
             </div>
-            <div className="hidden rounded-full border border-white/[0.07] bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:block">
+            <div className="hidden rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] backdrop-blur-md sm:block">
               {showDetails.number_of_seasons || showDetails.seasons.filter((season) => season.season_number > 0).length} seasons · {showDetails.number_of_episodes || '—'} episodes
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="relative z-10 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => (
-              <button key={season.season_number} type="button" onClick={() => { setSelectedSeason(season.season_number); setShowMobileEpisodeBrowser(true); }} className={`group flex min-h-[84px] items-center gap-3 rounded-[22px] border p-3.5 text-left transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] ${selectedSeason === season.season_number ? 'border-blue-400/30 bg-gradient-to-r from-blue-500/[0.13] to-indigo-500/[0.05]' : 'border-white/[0.08] bg-white/[0.025] hover:border-blue-400/20 hover:bg-white/[0.05]'}`}>
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-blue-400/15 bg-blue-500/10 text-lg font-black text-blue-200">{season.season_number === 0 ? '★' : String(season.season_number).padStart(2, '0')}</span>
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-black text-white">{season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}</span><span className="mt-1 block text-[11px] text-zinc-500">{season.episode_count} episodes{season.air_date ? ` · ${season.air_date.slice(0, 4)}` : ''}</span></span>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition group-hover:border-blue-400/30 group-hover:text-blue-300"><ChevronRight className="h-4 w-4" /></span>
+              <button
+                key={season.season_number}
+                type="button"
+                onClick={() => { setSelectedSeason(season.season_number); setShowMobileEpisodeBrowser(true); }}
+                className={`group relative flex min-h-[94px] items-center gap-3 overflow-hidden rounded-[24px] border p-3.5 text-left backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-1 active:scale-[0.98] ${selectedSeason === season.season_number
+                  ? 'border-blue-400/30 bg-gradient-to-br from-blue-500/15 to-indigo-500/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_rgba(59,130,246,0.15)]'
+                  : 'border-white/[0.06] bg-white/[0.02] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:border-white/15 hover:bg-white/[0.04] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_20px_rgba(0,0,0,0.2)]'}`}
+              >
+                <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[17px] border text-lg font-semibold tabular-nums transition-colors duration-300 ${selectedSeason === season.season_number ? 'border-blue-400/30 bg-blue-500/20 text-blue-100 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]' : 'border-white/10 bg-white/[0.04] text-zinc-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] group-hover:bg-white/[0.08]'}`}>
+                  {season.season_number === 0 ? '★' : String(season.season_number).padStart(2, '0')}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black text-white">{season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}</span>
+                  <span className="mt-1 block text-[11px] text-zinc-400">{season.episode_count} episodes{season.air_date ? ` · ${season.air_date.slice(0, 4)}` : ''}</span>
+                </span>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-300 group-hover:translate-x-0.5 ${selectedSeason === season.season_number ? 'border-blue-400/30 bg-blue-500/20 text-blue-200' : 'border-white/10 bg-white/[0.04] text-zinc-400 group-hover:border-white/20 group-hover:bg-white/[0.08] group-hover:text-white'}`}>
+                  <ChevronRight className="h-4 w-4" />
+                </span>
               </button>
             ))}
           </div>
@@ -2570,48 +2715,86 @@ const TvDetails = () => {
 
         {showMobileEpisodeBrowser && createPortal(
           <div className="fixed inset-0 z-[10060] flex items-end justify-center sm:items-center sm:p-5 lg:p-8" role="dialog" aria-modal="true" aria-label="Episode browser">
-            <button type="button" aria-label="Close episode browser" onClick={() => setShowMobileEpisodeBrowser(false)} className="absolute inset-0 bg-black/85 backdrop-blur-xl" />
-            <motion.div initial={{ y: 45, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 30, opacity: 0 }} transition={{ type: 'spring', stiffness: 290, damping: 30 }} className="relative z-10 flex h-[93dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[32px] border border-white/[0.12] bg-[#090b12]/95 shadow-[0_0_100px_rgba(37,99,235,0.15),0_30px_100px_rgba(0,0,0,0.85)] backdrop-blur-3xl sm:h-[min(88dvh,850px)] sm:rounded-[32px]">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-blue-600/[0.13] via-indigo-600/[0.05] to-transparent" />
+            <button type="button" aria-label="Close episode browser" onClick={() => setShowMobileEpisodeBrowser(false)} className="absolute inset-0 bg-black/85 backdrop-blur-md" />
+            <motion.div initial={{ y: 45, opacity: 0, scale: 0.98 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 30, opacity: 0 }} transition={{ type: 'spring', stiffness: 290, damping: 30 }} className="relative z-10 flex h-[min(91dvh,900px)] w-full max-w-5xl flex-col overflow-hidden rounded-t-[32px] border border-white/10 bg-zinc-950/90 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_30px_100px_rgba(0,0,0,0.85)] backdrop-blur-3xl transform-gpu sm:h-[min(86dvh,850px)] sm:rounded-[34px]">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-blue-500/10 via-indigo-500/5 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-12 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent blur-[1px]" />
+
               <div className="relative mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-white/20 sm:hidden" />
-              <div className="relative flex items-center gap-3 border-b border-white/[0.07] px-4 py-4 sm:px-7">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/15 text-blue-300 shadow-[0_0_30px_rgba(59,130,246,0.12)]"><TvMinimalPlay className="h-5 w-5" /></span>
-                <div className="min-w-0 flex-1"><p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-300/70">Cinescape / Episode Explorer</p><h3 className="mt-0.5 truncate text-base font-black text-white sm:text-xl">{showDetails.name}</h3></div>
-                <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold text-zinc-400 sm:block">{episodes.length} episodes</span>
-                <button type="button" aria-label="Close" onClick={() => setShowMobileEpisodeBrowser(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-zinc-300 transition hover:bg-white/15"><X className="h-4 w-4" /></button>
+
+              <div className="relative flex items-center gap-3 border-b border-white/[0.08] px-4 py-4 sm:px-7">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-400/30 bg-gradient-to-b from-blue-500/20 to-blue-500/5 text-blue-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_rgba(59,130,246,0.2)]">
+                  <Tv2 className="h-5 w-5 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-blue-300/80">Cinescape / Episode Explorer</p>
+                  <h3 className="mt-0.5 truncate text-base font-black text-white sm:text-xl">{showDetails.name}</h3>
+                </div>
+                <span className="hidden rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[10px] font-bold text-zinc-400 sm:block">{episodes.length} episodes</span>
+                <button type="button" aria-label="Close" onClick={() => setShowMobileEpisodeBrowser(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
               </div>
-              <div className="relative border-b border-white/[0.07] px-4 py-3 sm:px-7">
-                <div className="mb-2 flex items-center justify-between"><span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Choose season</span><span className="text-[10px] font-bold text-zinc-500">Season {currentSeason}</span></div>
+
+              <div className="relative border-b border-white/[0.08] px-4 py-3 sm:px-7">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Choose season</span>
+                  <span className="text-[10px] font-bold text-zinc-400">Season {currentSeason}</span>
+                </div>
                 <div className="flex snap-x gap-2 overflow-x-auto pb-1 no-scrollbar">
-                  {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => <button key={season.season_number} type="button" onClick={() => { setSelectedSeason(season.season_number); setSelectedEpisode(1); }} className={`snap-start shrink-0 rounded-xl border px-4 py-2.5 text-[11px] font-black transition active:scale-95 ${selectedSeason === season.season_number ? 'border-blue-400/40 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20' : 'border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08]'}`}>{season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}<span className="ml-2 opacity-60">{season.episode_count}</span></button>)}
+                  {showDetails.seasons.filter((season) => season.episode_count > 0).map((season) => (
+                    <button
+                      key={season.season_number}
+                      type="button"
+                      onClick={() => { setSelectedSeason(season.season_number); setSelectedEpisode(1); }}
+                      className={`snap-start shrink-0 rounded-xl border px-4 py-2.5 text-[11px] font-black transition-all duration-300 active:scale-95 ${selectedSeason === season.season_number
+                        ? 'border-blue-400/40 bg-gradient-to-r from-blue-600/80 to-indigo-600/80 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_rgba(59,130,246,0.3)]'
+                        : 'border-white/[0.06] bg-white/[0.02] text-zinc-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:bg-white/[0.05] hover:text-zinc-200'}`}
+                    >
+                      {season.season_number === 0 ? 'Specials' : `Season ${season.season_number}`}
+                      <span className="ml-2 opacity-60">{season.episode_count}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
+
               <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-7 sm:py-5">
                 {episodesLoading ? <div className="flex h-52 flex-col items-center justify-center gap-3"><Loader2 className="h-7 w-7 animate-spin text-blue-400" /><span className="text-xs text-zinc-500">Loading episodes…</span></div> : episodesError ? <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5 text-sm text-red-300">{episodesError}</div> : !episodes.length ? <div className="py-20 text-center text-sm text-zinc-500">No episodes available for this season.</div> : <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {episodes.map((episode) => {
                     const selected = selectedEpisode === episode.episode_number;
                     const minutes = episode.runtime || showDetails.episode_run_time?.[0];
-                    return <div key={episode.id} className={`group overflow-hidden rounded-[22px] border transition-all duration-300 ${selected ? 'border-blue-400/35 bg-blue-500/[0.09] shadow-[0_12px_40px_rgba(37,99,235,0.09)]' : 'border-white/[0.08] bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.05]'}`}>
-                      <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
-                        <button type="button" onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }} aria-label={`Select episode ${episode.episode_number}`} className="relative aspect-video w-[39%] max-w-[195px] shrink-0 overflow-hidden rounded-2xl bg-zinc-900 text-white">
-                          {episode.still_url ? <ProgressiveImage src={episode.still_url} lowSrc={episode.still_path ? `https://image.tmdb.org/t/p/w185${episode.still_path}` : undefined} alt={episode.name || `Episode ${episode.episode_number}`} wrapperClassName="absolute inset-0" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : showDetails.poster_path ? <img src={`https://image.tmdb.org/t/p/w500${showDetails.poster_path}`} alt="" loading="lazy" className="h-full w-full object-cover opacity-60" /> : <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-6 w-6 text-zinc-600" /></div>}
-                          <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/20" />
-                          <span className="absolute left-2 top-2 rounded-lg border border-white/15 bg-black/60 px-2 py-1 text-[9px] font-black backdrop-blur-md">E{String(episode.episode_number).padStart(2, '0')}</span>
-                          <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/25 bg-blue-600/90 shadow-xl backdrop-blur-md"><Play className="h-3.5 w-3.5 fill-current" /></span>
-                        </button>
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <div className="flex items-start justify-between gap-1"><span className="text-[9px] font-black uppercase tracking-[0.13em] text-blue-300/80">Episode {episode.episode_number}</span><EpisodeHistoryControl show={showDetails} seasonNumber={currentSeason} episode={episode} compact onToast={showToast} /></div>
-                          <button type="button" onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }} className="mt-1 text-left text-xs font-black leading-snug text-white transition group-hover:text-blue-200 sm:text-sm">{episode.name || `Episode ${episode.episode_number}`}</button>
-                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-zinc-400"><span>{episode.air_date ? formatWatchDate(`${episode.air_date}T12:00:00`) : 'TBA'}</span>{minutes ? <><span className="text-zinc-700">•</span><span>{minutes} min</span></> : null}{episode.vote_average > 0 ? <><span className="text-zinc-700">•</span><span className="text-amber-300">★ {Number(episode.vote_average).toFixed(1)}</span></> : null}</div>
-                          {selected && <span className="mt-2 w-fit rounded-full border border-blue-400/20 bg-blue-500/15 px-2 py-1 text-[9px] font-bold text-blue-300">Selected episode</span>}
+                    return (
+                      <div key={episode.id} className={`group overflow-hidden rounded-[24px] border backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${selected ? 'border-blue-400/30 bg-gradient-to-br from-blue-500/15 to-indigo-500/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_rgba(59,130,246,0.15)]' : 'border-white/[0.06] bg-white/[0.02] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:border-white/15 hover:bg-white/[0.04]'}`}>
+                        <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
+                          <button type="button" onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }} aria-label={`Select episode ${episode.episode_number}`} className="relative aspect-video w-[39%] max-w-[195px] shrink-0 overflow-hidden rounded-2xl border border-white/[0.05] bg-zinc-900 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] text-white">
+                            {episode.still_url ? <ProgressiveImage src={episode.still_url} lowSrc={episode.still_path ? `https://image.tmdb.org/t/p/w185${episode.still_path}` : undefined} alt={episode.name || `Episode ${episode.episode_number}`} wrapperClassName="absolute inset-0" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : showDetails.poster_path ? <img src={`https://image.tmdb.org/t/p/w500${showDetails.poster_path}`} alt="" loading="lazy" className="h-full w-full object-cover opacity-60" /> : <div className="flex h-full w-full items-center justify-center"><ImageOff className="h-6 w-6 text-zinc-600" /></div>}
+                            <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                            <span className="absolute left-2 top-2 rounded-lg border border-white/10 bg-black/50 px-2 py-1 text-[9px] font-black backdrop-blur-md">E{String(episode.episode_number).padStart(2, '0')}</span>
+                            <span className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-blue-600/90 shadow-[0_0_15px_rgba(37,99,235,0.5)] backdrop-blur-md transition-transform duration-300 group-hover:scale-110"><Play className="h-3.5 w-3.5 fill-current" /></span>
+                          </button>
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <div className="flex items-start justify-between gap-1">
+                              <span className={`text-[9px] font-black uppercase tracking-[0.13em] ${selected ? 'text-blue-300' : 'text-zinc-500'}`}>Episode {episode.episode_number}</span>
+                              <EpisodeHistoryControl show={showDetails} seasonNumber={currentSeason} episode={episode} compact onToast={showToast} />
+                            </div>
+                            <button type="button" onClick={() => { setSelectedEpisode(episode.episode_number); setShowMobileEpisodeBrowser(false); }} className="mt-1 text-left text-xs font-black leading-snug text-white transition group-hover:text-blue-200 sm:text-sm">{episode.name || `Episode ${episode.episode_number}`}</button>
+                            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-zinc-400">
+                              <span>{episode.air_date ? formatWatchDate(`${episode.air_date}T12:00:00`) : 'TBA'}</span>
+                              {minutes ? <><span className="text-zinc-700">•</span><span>{minutes} min</span></> : null}
+                              {episode.vote_average > 0 ? <><span className="text-zinc-700">•</span><span className="text-amber-300">★ {Number(episode.vote_average).toFixed(1)}</span></> : null}
+                            </div>
+                            {selected && <span className="mt-2 w-fit rounded-full border border-blue-400/20 bg-blue-500/15 px-2 py-1 text-[9px] font-bold text-blue-300">Selected episode</span>}
+                          </div>
                         </div>
+                        <p className="px-3 pb-3 text-[11px] leading-relaxed text-zinc-400 sm:px-4 sm:pb-4">{episode.overview || 'No episode description available.'}</p>
                       </div>
-                      <p className="px-3 pb-3 text-[11px] leading-relaxed text-zinc-400 sm:px-4 sm:pb-4">{episode.overview || 'No episode description available.'}</p>
-                    </div>;
+                    );
                   })}
                 </div>}
               </div>
-              <div className="relative flex items-center justify-between gap-3 border-t border-white/[0.08] bg-black/20 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-7"><p className="text-[10px] text-zinc-500">Select an episode to continue watching</p><button type="button" onClick={() => setShowMobileEpisodeBrowser(false)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.08] px-5 py-2.5 text-[11px] font-black text-white transition hover:bg-white/15">Done</button></div>
+
+              <div className="relative flex items-center justify-between gap-3 border-t border-white/[0.08] bg-black/20 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-7">
+                <p className="text-[10px] text-zinc-500">Select an episode to continue watching</p>
+                <button type="button" onClick={() => setShowMobileEpisodeBrowser(false)} className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[11px] font-black text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] transition hover:bg-white/[0.08]">Done</button>
+              </div>
             </motion.div>
           </div>, document.body,
         )}
@@ -2650,29 +2833,38 @@ const TvDetails = () => {
 
           {VideoPlayer}
 
-          <div className="mt-3 grid grid-cols-3 items-stretch gap-1.5 rounded-2xl border border-white/[0.07] bg-black/30 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-xl sm:mt-4 sm:gap-3 sm:p-2">
+          <div className="relative isolate mt-3 grid grid-cols-3 items-stretch gap-1.5 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#12131a]/95 to-[#0a0b10]/95 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-2xl transform-gpu sm:mt-4 sm:gap-3 sm:p-2">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
             <button
               type="button"
               disabled={!previousEpisodeTarget}
               onClick={() => selectEpisodeTarget(previousEpisodeTarget)}
-              className="group flex min-h-[50px] min-w-0 items-center justify-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.035] px-1.5 text-center text-zinc-300 transition hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-25 sm:min-h-11 sm:justify-start sm:gap-2 sm:px-3 sm:text-left"
+              className="group relative flex min-h-[50px] min-w-0 items-center justify-center gap-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-1.5 text-center text-zinc-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-25 sm:min-h-11 sm:justify-start sm:gap-2 sm:px-3 sm:text-left"
             >
               <ChevronLeft className="hidden h-4 w-4 shrink-0 text-zinc-500 transition group-hover:text-white sm:block" />
-              <span className="min-w-0"><span className="block text-[7px] font-black uppercase tracking-[0.1em] text-zinc-600 sm:text-[8px] sm:tracking-[0.12em]">Previous</span><span className="mt-0.5 block truncate text-[10px] font-black sm:text-xs">{previousEpisodeTarget ? `S${previousEpisodeTarget.season} E${previousEpisodeTarget.episode}` : 'Start'}</span></span>
+              <span className="min-w-0">
+                <span className="block text-[7px] font-black uppercase tracking-[0.1em] text-zinc-500 sm:text-[8px] sm:tracking-[0.12em]">Previous</span>
+                <span className="mt-0.5 block truncate text-[10px] font-black text-zinc-300 group-hover:text-white transition-colors sm:text-xs">{previousEpisodeTarget ? `S${previousEpisodeTarget.season} E${previousEpisodeTarget.episode}` : 'Start'}</span>
+              </span>
             </button>
 
-            <div className="flex min-h-[50px] min-w-0 flex-col items-center justify-center rounded-xl border border-blue-400/20 bg-gradient-to-b from-blue-500/[0.12] to-blue-500/[0.06] px-1.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:min-h-11 sm:px-3">
-              <span className="text-[7px] font-black uppercase tracking-[0.1em] text-blue-300/65 sm:text-[8px] sm:tracking-[0.13em]">Now Playing</span>
-              <span className="mt-0.5 truncate text-[10px] font-black text-blue-200 sm:text-xs">S{currentSeason} E{currentEpisode}</span>
+            <div className="relative flex min-h-[50px] min-w-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-blue-400/30 bg-gradient-to-b from-blue-500/20 to-blue-600/10 px-1.5 text-center shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_0_20px_rgba(59,130,246,0.15)] sm:min-h-11 sm:px-3">
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+              <span className="relative z-10 text-[7px] font-black uppercase tracking-[0.1em] text-blue-200/80 sm:text-[8px] sm:tracking-[0.13em] drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">Now Playing</span>
+              <span className="relative z-10 mt-0.5 truncate text-[10px] font-black text-blue-100 drop-shadow-[0_0_12px_rgba(59,130,246,0.3)] sm:text-xs">S{currentSeason} E{currentEpisode}</span>
             </div>
 
             <button
               type="button"
               disabled={!nextEpisodeTarget}
               onClick={() => selectEpisodeTarget(nextEpisodeTarget)}
-              className="group flex min-h-[50px] min-w-0 items-center justify-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.035] px-1.5 text-center text-zinc-300 transition hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-25 sm:min-h-11 sm:justify-end sm:gap-2 sm:px-3 sm:text-right"
+              className="group relative flex min-h-[50px] min-w-0 items-center justify-center gap-1 rounded-xl border border-white/[0.05] bg-white/[0.02] px-1.5 text-center text-zinc-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-25 sm:min-h-11 sm:justify-end sm:gap-2 sm:px-3 sm:text-right"
             >
-              <span className="min-w-0"><span className="block text-[7px] font-black uppercase tracking-[0.1em] text-zinc-600 sm:text-[8px] sm:tracking-[0.12em]">Next</span><span className="mt-0.5 block truncate text-[10px] font-black sm:text-xs">{nextEpisodeTarget ? `S${nextEpisodeTarget.season} E${nextEpisodeTarget.episode}` : 'Finale'}</span></span>
+              <span className="min-w-0">
+                <span className="block text-[7px] font-black uppercase tracking-[0.1em] text-zinc-500 sm:text-[8px] sm:tracking-[0.12em]">Next</span>
+                <span className="mt-0.5 block truncate text-[10px] font-black text-zinc-300 group-hover:text-white transition-colors sm:text-xs">{nextEpisodeTarget ? `S${nextEpisodeTarget.season} E${nextEpisodeTarget.episode}` : 'Finale'}</span>
+              </span>
               <ChevronRight className="hidden h-4 w-4 shrink-0 text-zinc-500 transition group-hover:text-white sm:block" />
             </button>
           </div>
@@ -2923,6 +3115,7 @@ const TvDetails = () => {
           onEdit={handleEditRating}
           onCancelEdit={handleCancelEditRating}
           onDeleteRating={handleDeleteRating}
+          onShare={() => setShareOpen(true)}
           mediaType="tv"
         />
 
