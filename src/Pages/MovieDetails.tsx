@@ -2,18 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import {
-  Star, Calendar, Clock, DollarSign, Bookmark,
-  ThumbsDown, ThumbsUp, BookmarkCheck, TvMinimalPlay,
-  ImageOff, Check, Plus, Loader2,
-  Users, Award, MessageCircle, MoreHorizontal,
-  Edit2, Trash2, Quote,
-  Lock,
-  Send,
-  SquarePen,
-  Share2, Heart, ListChecks, RotateCcw, CalendarDays, ChevronLeft, ChevronRight, X,
-  CheckCheck, Info, ExternalLink, Pencil, Bell, Youtube, EyeOff,
-} from 'lucide-react';
+import { Star, Calendar, Clock, DollarSign, Bookmark, ThumbsDown, ThumbsUp, BookmarkCheck, TvMinimalPlay, ImageOff, Check, Plus, Loader2, Users, Award, MessageCircle, MoreHorizontal, Edit2, Trash2, Quote, Lock, Send, SquarePen, Share2, Heart, ListChecks, RotateCcw, CalendarDays, ChevronLeft, ChevronRight, ChevronDown, X, CheckCheck, Info, ExternalLink, Pencil, Settings2, Bell, Youtube, EyeOff, ArrowUpRight, Download, Clapperboard, Sparkles, Film, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { db } from '../firebase.ts';
 import { getAuth } from 'firebase/auth';
@@ -22,8 +11,8 @@ import { collection, addDoc, query, setDoc, doc, getDocs, deleteDoc, updateDoc, 
 import { useAutoLandscapeFullscreen } from '../hooks/useAutoLandscapeFullscreen.ts';
 import Toast from '../components/Toast.tsx';
 import Loading from '../components/Loading.tsx';
-import ShareSheet from '../components/ShareSheet.tsx';
-import { motion } from 'framer-motion';
+import * as htmlToImage from 'html-to-image';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { enqueueWatchlistOp, registerWatchlistSync } from '../utils/watchlistQueue.ts';
 import { getMovieEmbedUrls, PlayerSource } from '../utils/playerSources.ts';
@@ -32,6 +21,22 @@ import MovieCollection from '../components/MovieCollection.tsx';
 import SimilarTitles from '../components/SimilarTitles.tsx';
 import ProductionMediaTrailers from '../components/ProductionMediaTrailers.tsx';
 import MediaRating from '../components/MediaRating.tsx';
+
+const TMDB_KEY = '859afbb4b98e3b467da9c99ac390e950';
+const TMDB_IMG_BASE = 'https://image.tmdb.org/t/p';
+
+type MovieShareTheme = 'minimal' | 'cinematic' | 'poster' | 'backdrop';
+type ReviewShareTheme = 'minimal' | 'cinematic' | 'poster' | 'backdrop';
+type ReviewShareTextSize = 'small' | 'medium' | 'large';
+type ArtworkTab = 'poster' | 'backdrop';
+
+interface TmdbImageVariant {
+  file_path: string;
+  vote_count?: number;
+  vote_average?: number;
+  width?: number;
+  height?: number;
+}
 
 interface Movie {
   id: number;
@@ -46,6 +51,7 @@ interface Movie {
   runtime: number;
   vote_average: number;
   poster_path: string;
+  backdrop_path?: string | null;
   cast: { id: number; name: string; role: string; profile_path: string; category?: string }[] | null;
   reviews: { id: string; author: string; content: string; likes?: number; dislikes?: number }[];
   trailers: { key: string; name: string }[];
@@ -68,7 +74,1593 @@ interface MyListFolder {
   posterPaths?: string[];
 }
 
-const TMDB_KEY = '859afbb4b98e3b467da9c99ac390e950';
+const normalizeTmdbImageUrl = (value?: string | null, size = 'original') => {
+  if (!value) return '';
+  if (/^(https?:|data:|blob:)/i.test(value)) return value;
+  const path = value.startsWith('/') ? value : `/${value}`;
+  return `${TMDB_IMG_BASE}/${size}${path}`;
+};
+
+const uniqueTmdbUrls = (urls: string[]) => Array.from(new Set(urls.filter(Boolean)));
+
+const preloadTmdbImage = (src?: string | null) =>
+  new Promise<void>((resolve) => {
+    if (!src) {
+      resolve();
+      return;
+    }
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+  });
+
+const ShareRatingStars = ({ rating, size = 18, gap = 2 }: { rating: number; size?: number; gap?: number }) => {
+  const clampedRating = Math.max(0, Math.min(10, rating));
+  return (
+    <div className="flex items-center" style={{ gap }}>
+      {Array.from({ length: 10 }, (_, index) => {
+        const fill = Math.max(0, Math.min(1, clampedRating - index));
+        return (
+          <div key={index} className="relative shrink-0" style={{ width: size, height: size }}>
+            <Star className="absolute inset-0 fill-zinc-700/60 text-zinc-700/60" style={{ width: size, height: size }} strokeWidth={1.8} />
+            {fill > 0 && (
+              <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+                <Star
+                  className="absolute left-0 top-0 fill-amber-500 text-amber-500 drop-shadow-[0_0_8px_rgba(252,211,77,0.34)]"
+                  style={{ width: size, height: size, maxWidth: 'none' }}
+                  strokeWidth={1.8}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const useTmdbArtwork = (
+  open: boolean,
+  movieId: number | undefined,
+  mediaType: 'movie' | 'tv',
+  posterPath?: string | null,
+  backdropPath?: string | null,
+) => {
+  const [selectedPoster, setSelectedPoster] = useState('');
+  const [selectedBackdrop, setSelectedBackdrop] = useState('');
+  const [posterVariants, setPosterVariants] = useState<TmdbImageVariant[]>([]);
+  const [backdropVariants, setBackdropVariants] = useState<TmdbImageVariant[]>([]);
+  const [baseBackdrop, setBaseBackdrop] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedPoster(normalizeTmdbImageUrl(posterPath));
+    setSelectedBackdrop(normalizeTmdbImageUrl(backdropPath));
+  }, [open, posterPath, backdropPath]);
+
+  useEffect(() => {
+    if (!open || !movieId) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [detailsRes, imagesRes] = await Promise.all([
+          fetch(`https://api.themoviedb.org/3/${mediaType}/${movieId}?api_key=${TMDB_KEY}&language=en-US`),
+          fetch(`https://api.themoviedb.org/3/${mediaType}/${movieId}/images?api_key=${TMDB_KEY}&include_image_language=en,null`),
+        ]);
+        if (!detailsRes.ok || !imagesRes.ok) throw new Error('TMDB artwork request failed');
+        const details = await detailsRes.json();
+        const images = await imagesRes.json();
+        if (cancelled) return;
+
+        const rank = (items: TmdbImageVariant[]) =>
+          [...items].sort((a, b) => {
+            const aScore = (a.vote_average || 0) * 100 + (a.vote_count || 0) * 4 + ((a.width || 0) * (a.height || 0)) / 1000000;
+            const bScore = (b.vote_average || 0) * 100 + (b.vote_count || 0) * 4 + ((b.width || 0) * (b.height || 0)) / 1000000;
+            return bScore - aScore;
+          });
+
+        const posters = rank(Array.isArray(images.posters) ? images.posters : []);
+        const backdrops = rank(Array.isArray(images.backdrops) ? images.backdrops : []);
+        const detailsPoster = normalizeTmdbImageUrl(details.poster_path);
+        const detailsBackdrop = normalizeTmdbImageUrl(details.backdrop_path);
+
+        setPosterVariants(posters);
+        setBackdropVariants(backdrops);
+        setBaseBackdrop(detailsBackdrop);
+        setSelectedPoster((current) => current || detailsPoster || normalizeTmdbImageUrl(posterPath));
+        setSelectedBackdrop((current) => current || detailsBackdrop || normalizeTmdbImageUrl(backdrops[0]?.file_path));
+      } catch {
+        if (!cancelled) setBaseBackdrop('');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, movieId, mediaType, posterPath, backdropPath]);
+
+  const posterChoices = useMemo(
+    () => uniqueTmdbUrls([normalizeTmdbImageUrl(posterPath), ...posterVariants.map((item) => normalizeTmdbImageUrl(item.file_path))]),
+    [posterPath, posterVariants],
+  );
+  const backdropChoices = useMemo(
+    () => uniqueTmdbUrls([baseBackdrop, ...backdropVariants.map((item) => normalizeTmdbImageUrl(item.file_path))]),
+    [baseBackdrop, backdropVariants],
+  );
+
+  const previewPoster = selectedPoster || posterChoices[0] || '';
+  const previewBackdrop = selectedBackdrop || backdropChoices[0] || previewPoster;
+
+  const randomize = () => {
+    const pick = (items: string[], current: string) => {
+      const pool = items.slice(0, 14).filter((item) => item !== current);
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)] : current || items[0] || '';
+    };
+    setSelectedPoster((current) => pick(posterChoices, current));
+    setSelectedBackdrop((current) => pick(backdropChoices, current));
+  };
+
+  const reset = () => {
+    setSelectedPoster(normalizeTmdbImageUrl(posterPath) || posterChoices[0] || '');
+    setSelectedBackdrop(normalizeTmdbImageUrl(backdropPath) || baseBackdrop || backdropChoices[0] || '');
+  };
+
+  return {
+    poster: previewPoster,
+    backdrop: previewBackdrop,
+    setPoster: setSelectedPoster,
+    setBackdrop: setSelectedBackdrop,
+    posterChoices,
+    backdropChoices,
+    randomize,
+    reset,
+    loading,
+  };
+};
+
+const ArtworkPickerModal = ({
+  open,
+  onClose,
+  tab,
+  choices,
+  currentUrl,
+  onSelect,
+  onRandomize,
+  onReset,
+  loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tab: ArtworkTab;
+  choices: string[];
+  currentUrl: string;
+  onSelect: (url: string) => void;
+  onRandomize: () => void;
+  onReset: () => void;
+  loading: boolean;
+}) => {
+  if (!open) return null;
+  const isPoster = tab === 'poster';
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10080] flex items-end justify-center bg-black/80 p-0 backdrop-blur-lg sm:items-center sm:p-5" onClick={onClose}>
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} onClick={(event) => event.stopPropagation()} className="flex h-[88dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-white/15 bg-zinc-950 shadow-2xl sm:h-[80vh] sm:rounded-[32px]">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5">
+          <div>
+            <h3 className="text-sm font-black text-white">Choose {isPoster ? 'Poster' : 'Backdrop'}</h3>
+            <p className="text-[10px] text-white/40">{choices.length} TMDB images available</p>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 hover:text-white"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
+          {loading ? (
+            <div className="flex h-full items-center justify-center gap-2 text-xs text-white/50"><Loader2 className="h-4 w-4 animate-spin text-amber-300" />Loading artwork…</div>
+          ) : choices.length ? (
+            <div className={isPoster ? 'grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 md:grid-cols-5' : 'grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3'}>
+              {choices.map((url) => {
+                const selected = currentUrl === url;
+                return (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => onSelect(url)}
+                    className={`relative overflow-hidden rounded-xl border bg-zinc-900 transition active:scale-[0.98] ${isPoster ? 'aspect-[2/3]' : 'aspect-video'} ${selected ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-white/10 hover:border-white/30'}`}
+                  >
+                    <img src={url.replace('/original/', isPoster ? '/w342/' : '/w500/')} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    {selected && <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-black"><Check className="h-3.5 w-3.5 stroke-[3]" /></span>}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-center"><ImageOff className="mb-2 h-8 w-8 text-white/20" /><p className="text-xs font-medium text-white/60">No additional images found</p></div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-white/10 px-3 py-3 sm:px-5">
+          <button type="button" onClick={onReset} className="flex h-9 items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 text-[10px] font-bold text-white/55"><RotateCcw className="h-3.5 w-3.5" />Reset</button>
+          <button type="button" onClick={onRandomize} className="flex h-9 items-center gap-1.5 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 text-[10px] font-black text-amber-300"><Sparkles className="h-3.5 w-3.5" />Randomize</button>
+          <button type="button" onClick={onClose} className="ml-auto h-9 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-5 text-[10px] font-black text-black">Done</button>
+        </div>
+      </motion.div>
+    </div>,
+    document.body,
+  );
+};
+
+const UserRatingShareSheet = ({
+  open,
+  onClose,
+  movieId,
+  title,
+  posterPath,
+  backdropPath,
+  genres,
+  releaseDate,
+  userRating,
+  userName,
+  userAvatar,
+  userHandle,
+  lastWatched,
+  isFavorite = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  movieId?: number;
+  title: string;
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  genres: string[];
+  releaseDate: string;
+  userRating?: number | null;
+  userName?: string;
+  userAvatar?: string | null;
+  userHandle?: string;
+  lastWatched?: string | null;
+  isFavorite?: boolean;
+}) => {
+  const [theme, setTheme] = useState<MovieShareTheme>('cinematic');
+  const [downloading, setDownloading] = useState(false);
+  const [artworkSelector, setArtworkSelector] = useState<ArtworkTab | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const artwork = useTmdbArtwork(open, movieId, 'movie', posterPath, backdropPath);
+
+  const hasUserRating = userRating !== null && userRating !== undefined && Number.isFinite(userRating);
+  const handle = userHandle || userName?.toLowerCase().replace(/\s/g, '') || 'user';
+
+  const GRAIN = {
+    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='0.9'/%3E%3C/svg%3E")`,
+  };
+
+  const redGrainBg = `radial-gradient(ellipse 70% 50% at 25% 15%, rgba(200, 35, 30, 0.75), transparent 60%), radial-gradient(ellipse 80% 60% at 80% 25%, rgba(150, 20, 18, 0.85), transparent 55%), radial-gradient(ellipse 90% 70% at 40% 78%, rgba(220, 50, 40, 0.9), transparent 60%), radial-gradient(ellipse 70% 60% at 90% 85%, rgba(160, 25, 22, 0.8), transparent 55%), radial-gradient(ellipse 60% 50% at 10% 88%, rgba(180, 30, 25, 0.85), transparent 55%), linear-gradient(135deg, #2a0505 0%, #0a0101 50%, #1a0303 100%)`;
+
+  const downloadCard = async () => {
+    if (!cardRef.current) return;
+    setDownloading(true);
+    try {
+      await Promise.all([
+        preloadTmdbImage(artwork.poster),
+        preloadTmdbImage(artwork.backdrop),
+        preloadTmdbImage(userAvatar || '/user-icon.jpg'),
+        preloadTmdbImage('/Cinescape_Logo.svg'),
+        preloadTmdbImage('/Cinescape_Wordmark.svg'),
+      ]);
+      const dataUrl = await htmlToImage.toPng(cardRef.current, { cacheBust: true, pixelRatio: 1, width: 1080, height: 1920 });
+      const link = document.createElement('a');
+      link.download = `${title || 'Cinescape'}-share.png`;
+      link.href = dataUrl;
+      link.click();
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <>
+      {createPortal(
+        <div className="fixed inset-0 z-[10060] flex items-end justify-center bg-black/80 backdrop-blur-xl sm:items-center sm:p-5">
+          <button type="button" aria-label="Close share sheet" onClick={onClose} className="absolute inset-0" />
+          <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 flex max-h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-zinc-950 shadow-2xl sm:rounded-[28px]">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5 sm:px-5">
+              <div>
+                <h2 className="text-sm font-black text-white">Share movie card</h2>
+                <p className="mt-0.5 text-[10px] text-white/40">Create a cinematic card for {title}</p>
+              </div>
+              <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="grid min-h-0 flex-1 overflow-y-auto sm:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="flex items-center justify-center bg-black/30 p-4 sm:p-6">
+                <div className={`relative aspect-[9/16] w-full max-w-[270px] overflow-hidden rounded-2xl ${theme === 'minimal' ? 'bg-black' : 'bg-black'}`}>
+
+                  {theme === 'minimal' ? (
+                    <div className="absolute inset-0 bg-[#0a0202]">
+                      <div className="absolute inset-0" style={{ background: redGrainBg }} />
+                      <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
+                      <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
+
+                      <div className="absolute inset-0 flex flex-col p-5 justify-between">
+                        <div className="flex justify-between items-start">
+                          <div className="bg-black/60 p-1.5 rounded-xl backdrop-blur-md border border-white/10 shadow-lg">
+                            <img src="/Cinescape_Logo.svg" alt="Logo" className="h-6 w-6 object-contain" />
+                          </div>
+                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-3 object-contain opacity-80 brightness-0 invert" />
+                        </div>
+
+                        <div className="flex flex-col items-start mt-auto">
+                          <img src={artwork.poster} alt="" className="w-24 aspect-[2/3] object-cover rounded-xl shadow-2xl border border-white/10" />
+                          <h3 className="mt-4 text-2xl font-bold leading-tight text-white line-clamp-2 drop-shadow-sm">{title}</h3>
+                          <p className="mt-1 text-[11px] font-medium text-white/70">
+                            {releaseDate?.slice(0, 4)} · {genres[0] || 'Movie'}
+                          </p>
+                          {hasUserRating && (
+                            <div className="mt-2 flex items-center gap-1.5">
+                              <Star className="h-4 w-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,1)]" />
+                              <span className="text-[13px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">{userRating!.toFixed(1)}</span>
+                              {isFavorite && <Heart className="h-3.5 w-3.5 fill-red-400 text-red-400" />}
+                            </div>
+                          )}
+                          {lastWatched && (
+                            <div className="mt-3">
+                              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">Last Watched</p>
+                              <p className="mt-0.5 text-[11px] font-semibold text-white/90">{lastWatched}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-6 flex items-center gap-2">
+                          {userAvatar ? (
+                            <img src={userAvatar} alt="" className="w-7 h-7 rounded-full object-cover border border-white/20 shadow-sm" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">{userName?.charAt(0) || 'U'}</div>
+                          )}
+                          <div>
+                            <p className="text-[10px] font-bold text-white">{userName || 'User'}</p>
+                            <p className="text-[8px] text-white/50">@{handle}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : theme === 'cinematic' ? (
+                    <div className="absolute inset-0 bg-black">
+                      <img src={artwork.backdrop} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50 blur-xl" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+                      <div className="relative z-10 flex flex-col h-full p-6 items-center justify-between">
+                        <div className="w-full flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-md border border-white/20">
+                            <Clapperboard className="h-3 w-3 text-white" />
+                            <span className="text-[9px] font-bold text-white tracking-widest uppercase">Movie</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 opacity-90">
+                            <img src="/Cinescape_Logo.svg" alt="Logo" className="h-5 w-5 object-contain" />
+                            <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-3 object-contain brightness-0 invert" />
+                          </div>
+                        </div>
+
+                        <div className="flex-1 flex flex-col items-center justify-start w-full mt-2">
+                          <img src={artwork.poster} alt="" className="w-[160px] aspect-[2/3] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] border border-white/20" />
+                          <h3 className="text-xl font-black text-white mt-3 text-center line-clamp-2 leading-tight px-2">{title}</h3>
+                          <p className="text-[10px] text-white/60 font-medium mt-1 text-center">{releaseDate?.slice(0, 4)} · {genres.slice(0, 2).join(', ')}</p>
+                          {hasUserRating && (
+                            <div className="mt-2 flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 border border-white/20 backdrop-blur-md">
+                              <Star className="h-3 w-3 text-amber-400 fill-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
+                              <span className="text-[10px] font-bold text-white">{userRating!.toFixed(1)}/10</span>
+                              {isFavorite && <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="w-full flex items-center justify-between mt-4">
+                          <div className="flex items-center gap-2">
+                            {userAvatar ? (
+                              <img src={userAvatar} alt="" className="w-8 h-8 rounded-full border border-white/20 object-cover" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white">{userName?.charAt(0) || 'U'}</div>
+                            )}
+                            <div>
+                              <p className="text-[11px] font-bold text-white">{userName || 'User'}</p>
+                              <p className="text-[9px] text-white/50">@{handle}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Last Watched</p>
+                            <p className="text-[10px] font-bold text-white/80">{lastWatched || 'Today'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : theme === 'poster' ? (
+                    <div className="absolute inset-0 bg-black">
+                      {artwork.poster ? <img src={artwork.poster} alt="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+
+                      <div className="absolute inset-0 flex flex-col justify-between p-5">
+                        <div className="flex justify-between items-start">
+                          <div className="bg-black/60 p-1.5 rounded-xl backdrop-blur-md border border-white/10 shadow-lg">
+                            <img src="/Cinescape_Logo.svg" alt="Logo" className="h-6 w-6 object-contain" />
+                          </div>
+                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-3 object-contain opacity-80 brightness-0 invert" />
+                        </div>
+
+                        <div className="bg-white/[0.06] backdrop-blur-[30px] border border-white/20 p-4 rounded-[20px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]">
+                          <h3 className="text-2xl font-black leading-tight text-white line-clamp-2">{title}</h3>
+                          <p className="mt-1 text-[11px] font-medium text-white/60">{releaseDate?.slice(0, 4)} · {genres[0] || 'Movie'}</p>
+                          {hasUserRating && (
+                            <div className="mt-2 flex items-center gap-1.5">
+                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                              <span className="text-[12px] font-bold text-white">{userRating!.toFixed(1)}/10</span>
+                              {isFavorite && <Heart className="h-3 w-3 fill-red-400 text-red-400" />}
+                            </div>
+                          )}
+
+                          <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+                            <div className="flex items-center gap-2">
+                              {userAvatar ? (
+                                <img src={userAvatar} alt="" className="w-6 h-6 rounded-full object-cover border border-white/20" />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold text-white">{userName?.charAt(0) || 'U'}</div>
+                              )}
+                              <div>
+                                <p className="text-[10px] font-bold text-white">{userName || 'User'}</p>
+                                <p className="text-[8px] text-white/50">@{handle}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[7px] font-bold text-white/40 uppercase tracking-widest">Watched</p>
+                              <p className="text-[9px] font-bold text-white/80">{lastWatched || 'Today'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 bg-[#0a0a0a] flex flex-col">
+                      <div className="relative h-[45%] w-full shrink-0">
+                        {artwork.backdrop ? <img src={artwork.backdrop} alt="" className="absolute inset-0 w-full h-full object-cover" /> : null}
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-[#0a0a0a]" />
+
+                        <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
+                          <div className="bg-black/60 p-1.5 rounded-xl backdrop-blur-md border border-white/10 shadow-lg">
+                            <img src="/Cinescape_Logo.svg" alt="Logo" className="h-5 w-5 object-contain" />
+                          </div>
+                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-3 object-contain opacity-80 brightness-0 invert" />
+                        </div>
+                      </div>
+
+                      <div className="relative flex-1 flex flex-col items-center px-6 pb-6 -mt-16 z-10">
+                        {artwork.poster ? <img src={artwork.poster} alt="" className="w-24 aspect-[2/3] rounded-xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.8)] border border-white/20" /> : null}
+
+                        <h3 className="text-xl font-black text-white mt-4 text-center line-clamp-2 leading-tight">{title}</h3>
+                        <p className="text-[10px] text-white/60 font-medium mt-1 text-center">{releaseDate?.slice(0, 4)} · {genres.slice(0, 2).join(', ')}</p>
+
+                        {hasUserRating && (
+                          <div className="mt-2 flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 border border-white/20 backdrop-blur-md">
+                            <Star className="h-3 w-3 text-amber-400 fill-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
+                            <span className="text-[10px] font-bold text-white">{userRating!.toFixed(1)}/10</span>
+                            {isFavorite && <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />}
+                          </div>
+                        )}
+
+                        <div className="mt-auto w-full flex items-center justify-between border-t border-white/10 pt-4">
+                          <div className="flex items-center gap-2">
+                            {userAvatar ? (
+                              <img src={userAvatar} alt="" className="w-8 h-8 rounded-full border border-white/20 object-cover" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white">{userName?.charAt(0) || 'U'}</div>
+                            )}
+                            <div>
+                              <p className="text-[11px] font-bold text-white">{userName || 'User'}</p>
+                              <p className="text-[9px] text-white/50">@{handle}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Last Watched</p>
+                            <p className="text-[10px] font-bold text-white/80">{lastWatched || 'Today'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4 border-t border-white/10 p-4 sm:border-l sm:border-t-0 sm:p-5">
+                <div>
+                  <p className="text-xs font-black text-white">Card theme</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {([['minimal', 'Minimal'], ['cinematic', 'Cinematic'], ['poster', 'Poster-first'], ['backdrop', 'Backdrop-first']] as [MovieShareTheme, string][]).map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => setTheme(value)} className={`rounded-xl border px-3 py-2.5 text-left text-[10px] font-bold transition active:scale-[0.98] ${theme === value ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white/80'}`}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black text-white">Artwork</p>
+                  <p className="mt-0.5 text-[10px] text-white/40">Choose, randomize, or reset</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setArtworkSelector('poster')} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-[10px] font-bold text-white/75 transition hover:bg-white/[0.08] hover:text-white">
+                    <ImageIcon className="h-3.5 w-3.5 text-amber-300" />Poster
+                  </button>
+                  <button type="button" onClick={() => setArtworkSelector('backdrop')} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-[10px] font-bold text-white/75 transition hover:bg-white/[0.08] hover:text-white">
+                    <ImageIcon className="h-3.5 w-3.5 text-sky-300" />Backdrop
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={artwork.randomize} className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2.5 text-[10px] font-black text-emerald-300 transition hover:bg-emerald-400/15">
+                    <Sparkles className="h-3.5 w-3.5" />Randomize
+                  </button>
+                  <button type="button" onClick={artwork.reset} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[10px] font-bold text-white/55 transition hover:text-white">
+                    <RotateCcw className="h-3.5 w-3.5" />Reset
+                  </button>
+                </div>
+
+                {hasUserRating && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-white/45">Your rating</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
+                          <span className="text-lg font-black tabular-nums text-white">{userRating!.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      {isFavorite && (
+                        <div className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 px-3 py-2 text-[10px] font-black text-white shadow-md shadow-red-500/30">
+                          <Heart className="h-3.5 w-3.5 fill-current" /> Favorite
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <button type="button" onClick={downloadCard} disabled={downloading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-200 to-cyan-100 px-4 text-xs font-black text-zinc-950 disabled:opacity-50">
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {downloading ? 'Exporting…' : 'Save Share Card'}
+                </button>
+              </div>
+            </div>
+
+            <div className="fixed -left-[9999px] -top-[9999px] pointer-events-none" aria-hidden="true">
+              {theme === 'minimal' ? (
+                <div ref={cardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-[#0a0202] text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif]">
+                  <div className="absolute inset-0" style={{ background: redGrainBg }} />
+                  <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
+                  <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
+
+                  <div className="absolute inset-0 flex flex-col p-[90px] justify-between">
+                    <div className="flex justify-between items-start w-full">
+                      <div className="bg-black/60 p-[16px] rounded-[24px] backdrop-blur-md border border-white/10 shadow-xl">
+                        <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[80px] w-[80px] object-contain" />
+                      </div>
+                      <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain opacity-80 brightness-0 invert mt-[20px]" />
+                    </div>
+
+                    <div className="flex flex-col items-start mt-auto">
+                      <img src={artwork.poster} crossOrigin="anonymous" alt="" className="w-[380px] aspect-[2/3] object-cover rounded-[40px] shadow-[0_40px_80px_rgba(0,0,0,0.6)] border border-white/20" />
+                      <h1 className="mt-[50px] text-[96px] font-bold leading-[1.05] text-white line-clamp-3 tracking-tight drop-shadow-md">{title}</h1>
+                      <p className="mt-[20px] text-[36px] font-medium text-white/70">
+                        {releaseDate?.slice(0, 4)} · {genres[0] || 'Movie'}
+                      </p>
+                      {hasUserRating && (
+                        <div className="mt-[30px] flex items-center gap-4">
+                          <Star className="h-[48px] w-[48px] fill-amber-400 text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
+                          <span className="text-[48px] font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">{userRating!.toFixed(1)}</span>
+                          {isFavorite && <Heart className="h-[42px] w-[42px] fill-red-400 text-red-400" />}
+                        </div>
+                      )}
+                      {lastWatched && (
+                        <div className="mt-[50px]">
+                          <p className="text-[24px] font-bold uppercase tracking-[0.2em] text-white/50">Last Watched</p>
+                          <p className="mt-[16px] text-[40px] font-semibold text-white/90">{lastWatched}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-[30px] mt-[80px]">
+                      {userAvatar ? (
+                        <img src={userAvatar} crossOrigin="anonymous" alt="" className="w-[120px] h-[120px] rounded-full object-cover border-[4px] border-white/20 shadow-xl" />
+                      ) : (
+                        <div className="w-[120px] h-[120px] rounded-full bg-white/10 flex items-center justify-center text-[48px] font-bold shadow-xl">{userName?.charAt(0) || 'U'}</div>
+                      )}
+                      <div>
+                        <p className="text-[44px] font-bold text-white">{userName || 'User'}</p>
+                        <p className="text-[32px] text-white/50">@{handle}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : theme === 'cinematic' ? (
+                <div ref={cardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif]">
+                  <img src={artwork.backdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover opacity-50 blur-[80px]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
+
+                  <div className="relative z-10 flex flex-col h-full p-[80px] items-center justify-between">
+                    <div className="w-full flex justify-between items-center mb-[80px]">
+                      <div className="flex items-center gap-[16px] rounded-full bg-white/10 px-[40px] py-[20px] backdrop-blur-md border border-white/20">
+                        <Clapperboard className="h-[36px] w-[36px] text-white" />
+                        <span className="text-[28px] font-bold text-white tracking-widest uppercase">Movie</span>
+                      </div>
+                      <div className="flex items-center gap-[20px] opacity-90">
+                        <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[60px] w-[60px] object-contain" />
+                        <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain brightness-0 invert" />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-center justify-start w-full mt-[40px]">
+                      <img src={artwork.poster} crossOrigin="anonymous" alt="" className="w-[500px] aspect-[2/3] rounded-[40px] shadow-[0_60px_120px_rgba(0,0,0,0.9)] border-[3px] border-white/20" />
+                      <h1 className="text-[80px] font-black text-white mt-[30px] text-center line-clamp-2 leading-[1.1]">{title}</h1>
+                      <p className="text-[32px] text-white/60 font-medium mt-[20px] text-center">{releaseDate?.slice(0, 4)} · {genres.slice(0, 2).join(', ')}</p>
+
+                      {hasUserRating && (
+                        <div className="mt-[30px] flex items-center gap-[12px] rounded-full bg-white/10 px-[30px] py-[12px] border border-white/20 backdrop-blur-md">
+                          <Star className="h-[32px] w-[32px] text-amber-400 fill-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]" />
+                          <span className="text-[32px] font-bold text-white">{userRating!.toFixed(1)}/10</span>
+                          {isFavorite && <Heart className="h-[28px] w-[28px] fill-red-400 text-red-400" />}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-full flex items-center justify-between mt-[80px]">
+                      <div className="flex items-center gap-[30px]">
+                        {userAvatar ? (
+                          <img src={userAvatar} crossOrigin="anonymous" alt="" className="w-[120px] h-[120px] rounded-full border-[4px] border-white/20 object-cover" />
+                        ) : (
+                          <div className="w-[120px] h-[120px] rounded-full bg-white/10 flex items-center justify-center text-[48px] font-bold text-white">{userName?.charAt(0) || 'U'}</div>
+                        )}
+                        <div>
+                          <p className="text-[40px] font-bold text-white">{userName || 'User'}</p>
+                          <p className="text-[28px] text-white/50">@{handle}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[24px] font-bold text-white/40 uppercase tracking-[0.2em]">Last Watched</p>
+                        <p className="text-[36px] font-bold text-white/90">{lastWatched || 'Today'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : theme === 'poster' ? (
+                <div ref={cardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif]">
+                  {artwork.poster ? <img src={artwork.poster} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" /> : null}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+
+                  <div className="absolute inset-0 flex flex-col justify-between p-[90px]">
+                    <div className="flex justify-between items-start w-full">
+                      <div className="bg-black/60 p-[16px] rounded-[24px] backdrop-blur-md border border-white/10 shadow-xl">
+                        <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[80px] w-[80px] object-contain" />
+                      </div>
+                      <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain opacity-80 brightness-0 invert mt-[20px]" />
+                    </div>
+
+                    <div className="bg-white/[0.06] backdrop-blur-[60px] border border-white/20 p-[60px] rounded-[40px] shadow-[inset_0_2px_2px_rgba(255,255,255,0.3),0_20px_60px_rgba(0,0,0,0.5)]">
+                      <h1 className="text-[90px] font-black leading-[1.05] text-white line-clamp-3 tracking-tight drop-shadow-md">{title}</h1>
+                      <p className="mt-[20px] text-[36px] font-medium text-white/60">
+                        {releaseDate?.slice(0, 4)} · {genres[0] || 'Movie'}
+                      </p>
+
+                      {hasUserRating && (
+                        <div className="mt-[30px] flex items-center gap-4">
+                          <Star className="h-[48px] w-[48px] fill-amber-400 text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,1)]" />
+                          <span className="text-[48px] font-bold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">{userRating!.toFixed(1)}/10</span>
+                          {isFavorite && <Heart className="h-[42px] w-[42px] fill-red-400 text-red-400" />}
+                        </div>
+                      )}
+
+                      <div className="mt-[50px] flex items-center justify-between border-t border-white/20 pt-[40px]">
+                        <div className="flex items-center gap-[24px]">
+                          {userAvatar ? (
+                            <img src={userAvatar} crossOrigin="anonymous" alt="" className="w-[100px] h-[100px] rounded-full object-cover border-[3px] border-white/20 shadow-xl" />
+                          ) : (
+                            <div className="w-[100px] h-[100px] rounded-full bg-white/10 flex items-center justify-center text-[40px] font-bold shadow-xl">{userName?.charAt(0) || 'U'}</div>
+                          )}
+                          <div>
+                            <p className="text-[36px] font-bold text-white">{userName || 'User'}</p>
+                            <p className="text-[24px] text-white/50">@{handle}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[24px] font-bold text-white/40 uppercase tracking-[0.2em]">Watched</p>
+                          <p className="text-[32px] font-bold text-white/90">{lastWatched || 'Today'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div ref={cardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-[#0a0a0a] text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text',sans-serif] flex flex-col">
+                  <div className="relative h-[45%] w-full shrink-0">
+                    {artwork.backdrop ? <img src={artwork.backdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 w-full h-full object-cover" /> : null}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-[#0a0a0a]" />
+
+                    <div className="absolute top-[80px] left-[80px] right-[80px] flex justify-between items-center">
+                      <div className="bg-black/60 p-[16px] rounded-[24px] backdrop-blur-md border border-white/10 shadow-xl">
+                        <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[80px] w-[80px] object-contain" />
+                      </div>
+                      <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain opacity-80 brightness-0 invert" />
+                    </div>
+                  </div>
+
+                  <div className="relative flex-1 flex flex-col items-center px-[80px] pb-[80px] -mt-[180px] z-10">
+                    {artwork.poster ? <img src={artwork.poster} crossOrigin="anonymous" alt="" className="w-[360px] aspect-[2/3] rounded-[30px] object-cover shadow-[0_40px_80px_rgba(0,0,0,0.9)] border border-white/20" /> : null}
+
+                    <h1 className="text-[80px] font-black text-white mt-[50px] text-center line-clamp-3 leading-[1.05]">{title}</h1>
+                    <p className="text-[32px] text-white/60 font-medium mt-[24px] text-center">{releaseDate?.slice(0, 4)} · {genres.slice(0, 2).join(', ')}</p>
+
+                    {hasUserRating && (
+                      <div className="mt-[30px] flex items-center gap-[12px] rounded-full bg-white/10 px-[30px] py-[12px] border border-white/20 backdrop-blur-md">
+                        <Star className="h-[32px] w-[32px] text-amber-400 fill-amber-400 drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]" />
+                        <span className="text-[32px] font-bold text-white">{userRating!.toFixed(1)}/10</span>
+                        {isFavorite && <Heart className="h-[28px] w-[28px] fill-red-400 text-red-400" />}
+                      </div>
+                    )}
+
+                    <div className="mt-auto w-full flex items-center justify-between border-t border-white/10 pt-[50px]">
+                      <div className="flex items-center gap-[24px]">
+                        {userAvatar ? (
+                          <img src={userAvatar} crossOrigin="anonymous" alt="" className="w-[120px] h-[120px] rounded-full object-cover border-[3px] border-white/20 shadow-xl" />
+                        ) : (
+                          <div className="w-[120px] h-[120px] rounded-full bg-white/10 flex items-center justify-center text-[48px] font-bold shadow-xl">{userName?.charAt(0) || 'U'}</div>
+                        )}
+                        <div>
+                          <p className="text-[40px] font-bold text-white">{userName || 'User'}</p>
+                          <p className="text-[28px] text-white/50">@{handle}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[24px] font-bold text-white/40 uppercase tracking-[0.2em]">Last Watched</p>
+                        <p className="text-[36px] font-bold text-white/90">{lastWatched || 'Today'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>,
+        document.body,
+      )}
+
+      <ArtworkPickerModal
+        open={artworkSelector === 'poster'}
+        onClose={() => setArtworkSelector(null)}
+        tab="poster"
+        choices={artwork.posterChoices}
+        currentUrl={artwork.poster}
+        onSelect={artwork.setPoster}
+        onRandomize={artwork.randomize}
+        onReset={artwork.reset}
+        loading={artwork.loading}
+      />
+      <ArtworkPickerModal
+        open={artworkSelector === 'backdrop'}
+        onClose={() => setArtworkSelector(null)}
+        tab="backdrop"
+        choices={artwork.backdropChoices}
+        currentUrl={artwork.backdrop}
+        onSelect={artwork.setBackdrop}
+        onRandomize={artwork.randomize}
+        onReset={artwork.reset}
+        loading={artwork.loading}
+      />
+    </>
+  );
+};
+
+const ReviewShareSheet = ({
+  open,
+  onClose,
+  movieId,
+  title,
+  posterPath,
+  backdropPath,
+  releaseYear,
+  reviewContent,
+  author,
+  userPhoto,
+  userHandle,
+  rating,
+  watchDate,
+  watchCount,
+  mediaType = 'movie',
+  isFavorite = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  movieId: number;
+  title: string;
+  posterPath?: string | null;
+  backdropPath?: string | null;
+  releaseYear: string;
+  reviewContent: string;
+  author: string;
+  userPhoto?: string | null;
+  userHandle?: string | null;
+  rating?: number | null;
+  watchDate?: string | null;
+  watchCount?: number;
+  mediaType?: 'movie' | 'tv';
+  isFavorite?: boolean;
+}) => {
+  const [theme, setTheme] = useState<ReviewShareTheme>('cinematic');
+  const [textSize, setTextSize] = useState<ReviewShareTextSize>('medium');
+  const [artworkSelector, setArtworkSelector] = useState<ArtworkTab | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const storyCardRef = useRef<HTMLDivElement | null>(null);
+  const artwork = useTmdbArtwork(open, movieId, mediaType, posterPath, backdropPath);
+
+  const hasRating = rating !== null && rating !== undefined && Number.isFinite(rating);
+  const isRewatch = (watchCount || 0) > 1;
+  const handle = userHandle || author.toLowerCase().replace(/\s/g, '') || 'user';
+
+  const GRAIN = {
+    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='0.9'/%3E%3C/svg%3E")`,
+  };
+
+  const redGrainBg = `radial-gradient(ellipse 70% 50% at 25% 15%, rgba(200, 35, 30, 0.75), transparent 60%), radial-gradient(ellipse 80% 60% at 80% 25%, rgba(150, 20, 18, 0.85), transparent 55%), radial-gradient(ellipse 90% 70% at 40% 78%, rgba(220, 50, 40, 0.9), transparent 60%), radial-gradient(ellipse 70% 60% at 90% 85%, rgba(160, 25, 22, 0.8), transparent 55%), radial-gradient(ellipse 60% 50% at 10% 88%, rgba(180, 30, 25, 0.85), transparent 55%), linear-gradient(135deg, #2a0505 0%, #0a0101 50%, #1a0303 100%)`;
+
+  const handleDownload = async () => {
+    if (!storyCardRef.current) return;
+    setDownloading(true);
+    try {
+      await Promise.all([
+        preloadTmdbImage(artwork.poster),
+        preloadTmdbImage(artwork.backdrop),
+        preloadTmdbImage(userPhoto || '/user-icon.jpg'),
+        preloadTmdbImage('/Cinescape_Logo.svg'),
+        preloadTmdbImage('/Cinescape_Wordmark.svg'),
+      ]);
+      const dataUrl = await htmlToImage.toPng(storyCardRef.current, { cacheBust: true, pixelRatio: 1, width: 1080, height: 1920 });
+      const link = document.createElement('a');
+      link.download = `${title || 'review'}-${author || 'user'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to generate review card image:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const backdropCardClass = 'border-white/[0.18] bg-black/60 text-white';
+  const backdropFooterBorder = 'border-white/[0.055]';
+
+  const ratingLabel = hasRating
+    ? (rating as number) % 1 === 0
+      ? `${rating}/10`
+      : `${(rating as number).toFixed(1)}/10`
+    : '';
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-[10065] flex items-end justify-center p-0 overflow-hidden sm:items-center sm:p-5">
+        <div onClick={onClose} className="absolute inset-0 bg-black/70 sm:bg-black/45" />
+        <div className="pointer-events-none absolute inset-0 backdrop-blur-xl sm:backdrop-blur-md" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 80, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 70, scale: 0.985 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+          className="relative z-10 flex h-[92dvh] max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[28px] border border-white/15 bg-zinc-950 shadow-[0_32px_100px_rgba(0,0,0,0.72)] sm:h-[min(88dvh,820px)] sm:max-h-[88dvh] sm:grid sm:grid-cols-[minmax(0,1fr)_340px] sm:rounded-[28px] sm:bg-zinc-950/85 sm:backdrop-blur-3xl lg:grid-cols-[minmax(0,1fr)_360px]"
+        >
+          <div className="flex min-h-0 flex-none flex-col overflow-hidden p-3 sm:min-h-0 sm:flex-1 sm:overflow-y-auto sm:p-6">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-3 sm:mb-4">
+              <div>
+                <h3 className="text-base font-black tracking-tight text-white sm:text-lg">Share Review</h3>
+                <p className="text-[10px] font-medium text-white/40">9:16 review card · export in 1080×1920</p>
+              </div>
+              <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/60 transition hover:bg-white/10 hover:text-white active:scale-90">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex h-[36dvh] min-h-[190px] max-h-[340px] shrink-0 items-center justify-center py-1 sm:h-auto sm:min-h-0 sm:max-h-none sm:flex-1 sm:py-4">
+              <div className="relative h-full max-h-full aspect-[9/16] w-auto max-w-full shrink-0 overflow-hidden rounded-[20px] border border-white/15 bg-black shadow-[0_24px_70px_rgba(0,0,0,0.5)] sm:rounded-[30px]">
+                {theme === 'minimal' && (
+                  <div className="absolute inset-0">
+                    <div className="absolute inset-0 bg-[#0a0202]" />
+                    <div className="absolute inset-0" style={{ background: redGrainBg }} />
+                    <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
+                    <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
+
+                    <div className="relative z-10 flex h-full flex-col p-4 justify-between sm:p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="rounded-xl border border-white/10 bg-black/50 p-1.5 backdrop-blur-md shadow-lg">
+                          <img src="/Cinescape_Logo.svg" alt="Logo" className="h-5 w-5 object-contain sm:h-6 sm:w-6" />
+                        </div>
+                        <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="mt-1 h-2.5 object-contain opacity-80 brightness-0 invert sm:h-3" />
+                      </div>
+
+                      <div className="break-words">
+                        {artwork.poster && (
+                          <div className="mb-3 flex justify-start sm:mb-4">
+                            <img
+                              src={artwork.poster}
+                              alt={title}
+                              className="h-24 w-16 rounded-md border border-white/10 object-cover shadow-[0_8px_20px_rgba(0,0,0,0.5)] sm:h-32 sm:w-[86px] sm:rounded-lg"
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-[6px] font-black uppercase tracking-[0.28em] text-white/55 sm:text-[7px]">
+                          <span className="h-px w-3 bg-white/35 sm:w-4" />
+                          Cinematic Review
+                        </div>
+                        <h3 className="mt-1.5 font-serif text-[14px] font-bold leading-[1.05] text-white line-clamp-3 drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:mt-2 sm:text-[24px]">
+                          {title || 'Untitled'}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-2.5 sm:gap-2">
+                          {releaseYear && <span className="text-[8px] font-semibold text-white/60 sm:text-[10px]">{releaseYear}</span>}
+                          {hasRating && (
+                            <>
+                              <span className="text-[8px] text-white/30 sm:text-[10px]">·</span>
+                              <ShareRatingStars rating={rating as number} size={7} gap={1} />
+                              <span className="text-[8px] font-bold text-white/90 sm:text-[10px]">{ratingLabel}</span>
+                              {isFavorite && <Heart className="h-2 w-2 fill-red-400 text-red-400 sm:h-2.5 sm:w-2.5" />}
+                            </>
+                          )}
+                        </div>
+
+                        {reviewContent && (
+                          <div className="relative mt-2 sm:mt-3">
+                            <Quote className="absolute -top-0.5 left-0 h-2 w-2 rotate-180 text-white/35 sm:h-2.5 sm:w-2.5" />
+                            <p className="line-clamp-3 pl-3 text-[8px] italic leading-[1.5] text-white/70 sm:pl-4 sm:text-[10px]">{reviewContent}</p>
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-2 sm:mt-4 sm:pt-3">
+                          <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/20 sm:h-7 sm:w-7">
+                            <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[8px] font-bold text-white sm:text-[10px]">{author}</p>
+                            <p className="truncate text-[6px] text-white/45 sm:text-[8px]">@{handle}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-[5px] font-bold uppercase tracking-[0.22em] text-white/40 sm:text-[6px]">Watched</p>
+                            <p className="text-[7px] font-semibold text-white/80 sm:text-[8px]">{watchDate || 'Recently'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {theme === 'cinematic' && (
+                  <div className="absolute inset-0 flex flex-col bg-black">
+                    <div className="relative h-[52%] w-full shrink-0 overflow-hidden">
+                      {artwork.backdrop ? (
+                        <img src={artwork.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black" />
+
+                      <div className="absolute left-2.5 right-2.5 top-3 flex items-center justify-between sm:left-3 sm:right-3 sm:top-4">
+                        <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-2 py-0.5 backdrop-blur-md sm:px-2.5 sm:py-1">
+                          <Clapperboard className="h-2 w-2 text-white sm:h-2.5 sm:w-2.5" />
+                          <span className="text-[5px] font-bold uppercase tracking-[0.2em] text-white sm:text-[7px]">{mediaType === 'tv' ? 'Series Review' : 'Film Review'}</span>
+                        </div>
+                        <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-2 object-contain brightness-0 invert opacity-90 sm:h-2.5" />
+                      </div>
+                    </div>
+
+                    <div className="relative flex min-h-0 flex-1 flex-col bg-black px-3 pb-3 pt-0 sm:px-5 sm:pb-5">
+                      <div className="relative flex shrink-0 items-end gap-2 sm:gap-3">
+                        <div className="relative z-10 -mt-8 sm:-mt-11">
+                          {artwork.poster ? (
+                            <img
+                              src={artwork.poster}
+                              alt={title}
+                              className="h-[72px] w-12 rounded-md border border-white/15 object-cover shadow-[0_16px_32px_rgba(0,0,0,0.7)] sm:h-[96px] sm:w-16 sm:rounded-lg"
+                            />
+                          ) : (
+                            <div className="flex h-[72px] w-12 items-center justify-center rounded-md border border-white/15 bg-zinc-900 sm:h-[96px] sm:w-16 sm:rounded-lg">
+                              <Film className="h-3 w-3 text-white/20 sm:h-4 sm:w-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 pb-0.5 sm:pb-1 break-words">
+                          <p className="text-[5.5px] font-black uppercase tracking-[0.24em] text-white/35 sm:text-[6.5px]">A {mediaType === 'tv' ? 'Series' : 'Film'} By Review</p>
+                          <h3 className="mt-0.5 font-serif text-[13px] font-bold leading-[1.08] text-white line-clamp-2 sm:mt-1 sm:text-[17px]">{title || 'Untitled'}</h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
+                            {releaseYear && <span className="text-[8px] font-semibold text-white/50 sm:text-[9px]">{releaseYear}</span>}
+                            {hasRating && (
+                              <>
+                                <span className="text-[8px] text-white/25 sm:text-[9px]">·</span>
+                                <ShareRatingStars rating={rating as number} size={7} gap={1} />
+                                <span className="text-[8px] font-bold text-white/85 sm:text-[9px]">{ratingLabel}</span>
+                                {isFavorite && <Heart className="h-2 w-2 fill-red-400 text-red-400 sm:h-2.5 sm:w-2.5" />}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {reviewContent && (
+                        <div className="relative mt-2 overflow-hidden pl-3 sm:mt-2.5 sm:pl-3.5">
+                          <Quote className="absolute left-0 top-0 h-2 w-2 rotate-180 text-white/30 sm:h-2.5 sm:w-2.5" />
+                          <p className={`whitespace-pre-line break-words text-[8px] italic leading-[1.5] text-white/70 sm:text-[10px] line-clamp-3 sm:line-clamp-4 ${textSize === 'small' ? 'text-[7px] sm:text-[8px]' : textSize === 'large' ? 'text-[9px] sm:text-[12px]' : ''}`}>
+                            {reviewContent}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-white/10 pt-2 sm:pt-2.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-white/15 sm:h-5 sm:w-5">
+                            <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[8px] font-bold text-white sm:text-[9px]">{author}</p>
+                            <p className="truncate text-[6px] text-white/45 sm:text-[7px]">@{handle}</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1 opacity-80 sm:gap-1.5">
+                          <img src="/Cinescape_Logo.svg" alt="Logo" className="h-2 w-auto object-contain sm:h-2.5" />
+                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-1.5 w-auto object-contain brightness-0 invert sm:h-2" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {theme === 'poster' && (
+                  <div className="absolute inset-0 bg-black">
+                    {artwork.poster ? (
+                      <img src={artwork.poster} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black" />
+                    )}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 32%, rgba(0,0,0,0.65) 58%, #000 92%)',
+                      }}
+                    />
+                    <div className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-25" style={GRAIN} />
+
+                    <div className="absolute left-2.5 right-2.5 top-2.5 z-30 flex items-center justify-between sm:left-3 sm:right-3 sm:top-3">
+                      <div className="rounded-lg border border-white/15 bg-black/55 p-1.5 backdrop-blur-md">
+                        <img src="/Cinescape_Logo.svg" alt="Logo" className="h-4 w-4 object-contain sm:h-5 sm:w-5" />
+                      </div>
+                      <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-2.5 object-contain opacity-85 brightness-0 invert sm:h-3" />
+                    </div>
+
+                    <div className="absolute inset-x-0 bottom-0 z-20 p-4 sm:p-6 break-words">
+                      <Quote className="h-4 w-4 rotate-180 text-white/40 sm:h-5 sm:w-5" />
+                      <h3 className="mt-1.5 font-serif text-[16px] font-bold leading-[1.05] text-white line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] sm:mt-2 sm:text-[26px]">
+                        {title || 'Untitled'}
+                      </h3>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:mt-2">
+                        {releaseYear && <span className="text-[8px] font-semibold text-white/60 sm:text-[10px]">{releaseYear}</span>}
+                        {hasRating && (
+                          <>
+                            <span className="text-[8px] text-white/30 sm:text-[10px]">·</span>
+                            <ShareRatingStars rating={rating as number} size={7} gap={1} />
+                            <span className="text-[8px] font-bold text-white/90 sm:text-[10px]">{ratingLabel}</span>
+                            {isFavorite && <Heart className="h-2 w-2 fill-red-400 text-red-400 sm:h-2.5 sm:w-2.5" />}
+                          </>
+                        )}
+                      </div>
+
+                      {reviewContent && (
+                        <p className={`mt-2 whitespace-pre-line break-words text-[8px] italic leading-[1.5] text-white/75 sm:mt-2.5 sm:text-[11px] line-clamp-3 ${textSize === 'small' ? 'text-[7px] sm:text-[9px]' : textSize === 'large' ? 'text-[9px] sm:text-[12.5px]' : ''}`}>
+                          {reviewContent}
+                        </p>
+                      )}
+
+                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/15 pt-2.5 sm:mt-4 sm:pt-3">
+                        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+                          <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/20 sm:h-6 sm:w-6">
+                            <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[8px] font-bold text-white sm:text-[9px]">{author}</p>
+                            <p className="truncate text-[6px] text-white/50 sm:text-[7px]">@{handle}</p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[5px] font-bold uppercase tracking-[0.22em] text-white/40 sm:text-[6px]">Watched</p>
+                          <p className="text-[7px] font-semibold text-white/80 sm:text-[8px]">{watchDate || 'Recently'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {theme === 'backdrop' && (
+                  <>
+                    {artwork.backdrop ? (
+                      <img src={artwork.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-950 to-black" />
+                    )}
+                    <div className="absolute inset-0 bg-black/25" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/45" />
+
+                    <div className={`absolute left-1/2 top-1/2 z-20 w-[88%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border p-3 text-left shadow-[0_20px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:w-[82%] sm:rounded-[18px] sm:p-4 ${backdropCardClass}`}>
+                      <div className="flex items-center gap-2 pr-[50px] sm:pr-[72px] break-words">
+                        <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/10 bg-zinc-800 sm:h-7 sm:w-7">
+                          <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
+                        </div>
+                        <span className="truncate text-[7px] font-semibold text-zinc-300 sm:text-[9px]">{author}</span>
+                      </div>
+
+                      <div className="absolute right-3 top-3 h-[60px] w-[40px] overflow-hidden rounded-[3px] border border-white/10 bg-zinc-900 shadow-[0_8px_20px_rgba(0,0,0,0.4)] sm:right-4 sm:top-4 sm:h-[82px] sm:w-[55px]">
+                        {artwork.poster ? (
+                          <img src={artwork.poster} alt={title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center"><Film className="h-3 w-3 text-white/20 sm:h-5 sm:w-5" /></div>
+                        )}
+                      </div>
+
+                      <div className="mt-2 pr-[46px] sm:mt-3 sm:pr-[68px]">
+                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 break-words">
+                          <h2 className="text-[10px] font-black leading-tight tracking-tight text-white sm:text-[13px]">{title || 'Untitled'}</h2>
+                          {releaseYear && <span className="text-[7px] font-medium text-zinc-500 sm:text-[9px]">{releaseYear}</span>}
+                        </div>
+
+                        {hasRating && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:flex-nowrap sm:gap-1.5">
+                            <ShareRatingStars rating={rating as number} size={8} gap={1} />
+                            <span className="text-[7px] font-medium leading-none text-zinc-400 sm:text-[9px]">{ratingLabel}</span>
+                            {isFavorite && <Heart className="h-2 w-2 shrink-0 fill-red-500 text-red-500 drop-shadow-[0_2px_8px_rgba(239,68,68,0.4)] sm:h-3 sm:w-3" />}
+                          </div>
+                        )}
+                      </div>
+
+                      {(watchDate || isRewatch) && (
+                        <div className="mt-2 flex items-center gap-1.5 sm:mt-3">
+                          <p className="text-[6px] font-medium text-zinc-500 sm:text-[8px]">Watched {watchDate || 'Recently'}</p>
+                          {isRewatch && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.05] px-1 py-[1px] text-[5px] font-semibold tracking-wide text-zinc-300 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] backdrop-blur-md sm:gap-1 sm:px-1.5 sm:text-[6.5px]">
+                              <RotateCcw className="h-1 w-1 stroke-[2] text-zinc-400 sm:h-2 sm:w-2" />
+                              <span>Rewatch ×{watchCount}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="relative mt-1.5 pl-0 sm:mt-2">
+                        <Quote className="pointer-events-none absolute -top-1 left-0 h-2 w-2 rotate-180 text-white/30 sm:h-2.5 sm:w-2.5" />
+                        <p
+                          className={`overflow-hidden whitespace-pre-line break-words pl-3 text-[8px] font-normal leading-[1.4] text-zinc-300 sm:pl-3.5 sm:text-[10px] sm:leading-[1.45] ${textSize === 'small' ? 'text-[7px] sm:text-[8px]' : textSize === 'large' ? 'text-[9px] sm:text-[12px]' : ''}`}
+                          style={{ maxHeight: textSize === 'large' ? '115px' : '80px' }}
+                        >
+                          {reviewContent}
+                        </p>
+                      </div>
+
+                      <div className={`mt-2 flex items-center justify-between border-t pt-1.5 sm:mt-3 sm:pt-2.5 ${backdropFooterBorder}`}>
+                        <span className="text-[5px] font-medium text-zinc-600 sm:text-[7px]">{mediaType === 'tv' ? 'Series review' : 'Film review'}</span>
+                        <div className="flex items-center gap-1 opacity-80 sm:gap-1.5">
+                          <img src="/Cinescape_Logo.svg" alt="Logo" className="h-2.5 w-auto object-contain sm:h-3.5" />
+                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-1.5 w-auto object-contain brightness-0 invert sm:h-2.5" />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain border-t border-white/10 bg-white/[0.025] p-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent sm:flex-none sm:w-[340px] sm:border-l sm:border-t-0 sm:p-5 lg:w-[360px]">
+            <div className="space-y-4 pb-2">
+              <div>
+                <p className="text-xs font-black text-white">Card theme</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {([['minimal', 'Minimal'], ['cinematic', 'Cinematic'], ['poster', 'Poster-first'], ['backdrop', 'Backdrop-first']] as [ReviewShareTheme, string][]).map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => setTheme(value)} className={`rounded-xl border px-3 py-2.5 text-left text-[10px] font-bold transition active:scale-[0.98] ${theme === value ? 'border-emerald-200/25 bg-white/[0.12] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]' : 'border-white/[0.08] bg-white/[0.035] text-white/50 hover:bg-white/[0.07] hover:text-white/80'}`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-black text-white">Review text</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {([['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']] as [ReviewShareTextSize, string][]).map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => setTextSize(value)} className={`rounded-xl border px-2 py-2.5 text-[10px] font-bold transition active:scale-[0.98] ${textSize === value ? 'border-emerald-200/25 bg-white/[0.12] text-white' : 'border-white/[0.08] bg-white/[0.035] text-white/50 hover:text-white/80'}`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-black text-white">Artwork</p>
+                <p className="mt-0.5 text-[10px] text-white/40">Choose, randomize, or reset your poster and backdrop</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setArtworkSelector('poster')} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-[10px] font-bold text-white/75 transition hover:bg-white/[0.08] hover:text-white">
+                  <ImageIcon className="h-3.5 w-3.5 text-amber-300" />Poster
+                </button>
+                <button type="button" onClick={() => setArtworkSelector('backdrop')} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-3 py-3 text-[10px] font-bold text-white/75 transition hover:bg-white/[0.08] hover:text-white">
+                  <ImageIcon className="h-3.5 w-3.5 text-sky-300" />Backdrop
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={artwork.randomize} className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2.5 text-[10px] font-black text-emerald-300 transition hover:bg-emerald-400/15">
+                  <Sparkles className="h-3.5 w-3.5" />Randomize
+                </button>
+                <button type="button" onClick={artwork.reset} className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[10px] font-bold text-white/55 transition hover:text-white">
+                  <RotateCcw className="h-3.5 w-3.5" />Reset
+                </button>
+              </div>
+
+              {hasRating && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold text-white/45">Your rating</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
+                        <span className="text-lg font-black tabular-nums text-white">{(rating as number).toFixed(1)}</span>
+                      </div>
+                    </div>
+                    {isFavorite && (
+                      <div className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 px-3 py-2 text-[10px] font-black text-white shadow-md shadow-red-500/30">
+                        <Heart className="h-3.5 w-3.5 fill-current sm:h-4 sm:w-4" /> Favorite
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <button type="button" onClick={handleDownload} disabled={downloading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-200 via-emerald-100 to-cyan-100 px-4 py-3 text-xs font-black text-zinc-950 shadow-[0_10px_30px_rgba(16,185,129,0.16)] transition hover:brightness-105 active:scale-[0.98] disabled:opacity-50">
+                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {downloading ? 'Exporting…' : 'Save Review Card'}
+              </button>
+              <button type="button" onClick={onClose} className="flex w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-semibold text-white/70 transition hover:bg-white/[0.07] hover:text-white">
+                Close
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="fixed -left-[9999px] -top-[9999px] pointer-events-none" aria-hidden="true">
+        {theme === 'minimal' && (
+          <div ref={storyCardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-[#0a0202] text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+            <div className="absolute inset-0" style={{ background: redGrainBg }} />
+            <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
+
+            <div className="relative z-10 flex h-full flex-col justify-between p-[100px]">
+              <div className="flex items-start justify-between">
+                <div className="rounded-[28px] border border-white/10 bg-black/50 p-[24px] backdrop-blur-md shadow-2xl">
+                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[100px] w-[100px] object-contain" />
+                </div>
+                <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="mt-[10px] h-[50px] object-contain opacity-80 brightness-0 invert" />
+              </div>
+
+              <div>
+                {artwork.poster && (
+                  <img
+                    src={artwork.poster}
+                    crossOrigin="anonymous"
+                    alt={title}
+                    className="mb-[60px] h-[540px] w-[360px] rounded-[30px] border border-white/10 object-cover shadow-[0_30px_60px_rgba(0,0,0,0.7)]"
+                  />
+                )}
+                <div className="flex items-center gap-[20px] text-[26px] font-black uppercase tracking-[0.28em] text-white/55">
+                  <span className="h-px w-[60px] bg-white/35" />
+                  Cinematic Review
+                </div>
+                <h1 className="mt-[40px] font-serif text-[130px] font-bold leading-[1.02] tracking-tight text-white line-clamp-3 drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
+                  {title || 'Untitled'}
+                </h1>
+                <div className="mt-[30px] flex flex-wrap items-center gap-[20px]">
+                  {releaseYear && <span className="text-[36px] font-semibold text-white/60">{releaseYear}</span>}
+                  {hasRating && (
+                    <>
+                      <span className="text-[36px] text-white/30">·</span>
+                      <ShareRatingStars rating={rating as number} size={36} gap={4} />
+                      <span className="text-[36px] font-bold text-white/90">{ratingLabel}</span>
+                      {isFavorite && <Heart className="h-[36px] w-[36px] fill-red-400 text-red-400" />}
+                    </>
+                  )}
+                </div>
+
+                {reviewContent && (
+                  <div className="relative mt-[50px] overflow-hidden pl-[56px]">
+                    <Quote className="absolute left-0 top-0 h-[40px] w-[40px] rotate-180 text-white/35" />
+                    <p className="whitespace-pre-line text-[36px] italic leading-[1.5] text-white/75 line-clamp-3">
+                      {reviewContent}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-[50px] flex items-center justify-between border-t border-white/10 pt-[36px]">
+                  <div className="flex items-center gap-[24px]">
+                    <div className="h-[100px] w-[100px] overflow-hidden rounded-full border-[3px] border-white/20 shadow-xl">
+                      <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="text-[32px] font-bold text-white">{author}</p>
+                      <p className="text-[24px] text-white/50">@{handle}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[20px] uppercase tracking-[0.22em] text-white/40">Watched</p>
+                    <p className="mt-[8px] text-[28px] font-semibold text-white/85">{watchDate || 'Recently'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {theme === 'cinematic' && (
+          <div ref={storyCardRef} className="relative flex h-[1920px] w-[1080px] flex-col overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+            <div className="relative h-[1000px] w-full shrink-0 overflow-hidden">
+              {artwork.backdrop ? (
+                <img src={artwork.backdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black" />
+
+              <div className="absolute left-[80px] right-[80px] top-[110px] flex items-center justify-between">
+                <div className="flex items-center gap-[16px] rounded-full border border-white/15 bg-black/55 px-[36px] py-[16px] backdrop-blur-md">
+                  <Clapperboard className="h-[30px] w-[30px] text-white" />
+                  <span className="text-[24px] font-bold uppercase tracking-[0.22em] text-white">{mediaType === 'tv' ? 'Series Review' : 'Film Review'}</span>
+                </div>
+                <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain brightness-0 invert opacity-90" />
+              </div>
+            </div>
+
+            <div className="relative flex flex-1 flex-col bg-black px-[80px] pb-[80px] pt-0">
+              <div className="relative flex shrink-0 items-end gap-[40px]">
+                <div className="relative z-10 -mt-[180px]">
+                  {artwork.poster ? (
+                    <img
+                      src={artwork.poster}
+                      crossOrigin="anonymous"
+                      alt={title}
+                      className="h-[420px] w-[280px] rounded-[20px] border border-white/15 object-cover shadow-[0_40px_80px_rgba(0,0,0,0.8)]"
+                    />
+                  ) : (
+                    <div className="flex h-[420px] w-[280px] items-center justify-center rounded-[20px] border border-white/15 bg-zinc-900">
+                      <Film className="h-[60px] w-[60px] text-white/20" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 pb-[20px]">
+                  <p className="text-[22px] font-black uppercase tracking-[0.24em] text-white/35">
+                    A {mediaType === 'tv' ? 'Series' : 'Film'} By Review
+                  </p>
+                  <h1 className="mt-[20px] font-serif text-[96px] font-bold leading-[1.02] tracking-tight text-white line-clamp-2">
+                    {title || 'Untitled'}
+                  </h1>
+                  <div className="mt-[20px] flex flex-wrap items-center gap-[18px]">
+                    {releaseYear && <span className="text-[32px] font-semibold text-white/50">{releaseYear}</span>}
+                    {hasRating && (
+                      <>
+                        <span className="text-[32px] text-white/25">·</span>
+                        <ShareRatingStars rating={rating as number} size={32} gap={4} />
+                        <span className="text-[30px] font-bold text-white/85">{ratingLabel}</span>
+                        {isFavorite && <Heart className="h-[30px] w-[30px] fill-red-400 text-red-400" />}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {reviewContent && (
+                <div className="relative mt-[40px] overflow-hidden pl-[40px]" style={{ maxHeight: '360px' }}>
+                  <Quote className="absolute left-0 top-0 h-[32px] w-[32px] rotate-180 text-white/30" />
+                  <p className="whitespace-pre-line text-[30px] italic leading-[1.5] text-white/75 line-clamp-6">
+                    {reviewContent}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-[30px]">
+                <div className="flex items-center gap-[20px]">
+                  <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/15">
+                    <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-[28px] font-bold text-white">{author}</p>
+                    <p className="text-[20px] text-white/45">@{handle}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-[16px] opacity-85">
+                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[36px] w-auto object-contain" />
+                  <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[26px] w-auto object-contain brightness-0 invert" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {theme === 'poster' && (
+          <div ref={storyCardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+            {artwork.poster ? (
+              <img src={artwork.poster} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black" />
+            )}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 32%, rgba(0,0,0,0.65) 58%, #000 92%)',
+              }}
+            />
+            <div className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-25" style={GRAIN} />
+
+            <div className="absolute left-[80px] right-[80px] top-[80px] z-30 flex items-center justify-between">
+              <div className="rounded-[24px] border border-white/15 bg-black/55 p-[20px] backdrop-blur-md">
+                <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[70px] w-[70px] object-contain" />
+              </div>
+              <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain opacity-85 brightness-0 invert" />
+            </div>
+
+            <div className="absolute inset-x-0 bottom-0 z-20 px-[80px] pb-[80px] pt-[40px]">
+              <Quote className="h-[60px] w-[60px] rotate-180 text-white/45" />
+              <h1 className="mt-[24px] font-serif text-[110px] font-bold leading-[1.02] tracking-tight text-white line-clamp-2 drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
+                {title || 'Untitled'}
+              </h1>
+              <div className="mt-[26px] flex flex-wrap items-center gap-[20px]">
+                {releaseYear && <span className="text-[32px] font-semibold text-white/60">{releaseYear}</span>}
+                {hasRating && (
+                  <>
+                    <span className="text-[32px] text-white/30">·</span>
+                    <ShareRatingStars rating={rating as number} size={32} gap={4} />
+                    <span className="text-[32px] font-bold text-white/90">{ratingLabel}</span>
+                    {isFavorite && <Heart className="h-[32px] w-[32px] fill-red-400 text-red-400" />}
+                  </>
+                )}
+              </div>
+
+              {reviewContent && (
+                <p className="mt-[32px] whitespace-pre-line text-[34px] italic leading-[1.5] text-white/80 line-clamp-4">
+                  {reviewContent}
+                </p>
+              )}
+
+              <div className="mt-[40px] flex items-center justify-between border-t border-white/20 pt-[30px]">
+                <div className="flex items-center gap-[20px]">
+                  <div className="h-[80px] w-[80px] overflow-hidden rounded-full border border-white/25">
+                    <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-[28px] font-bold text-white">{author}</p>
+                    <p className="text-[20px] text-white/50">@{handle}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-[16px] opacity-90">
+                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[36px] w-auto object-contain" />
+                  <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[24px] w-auto object-contain brightness-0 invert" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {theme === 'backdrop' && (
+          <div ref={storyCardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+            {artwork.backdrop ? (
+              <img src={artwork.backdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-950 to-black" />
+            )}
+            <div className="absolute inset-0 bg-black/25" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
+
+            <div className={`absolute left-1/2 top-1/2 w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-[32px] border px-[42px] pb-[34px] pt-[38px] shadow-[0_48px_140px_rgba(0,0,0,0.58)] ${backdropCardClass}`}>
+              <div className="flex items-center gap-[16px] pr-[190px]">
+                <div className="h-[58px] w-[58px] shrink-0 overflow-hidden rounded-full border border-white/10 bg-zinc-800">
+                  <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
+                </div>
+                <span className="max-w-[470px] truncate text-[24px] font-semibold tracking-tight text-zinc-300">{author}</span>
+              </div>
+
+              <div className="absolute right-[42px] top-[38px] h-[230px] w-[154px] overflow-hidden rounded-[7px] border border-white/10 bg-zinc-900 shadow-[0_22px_55px_rgba(0,0,0,0.48)]">
+                {artwork.poster ? (
+                  <img src={artwork.poster} crossOrigin="anonymous" alt={title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center"><Film className="h-14 w-14 text-white/15" /></div>
+                )}
+              </div>
+
+              <div className="mt-[32px] pr-[186px]">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h1 className="text-[39px] font-black leading-[1.08] tracking-tight text-white">{title || 'Untitled'}</h1>
+                  {releaseYear && <span className="text-[24px] font-medium text-zinc-500">{releaseYear}</span>}
+                </div>
+
+                {hasRating && (
+                  <div className="mt-[12px] flex items-center gap-[10px]">
+                    <ShareRatingStars rating={rating as number} size={28} gap={4} />
+                    <span className="text-[20px] font-medium leading-none text-zinc-400">{ratingLabel}</span>
+                    {isFavorite && <Heart className="h-[26px] w-[26px] shrink-0 fill-red-500 text-red-500 drop-shadow-[0_2px_8px_rgba(239,68,68,0.4)]" />}
+                  </div>
+                )}
+              </div>
+
+              {(watchDate || isRewatch) && (
+                <div className="mt-[34px] flex items-center gap-[12px]">
+                  <p className="text-[20px] font-medium text-zinc-500">Watched {watchDate || 'Recently'}</p>
+                  {isRewatch && (
+                    <span className="inline-flex items-center gap-[8px] text-[15px] font-semibold tracking-[0.02em] text-zinc-500">
+                      <RotateCcw className="h-[17px] w-[17px] stroke-[2]" />
+                      Rewatch ×{watchCount}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="relative mt-[20px] pl-[38px]">
+                <Quote className="absolute left-1.5 -top-0.5 h-[28px] w-[28px] rotate-180 text-white/25" />
+                <p
+                  className="overflow-hidden whitespace-pre-line font-normal tracking-[-0.01em] text-zinc-300"
+                  style={{
+                    fontSize: textSize === 'small' ? '22px' : textSize === 'large' ? '30px' : reviewContent.length > 700 ? '22px' : reviewContent.length > 420 ? '25px' : '28px',
+                    lineHeight: 1.43,
+                    maxHeight: textSize === 'large' ? '680px' : '620px',
+                  }}
+                >
+                  {reviewContent}
+                </p>
+              </div>
+
+              <div className={`mt-[30px] flex items-center justify-between border-t pt-[20px] ${backdropFooterBorder}`}>
+                <span className="text-[16px] font-medium text-zinc-600">{mediaType === 'tv' ? 'Series review' : 'Film review'}</span>
+                <div className="flex items-center gap-[12px] opacity-80">
+                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[28px] w-auto object-contain" />
+                  <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[20px] w-auto object-contain brightness-0 invert" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ArtworkPickerModal
+        open={artworkSelector === 'poster'}
+        onClose={() => setArtworkSelector(null)}
+        tab="poster"
+        choices={artwork.posterChoices}
+        currentUrl={artwork.poster}
+        onSelect={artwork.setPoster}
+        onRandomize={artwork.randomize}
+        onReset={artwork.reset}
+        loading={artwork.loading}
+      />
+      <ArtworkPickerModal
+        open={artworkSelector === 'backdrop'}
+        onClose={() => setArtworkSelector(null)}
+        tab="backdrop"
+        choices={artwork.backdropChoices}
+        currentUrl={artwork.backdrop}
+        onSelect={artwork.setBackdrop}
+        onRandomize={artwork.randomize}
+        onReset={artwork.reset}
+        loading={artwork.loading}
+      />
+    </>,
+    document.body,
+  );
+};
 
 const LANGUAGE_MAP: Record<string, string> = {
   en: 'English', kn: 'Kannada', te: 'Telugu', hi: 'Hindi', ta: 'Tamil',
@@ -239,7 +1831,7 @@ const WatchedButton = ({
   const [watchActionMode, setWatchActionMode] = useState<WatchActionMode>('mark');
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDateKey, setSelectedDateKey] = useState(dateKey(new Date()));
-
+  const [showPicker, setShowPicker] = useState(false);
   const isWatched = Boolean(historyDocId);
   const watchCount = watchedDates.length;
   const latestWatchDate = watchCount ? watchedDates[watchCount - 1] : null;
@@ -480,34 +2072,167 @@ const WatchedButton = ({
 
               {watchMenuStep === 'calendar' && (
                 <div>
-                  <button type="button" onClick={() => setWatchMenuStep('date-options')} className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-white"><ChevronLeft className="h-3.5 w-3.5" />Back</button>
-                  <div className="mb-3 flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] p-2">
-                    <button type="button" onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06] hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
-                    <span className="text-xs font-black text-white">{calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
-                    <button type="button" disabled={!canGoNextMonth} onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06] hover:text-white disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button>
-                  </div>
-                  <div className="grid grid-cols-7 gap-1 text-center">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[9px] font-black text-zinc-600">{day}</span>)}
-                    {calendarDays.map((date) => {
-                      const key = dateKey(date);
-                      const outsideMonth = date.getMonth() !== calendarMonth.getMonth();
-                      const future = date > todayEnd;
-                      const selected = selectedDateKey === key;
-                      return (
+                  <button
+                    type="button"
+                    onClick={() => { setWatchMenuStep('date-options'); setShowPicker(false); }}
+                    className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />Back
+                  </button>
+
+                  <div className="relative w-full overflow-hidden rounded-[32px] border border-white/10 bg-[#0a0a0a] shadow-[0_24px_80px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                    <div className="pointer-events-none absolute left-1/2 top-0 h-32 w-[80%] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[60px]" />
+
+                    <div className="relative p-5">
+                      <div className="mb-6 flex items-center justify-between">
                         <button
                           type="button"
-                          key={key}
-                          disabled={future}
-                          onClick={() => setSelectedDateKey(key)}
-                          className={`aspect-square rounded-xl text-[10px] font-bold transition ${selected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : outsideMonth ? 'text-zinc-700 hover:bg-white/[0.04]' : 'text-zinc-300 hover:bg-white/[0.06]'} disabled:cursor-not-allowed disabled:opacity-20`}
+                          onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95"
                         >
-                          {date.getDate()}
+                          <ChevronLeft className="h-4 w-4" />
                         </button>
-                      );
-                    })}
+
+                        <button
+                          type="button"
+                          onClick={() => setShowPicker(!showPicker)}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2 transition hover:bg-white/5 active:scale-[0.98]"
+                        >
+                          <span className="text-lg font-black tracking-wide text-white">
+                            {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 text-emerald-500 transition-transform duration-300 ${showPicker ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={!canGoNextMonth}
+                          onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {showPicker && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+                            <motion.div
+                              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                              className="absolute left-4 right-4 top-[72px] z-50 overflow-hidden rounded-3xl border border-white/10 bg-[#111]/95 shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-3xl"
+                            >
+                              <div className="p-4">
+                                <div className="mb-3 flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                  {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => {
+                                    const isYearActive = calendarMonth.getFullYear() === year;
+                                    const isYearDisabled = year > new Date().getFullYear();
+                                    return (
+                                      <button
+                                        key={year}
+                                        type="button"
+                                        disabled={isYearDisabled}
+                                        onClick={() => {
+                                          const safeMonth = year === new Date().getFullYear() ? Math.min(calendarMonth.getMonth(), new Date().getMonth()) : calendarMonth.getMonth();
+                                          setCalendarMonth(new Date(year, safeMonth, 1));
+                                        }}
+                                        className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-all duration-200 
+                            ${isYearActive ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]' :
+                                            isYearDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}
+                                      >
+                                        {year}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2">
+                                  {Array.from({ length: 12 }, (_, month) => {
+                                    const isMonthActive = calendarMonth.getMonth() === month;
+                                    const isMonthDisabled = calendarMonth.getFullYear() === new Date().getFullYear() && month > new Date().getMonth();
+                                    return (
+                                      <button
+                                        key={month}
+                                        type="button"
+                                        disabled={isMonthDisabled}
+                                        onClick={() => {
+                                          setCalendarMonth(new Date(calendarMonth.getFullYear(), month, 1));
+                                          setShowPicker(false);
+                                        }}
+                                        className={`rounded-xl py-2.5 text-xs font-bold transition-all duration-200 active:scale-95 
+                            ${isMonthActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                            isMonthDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/[0.02] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-white'}`}
+                                      >
+                                        {new Date(2000, month, 1).toLocaleDateString(undefined, { month: 'short' })}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+
+                      <div className="mb-4 grid grid-cols-7 gap-1 text-center">
+                        {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day, index) => (
+                          <span key={`${day}-${index}`} className="py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                            {day}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-y-2 gap-x-1 text-center">
+                        {calendarDays.map((date) => {
+                          const key = dateKey(date);
+                          const outsideMonth = date.getMonth() !== calendarMonth.getMonth();
+                          const future = date > todayEnd;
+                          const selected = selectedDateKey === key;
+                          const isToday = key === dateKey(new Date());
+
+                          return (
+                            <button
+                              type="button"
+                              key={key}
+                              disabled={future}
+                              onClick={() => setSelectedDateKey(key)}
+                              className={`group relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold transition-all duration-300 
+                  ${selected
+                                  ? 'bg-emerald-500 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.6)] scale-110 z-10 font-black'
+                                  : outsideMonth
+                                    ? 'text-zinc-600 hover:bg-white/5'
+                                    : 'text-zinc-200 hover:bg-white/10 hover:scale-105'
+                                } disabled:cursor-not-allowed disabled:opacity-20`}
+                            >
+                              {date.getDate()}
+                              {isToday && !selected && (
+                                <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/5 bg-white/[0.01] p-4">
+                      <button
+                        type="button"
+                        onClick={() => saveWatchEvent(keyToDate(selectedDateKey), watchActionMode)}
+                        className="flex w-full items-center justify-between rounded-2xl bg-zinc-900 border border-white/10 px-5 py-3.5 transition hover:bg-zinc-800 active:scale-[0.98] group"
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500">Selected Date</span>
+                          <span className="text-sm font-black text-white">{formatWatchDate(keyToDate(selectedDateKey))}</span>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-110 group-active:scale-95">
+                          <Check className="h-5 w-5 stroke-[3]" />
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-center text-[10px] font-semibold text-zinc-400">Selected · {formatWatchDate(keyToDate(selectedDateKey))}</div>
-                  <button type="button" onClick={() => saveWatchEvent(keyToDate(selectedDateKey), watchActionMode)} className="mt-3 w-full rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 py-3.5 text-xs font-black text-white shadow-lg shadow-emerald-500/20 active:scale-[0.99]">{watchActionMode === 'rewatch' ? 'Add Rewatch' : watchActionMode === 'change' ? 'Update Watch Date' : 'Mark as Watched'}</button>
                 </div>
               )}
             </div>
@@ -518,7 +2243,6 @@ const WatchedButton = ({
     </>
   );
 };
-
 
 const WatchHistoryPill = ({
   movie,
@@ -534,6 +2258,7 @@ const WatchHistoryPill = ({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editMonth, setEditMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDateKey, setSelectedDateKey] = useState(dateKey(new Date()));
+  const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -569,6 +2294,7 @@ const WatchHistoryPill = ({
     setEditingIndex(index);
     setSelectedDateKey(dateKey(current));
     setEditMonth(new Date(current.getFullYear(), current.getMonth(), 1));
+    setShowPicker(false);
   };
 
   const persistDates = async (nextDates: string[]) => {
@@ -623,9 +2349,15 @@ const WatchHistoryPill = ({
       {open && createPortal(
         <div className="fixed inset-0 z-[10050] flex items-end justify-center sm:items-center sm:p-5">
           <button type="button" aria-label="Close watch history" onClick={() => { setOpen(false); setEditingIndex(null); }} className="absolute inset-0 bg-black/72 backdrop-blur-xl" />
-          <motion.div initial={{ opacity: 0, y: 34, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[32px] border border-white/10 bg-zinc-950/95 shadow-[0_28px_90px_rgba(0,0,0,0.78)] backdrop-blur-3xl sm:rounded-[32px]">
-            <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
-            <div className="flex items-center gap-3 border-b border-white/[0.07] p-4 sm:p-5">
+
+          <motion.div
+            initial={{ opacity: 0, y: 34, scale: 0.99 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[32px] border border-white/10 bg-zinc-950/95 shadow-[0_28px_90px_rgba(0,0,0,0.78)] backdrop-blur-3xl sm:rounded-[32px]"
+          >
+            <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-white/15 sm:hidden" />
+
+            <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.07] p-4 sm:p-5">
               <div className="h-16 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
                 {movie.poster_path ? <img src={`https://image.tmdb.org/t/p/w185${movie.poster_path}`} alt="" className="h-full w-full object-cover" /> : <ImageOff className="m-auto h-full w-4 text-zinc-600" />}
               </div>
@@ -634,7 +2366,7 @@ const WatchHistoryPill = ({
                 <p className="mt-0.5 truncate text-[11px] font-semibold text-zinc-400">{movie.title}</p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-400/80">{dates.length} {dates.length === 1 ? 'watch' : 'watches'}</p>
               </div>
-              <button type="button" onClick={() => { setOpen(false); setEditingIndex(null); }} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-400"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => { setOpen(false); setEditingIndex(null); }} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-zinc-400 transition hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
@@ -652,37 +2384,181 @@ const WatchHistoryPill = ({
                             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">{isLatest ? 'Latest Watch' : isFirst ? 'First Watch' : `Rewatch #${index}`}</p>
                             <p className="mt-1 text-xs font-bold text-zinc-100">{formatWatchDate(watchDate)}</p>
                           </div>
-                          <button type="button" onClick={() => startEdit(index)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04] text-zinc-500 transition hover:text-amber-300"><Pencil className="h-3.5 w-3.5" /></button>
-                          <button type="button" disabled={saving} onClick={() => deleteEvent(index)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/10 bg-red-500/[0.04] text-zinc-600 transition hover:text-red-400 disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button type="button" onClick={() => startEdit(index)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04] text-zinc-500 transition hover:text-amber-300"><Pencil className="h-3.5 w-3.5" /></button>
+                          <button type="button" disabled={saving} onClick={() => deleteEvent(index)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-red-500/10 bg-red-500/[0.04] text-zinc-600 transition hover:text-red-400 disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" /></button>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div>
-                  <button type="button" onClick={() => setEditingIndex(null)} className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-white"><ChevronLeft className="h-3.5 w-3.5" />Watch History</button>
+                <div className="pb-2">
+                  <button
+                    type="button"
+                    onClick={() => { setEditingIndex(null); setShowPicker(false); }}
+                    className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />Watch History
+                  </button>
                   <div className="mb-4">
                     <h3 className="text-sm font-black text-white">Edit watch date</h3>
                     <p className="mt-1 text-[10px] text-zinc-500">Update only this watch event.</p>
                   </div>
-                  <div className="mb-3 flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] p-2">
-                    <button type="button" onClick={() => setEditMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06]"><ChevronLeft className="h-4 w-4" /></button>
-                    <span className="text-xs font-black text-white">{editMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
-                    <button type="button" disabled={!canGoNextMonth} onClick={() => setEditMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/[0.06] disabled:opacity-25"><ChevronRight className="h-4 w-4" /></button>
+
+                  <div className="relative w-full overflow-hidden rounded-[24px] border border-white/10 bg-[#0a0a0a] shadow-[0_24px_80px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                    <div className="pointer-events-none absolute left-1/2 top-0 h-32 w-[80%] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[60px]" />
+
+                    <div className="relative p-4 sm:p-5">
+                      <div className="mb-6 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setEditMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowPicker(!showPicker)}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2 transition hover:bg-white/5 active:scale-[0.98]"
+                        >
+                          <span className="text-base font-black tracking-wide text-white">
+                            {editMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                          </span>
+                          <ChevronDown className={`h-4 w-4 text-emerald-500 transition-transform duration-300 ${showPicker ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={!canGoNextMonth}
+                          onClick={() => setEditMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {showPicker && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+                            <motion.div
+                              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                              className="absolute left-4 right-4 top-[60px] z-50 overflow-hidden rounded-2xl border border-white/10 bg-[#111]/95 shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-3xl"
+                            >
+                              <div className="p-3">
+                                <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                  {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => {
+                                    const isYearActive = editMonth.getFullYear() === year;
+                                    const isYearDisabled = year > new Date().getFullYear();
+                                    return (
+                                      <button
+                                        key={year}
+                                        type="button"
+                                        disabled={isYearDisabled}
+                                        onClick={() => {
+                                          const safeMonth = year === new Date().getFullYear() ? Math.min(editMonth.getMonth(), new Date().getMonth()) : editMonth.getMonth();
+                                          setEditMonth(new Date(year, safeMonth, 1));
+                                        }}
+                                        className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all duration-200 
+                                          ${isYearActive ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' :
+                                            isYearDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}
+                                      >
+                                        {year}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  {Array.from({ length: 12 }, (_, month) => {
+                                    const isMonthActive = editMonth.getMonth() === month;
+                                    const isMonthDisabled = editMonth.getFullYear() === new Date().getFullYear() && month > new Date().getMonth();
+                                    return (
+                                      <button
+                                        key={month}
+                                        type="button"
+                                        disabled={isMonthDisabled}
+                                        onClick={() => {
+                                          setEditMonth(new Date(editMonth.getFullYear(), month, 1));
+                                          setShowPicker(false);
+                                        }}
+                                        className={`rounded-lg py-2 text-[11px] font-bold transition-all duration-200 active:scale-95 
+                                          ${isMonthActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                            isMonthDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/[0.02] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-white'}`}
+                                      >
+                                        {new Date(2000, month, 1).toLocaleDateString(undefined, { month: 'short' })}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+
+                      <div className="mb-2 grid grid-cols-7 gap-1 text-center">
+                        {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day, index) => (
+                          <span key={`${day}-${index}`} className="py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                            {day}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-y-1 gap-x-1 text-center">
+                        {calendarDays.map((date) => {
+                          const key = dateKey(date);
+                          const outside = date.getMonth() !== editMonth.getMonth();
+                          const future = date > todayEnd;
+                          const selected = selectedDateKey === key;
+                          const isToday = key === dateKey(new Date());
+
+                          return (
+                            <button
+                              type="button"
+                              key={key}
+                              disabled={future}
+                              onClick={() => setSelectedDateKey(key)}
+                              className={`group relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-semibold transition-all duration-300 
+                                ${selected
+                                  ? 'bg-emerald-500 text-zinc-950 shadow-[0_0_15px_rgba(16,185,129,0.6)] scale-110 z-10 font-black'
+                                  : outside
+                                    ? 'text-zinc-600 hover:bg-white/5'
+                                    : 'text-zinc-200 hover:bg-white/10 hover:scale-105'
+                                } disabled:cursor-not-allowed disabled:opacity-20`}
+                            >
+                              {date.getDate()}
+                              {isToday && !selected && (
+                                <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/5 bg-white/[0.01] p-4">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={saveEdit}
+                        className="flex w-full items-center justify-between rounded-2xl bg-zinc-900 border border-white/10 px-5 py-3.5 transition hover:bg-zinc-800 active:scale-[0.98] group disabled:opacity-50"
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500">{saving ? 'Updating...' : 'Selected Date'}</span>
+                          <span className="text-sm font-black text-white">{formatWatchDate(keyToDate(selectedDateKey))}</span>
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-110 group-active:scale-95">
+                          {saving ? <Loader2 className="h-5 w-5 stroke-[3] animate-spin" /> : <Check className="h-5 w-5 stroke-[3]" />}
+                        </div>
+                      </button>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-7 gap-1 text-center">
-                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => <span key={`${day}-${index}`} className="py-1 text-[9px] font-black text-zinc-600">{day}</span>)}
-                    {calendarDays.map((date) => {
-                      const key = dateKey(date);
-                      const selected = selectedDateKey === key;
-                      const outside = date.getMonth() !== editMonth.getMonth();
-                      const future = date > todayEnd;
-                      return <button type="button" key={key} disabled={future} onClick={() => setSelectedDateKey(key)} className={`aspect-square rounded-xl text-[10px] font-bold transition ${selected ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : outside ? 'text-zinc-700' : 'text-zinc-300 hover:bg-white/[0.06]'} disabled:opacity-20`}>{date.getDate()}</button>;
-                    })}
-                  </div>
-                  <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-center text-[10px] font-semibold text-zinc-400">Selected · {formatWatchDate(keyToDate(selectedDateKey))}</div>
-                  <button type="button" disabled={saving} onClick={saveEdit} className="mt-3 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3.5 text-xs font-black text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50">{saving ? 'Updating…' : 'Update Watch Date'}</button>
                 </div>
               )}
             </div>
@@ -730,6 +2606,23 @@ const MovieDetails = () => {
   const [sortOption, setSortOption] = useState('mostHelpful');
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [heroBackdropUrl, setHeroBackdropUrl] = useState<string | null>(null);
+  const [artworkEditor, setArtworkEditor] = useState(false);
+  const [artworkTab, setArtworkTab] = useState<'poster' | 'backdrop'>('poster');
+  const [artworkOverrides, setArtworkOverrides] = useState<{ poster?: string; backdrop?: string }>({});
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(`cinescape:artwork:movie:${id}`);
+      setArtworkOverrides(stored ? JSON.parse(stored) : {});
+    } catch { setArtworkOverrides({}); }
+  }, [id]);
+  const saveArtwork = (type: 'poster' | 'backdrop', path: string | null) => {
+    const next = { ...artworkOverrides };
+    if (path) next[type] = path;
+    else delete next[type];
+    setArtworkOverrides(next);
+    try { localStorage.setItem(`cinescape:artwork:movie:${id}`, JSON.stringify(next)); } catch { }
+  };
+
   const [crew, setCrew] = useState<any[]>([]);
   const [movieParts, setMovieParts] = useState<any[]>([]);
   const [collectionName, setCollectionName] = useState<string | null>(null);
@@ -738,8 +2631,9 @@ const MovieDetails = () => {
     type: 'success' | 'error' | 'info';
     isVisible: boolean;
   }>({ message: '', type: 'success', isVisible: false });
-  const [playerSource, setPlayerSource] = useState<PlayerSource>('vidsrc');
+  const [playerSource, setPlayerSource] = useState<PlayerSource>('vidly');
   const [shareOpen, setShareOpen] = useState(false);
+  const [reviewShareOpen, setReviewShareOpen] = useState(false);
   const [watchedMovieIds, setWatchedMovieIds] = useState<number[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteDocId, setFavoriteDocId] = useState<string | null>(null);
@@ -983,12 +2877,15 @@ const MovieDetails = () => {
   }, [user?.uid, movieDetails?.id, movieDetails?.poster_path]);
 
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [userHandle, setUserHandle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
     const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if (snap.exists()) {
-        setUserPhoto(snap.data().photoDataUrl ?? null);
+        const data = snap.data();
+        setUserPhoto(data.photoDataUrl ?? null);
+        setUserHandle(data.handle ?? null);
       }
     });
     return () => unsubscribe();
@@ -1478,8 +3375,6 @@ const MovieDetails = () => {
     }
   };
 
-
-
   const groupedCrew = useMemo(() => {
     const grouped: Record<string, any> = {};
     crew.forEach((m) => {
@@ -1538,8 +3433,10 @@ const MovieDetails = () => {
   const boxOffice = movieDetails.boxOffice
     ? `$${Number(movieDetails.boxOffice).toLocaleString()}`
     : 'N/A';
-  const posterUrl = `https://image.tmdb.org/t/p/w780/${movieDetails.poster_path}`;
-  const heroBackdrop = heroBackdropUrl ?? posterUrl;
+  const posterPath = artworkOverrides.poster || movieDetails.poster_path;
+  const backdropPath = artworkOverrides.backdrop || movieDetails.backdrop_path || null;
+  const posterUrl = `https://image.tmdb.org/t/p/w780${posterPath}`;
+  const heroBackdrop = artworkOverrides.backdrop ? `https://image.tmdb.org/t/p/original${artworkOverrides.backdrop}` : (heroBackdropUrl ?? posterUrl);
 
   const genres = movieDetails.genres ?? [];
   const segments = genres.map((genre) => ({
@@ -1584,19 +3481,73 @@ const MovieDetails = () => {
         onClose={() => setToast((t) => ({ ...t, isVisible: false }))}
       />
 
-      <ShareSheet
+      {artworkEditor && createPortal(
+        <div className="fixed inset-0 z-[10100] flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Artwork settings" onKeyDown={(event) => { if (event.key === 'Escape') setArtworkEditor(false); }}>
+          <button type="button" aria-label="Close artwork settings" onClick={() => setArtworkEditor(false)} className="absolute inset-0 bg-black/75 backdrop-blur-[5px]" />
+          <div className="relative flex h-[min(85dvh,820px)] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-white/15 bg-black shadow-[0_30px_100px_rgba(0,0,0,.85),inset_0_1px_0_rgba(255,255,255,.10)] sm:h-[min(82dvh,760px)] sm:rounded-[30px] sm:bg-black">
+            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-white/25 sm:hidden" />
+            <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-3 sm:px-6 sm:pt-5">
+              <div className="min-w-0"><h2 className="flex items-center gap-2 text-base font-semibold tracking-tight text-white sm:text-lg"><Settings2 className="h-4 w-4 text-white/70" /> Artwork settings</h2><p className="mt-1 text-xs text-zinc-400">Customize this movie's appearance</p></div>
+              <button type="button" aria-label="Close" onClick={() => setArtworkEditor(false)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 transition-colors hover:bg-white/20 active:scale-95"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="shrink-0 border-b border-white/10 px-4 pb-3 sm:px-6">
+              <div className="grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-black/40 p-1" role="tablist" aria-label="Artwork type">
+                {(['poster', 'backdrop'] as const).map((tab) => <button type="button" role="tab" key={tab} aria-selected={artworkTab === tab} onClick={() => setArtworkTab(tab)} className={`min-h-11 rounded-full px-4 py-2.5 text-sm font-semibold capitalize transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[.98] ${artworkTab === tab ? 'border border-white/15 bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_3px_12px_rgba(0,0,0,.2)]' : 'border border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'}`}>{tab}</button>)}
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:p-5" role="tabpanel">
+              <div className={artworkTab === 'poster' ? 'grid grid-cols-2 gap-3 min-[380px]:grid-cols-3 sm:grid-cols-4 sm:gap-4 md:grid-cols-5' : 'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4'}>
+                {Array.from(new Set([...(artworkTab === 'poster' ? [movieDetails.poster_path] : [movieDetails.backdrop_path]), ...(movieDetails.images?.[artworkTab === 'poster' ? 'posters' : 'backdrops'] || []).map((item) => item.file_path)])).filter((path): path is string => typeof path === 'string' && path.length > 0).map((path) => {
+                  const selected = (artworkOverrides[artworkTab] || (artworkTab === 'poster' ? movieDetails.poster_path : movieDetails.backdrop_path)) === path;
+                  return <button type="button" key={path} onClick={() => saveArtwork(artworkTab, path)} aria-label={`Select ${artworkTab} artwork`} aria-pressed={selected} className={`group relative overflow-hidden rounded-2xl border text-left transition-[transform,border-color,box-shadow] duration-200 active:scale-[.97] sm:hover:-translate-y-1 ${selected ? 'border-white/80 shadow-[0_0_0_2px_rgba(255,255,255,.2)]' : 'border-white/10 hover:border-white/40'}`}>
+                    <img src={`https://image.tmdb.org/t/p/w500${path}`} alt="" loading="lazy" decoding="async" className={`w-full object-cover ${artworkTab === 'poster' ? 'aspect-[2/3]' : 'aspect-video'}`} />
+                    {selected && <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-black shadow-lg"><Check className="h-4 w-4" /></span>}
+                  </button>;
+                })}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">
+              <button type="button" onClick={() => saveArtwork(artworkTab, null)} className="min-h-11 rounded-full border border-white/15 bg-white/10 px-4 text-xs font-medium text-white transition-colors hover:bg-white/20 sm:text-sm">Restore default</button>
+              <button type="button" onClick={() => setArtworkEditor(false)} className="min-h-11 rounded-full bg-white px-6 text-sm font-semibold text-black transition-[transform,background-color] hover:bg-zinc-200 active:scale-95">Done</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+
+      <UserRatingShareSheet
         open={shareOpen}
         onClose={() => setShareOpen(false)}
+        movieId={movieDetails.id}
         title={movieDetails.title}
-        backdropUrl={heroBackdrop}
-        posterUrl={posterUrl}
-        rating={movieDetails.vote_average}
+        posterPath={posterPath}
+        backdropPath={backdropPath}
         genres={genres.map((g) => g.name)}
         releaseDate={movieDetails.release_date}
-        overview={movieDetails.overview}
-        shareUrl={`${window.location.origin}/movie/${movieDetails.id}`}
-        medium="Movie"
-        onToast={(m, t) => showToast(m, t)}
+        userRating={userRating}
+        userName={user?.displayName || undefined}
+        userAvatar={userPhoto}
+        userHandle={userHandle || undefined}
+        lastWatched={latestWatch ? formatWatchDate(latestWatch) : null}
+        isFavorite={isFavorite}
+      />
+
+      <ReviewShareSheet
+        open={reviewShareOpen}
+        onClose={() => setReviewShareOpen(false)}
+        movieId={movieDetails.id}
+        title={movieDetails.title}
+        posterPath={posterPath}
+        backdropPath={backdropPath}
+        releaseYear={movieDetails.release_date?.slice(0, 4) || ''}
+        reviewContent={userExistingReview?.content || ''}
+        author={userExistingReview?.author || user?.displayName || 'Anonymous'}
+        userPhoto={userPhoto}
+        userHandle={userHandle}
+        rating={userRating ?? userExistingReview?.rating ?? null}
+        watchDate={latestWatch ? formatWatchDate(latestWatch) : null}
+        watchCount={currentWatchDates.length}
+        mediaType="movie"
+        isFavorite={isFavorite}
       />
 
       {showMyListPicker && createPortal(
@@ -1704,24 +3655,18 @@ const MovieDetails = () => {
         </div>, document.body
       )}
 
-      <div id="overview" className="relative min-h-[70vh] md:min-h-[85vh] flex items-end overflow-hidden">
-        <div className="absolute inset-0">
+      <div id="overview" className="relative isolate flex min-h-[70vh] items-end overflow-hidden bg-black md:min-h-[85vh]">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
-            className="absolute -inset-8 scale-110 bg-cover bg-center opacity-90 blur-[24px] saturate-[1.12] transition-all duration-1000 sm:blur-[20px] md:blur-[14px] lg:blur-[10px]"
+            className="absolute -inset-10 scale-110 bg-cover bg-center opacity-85 blur-[20px] saturate-[1.12] transform-gpu transition-[opacity,filter] duration-700 sm:blur-[16px] lg:blur-[10px]"
             style={{ backgroundImage: `url(${heroBackdrop})` }}
           />
-          <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/62 to-black/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-transparent to-black/70" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
-          <div
-            className="absolute inset-0 opacity-20 mix-blend-overlay"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-            }}
-          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/55" />
+          <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/65 to-transparent" />
         </div>
 
+        <button type="button" onClick={() => { setArtworkTab('poster'); setArtworkEditor(true); }} className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18),0_8px_24px_rgba(0,0,0,.35)] backdrop-blur-xl transition-[transform,background-color] duration-200 hover:bg-white/20 active:scale-95 sm:right-8 sm:top-20 sm:h-11 sm:w-11" aria-label="Artwork settings" title="Artwork settings"><Settings2 className="h-4 w-4 sm:h-[18px] sm:w-[18px]" /></button>
         <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -1924,19 +3869,22 @@ const MovieDetails = () => {
                       setShowMyListPicker(true);
                     }}
                     disabled={isUpdatingLibrary}
-                    className={`relative group flex h-12 w-12 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full font-bold text-white shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:h-auto md:w-auto md:min-h-[46px] md:rounded-2xl md:px-4 md:py-3 md:text-xs md:whitespace-nowrap lg:px-5 lg:text-sm ${myListFolderIds.size
-                      ? 'border border-fuchsia-400/40 bg-gradient-to-r from-fuchsia-600 to-violet-600 shadow-fuchsia-500/30 hover:from-fuchsia-700 hover:to-violet-700'
-                      : 'border border-white/10 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 text-zinc-200 shadow-black/40 hover:border-fuchsia-500/30 hover:text-white'
+                    className={`relative group flex h-12 w-12 shrink-0 items-center justify-center gap-2 overflow-visible rounded-full font-bold text-white transition-all duration-300 hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 md:h-auto md:w-auto md:min-h-[46px] md:overflow-hidden md:rounded-2xl md:px-4 md:py-3 md:text-xs md:whitespace-nowrap lg:px-5 lg:text-sm ${myListFolderIds.size
+                      ? 'border border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500 to-violet-600 shadow-none md:shadow-xl md:shadow-fuchsia-500/30 hover:from-fuchsia-600 hover:to-violet-700'
+                      : 'border border-white/10 bg-gradient-to-br from-zinc-800 to-zinc-900 text-zinc-200 shadow-none md:shadow-xl md:shadow-black/40 hover:border-fuchsia-500/30 hover:text-white'
                       }`}
                     title="Manage Lists"
                   >
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 transition-transform duration-700 group-hover:translate-x-full" />
-                    <ListChecks className={`relative z-10 h-5 w-5 transition-colors duration-300 md:h-4 md:w-4 ${myListFolderIds.size ? 'text-fuchsia-50 drop-shadow-[0_0_6px_rgba(255,255,255,0.75)]' : 'text-zinc-400 group-hover:text-fuchsia-500'}`} />
+                    <div className="hidden md:block absolute inset-0 -translate-x-full rounded-full bg-gradient-to-r from-white/0 via-white/20 to-white/0 transition-transform duration-700 group-hover:translate-x-full md:rounded-none" />
+
+                    <ListChecks className={`relative z-10 h-5 w-5 transition-colors duration-300 md:h-4 md:w-4 ${myListFolderIds.size ? 'text-fuchsia-50 md:drop-shadow-[0_0_6px_rgba(255,255,255,0.75)]' : 'text-zinc-400 group-hover:text-fuchsia-500'}`} />
+
                     {myListFolderIds.size > 0 && (
-                      <span className="absolute -right-1 -top-1 rounded-full border border-white/15 bg-fuchsia-500 px-1.5 py-0.5 text-[8px] font-black leading-none text-white shadow-md shadow-fuchsia-500/20 md:static md:rounded-md md:bg-black/15 md:text-[9px] md:text-fuchsia-100">
+                      <span className="absolute -right-1 -top-1 z-20 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white/20 bg-fuchsia-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm md:static md:ml-1 md:h-auto md:min-w-0 md:border-none md:bg-black/20 md:px-1.5 md:py-0.5 md:text-[9px] md:font-semibold md:text-fuchsia-100 md:shadow-none">
                         {myListFolderIds.size}
                       </span>
                     )}
+
                     <span className="relative z-10 hidden md:inline">Manage Lists</span>
                   </button>
 
@@ -2159,84 +4107,96 @@ const MovieDetails = () => {
         <section className="mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 md:px-8 md:pt-10">
           <div className="mb-4 flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Lists</h2>
-              <p className="mt-1 text-xs font-medium text-zinc-500">Your collections featuring this title</p>
+              <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>Lists</h2>
+              <p className="mt-1 text-[13px] font-medium text-zinc-400">Your collections featuring this title</p>
             </div>
             <button
               type="button"
               onClick={() => setShowMyListPicker(true)}
-              className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold text-zinc-400 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white"
+              className="rounded-full bg-white/10 px-4 py-2 text-[13px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
             >
               Manage
             </button>
           </div>
 
           {featuredListFolders.length ? (
-            <div className="-mx-4 flex snap-x snap-proximity gap-4 overflow-x-auto px-4 pb-3 no-scrollbar sm:mx-0 sm:px-0">
+            <div className="-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-12 pt-4 no-scrollbar sm:mx-0 sm:px-0">
               {featuredListFolders.map((folder) => {
                 const previewPaths = [...new Set([...(folder.posterPaths || []), movieDetails.poster_path])].filter(Boolean).slice(0, 3);
                 return (
                   <Link
                     key={folder.id}
                     to="/mylist"
-                    className="group block w-[82vw] max-w-[430px] shrink-0 snap-start sm:w-[360px]"
+                    className="group relative block w-[82vw] max-w-[340px] shrink-0 snap-center sm:w-[320px]"
                   >
-                    <div className="relative h-44 overflow-hidden rounded-[30px] border border-white/[0.12] bg-white/[0.035] shadow-[0_24px_60px_rgba(0,0,0,0.46),inset_0_1px_1px_rgba(255,255,255,0.16)] sm:h-52">
-                      {previewPaths[0] && (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w780${previewPaths[0].startsWith('/') ? previewPaths[0] : `/${previewPaths[0]}`}`}
-                          alt=""
-                          className="absolute inset-0 h-full w-full scale-125 object-cover opacity-35 blur-2xl"
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.12] via-black/20 to-black/65" />
-                      <div className="absolute inset-2 rounded-[26px] border border-white/[0.11] bg-black/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl" />
-                      <div className="pointer-events-none absolute inset-x-12 top-2 h-px bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+                    <div className="relative w-full aspect-[4/3.4]">
+                      <svg className="absolute w-0 h-0">
+                        <defs>
+                          <clipPath id={`folder-clip-${folder.id}`} clipPathUnits="objectBoundingBox">
+                            <path d="M 0 0.15 C 0 0.05 0.05 0 0.15 0 L 0.35 0 C 0.4 0 0.45 0.05 0.5 0.15 L 0.55 0.2 C 0.6 0.25 0.65 0.25 0.7 0.25 L 0.85 0.25 C 0.95 0.25 1 0.3 1 0.35 L 1 0.85 C 1 0.95 0.95 1 0.85 1 L 0.15 1 C 0.05 1 0 0.95 0 0.85 Z" />
+                          </clipPath>
+                        </defs>
+                      </svg>
 
-                      <div className="absolute inset-0 flex items-center justify-center pt-1">
+                      <div className="absolute inset-x-0 top-0 bottom-[25%] flex justify-center items-end">
                         {[0, 1, 2].map((index) => {
                           const path = previewPaths[index] || previewPaths[0];
-                          const transforms = [
-                            '-translate-x-[58%] -rotate-[8deg] scale-[0.90]',
-                            'z-30 scale-100',
-                            'translate-x-[58%] rotate-[8deg] scale-[0.90]',
-                          ];
+                          const rotations = ['-rotate-[14deg] -translate-x-[28%] translate-y-[8%]', 'rotate-[14deg] translate-x-[28%] translate-y-[8%]', 'rotate-0 -translate-y-1'];
+                          const zIndexes = ['z-10', 'z-10', 'z-20'];
                           return path ? (
                             <div
                               key={`${folder.id}-${index}`}
-                              className={`absolute h-[78%] w-[31%] overflow-hidden rounded-[18px] border border-white/20 bg-zinc-900 shadow-[0_18px_36px_rgba(0,0,0,0.48),inset_0_1px_1px_rgba(255,255,255,0.18)] transition-all duration-500 group-hover:-translate-y-1 ${transforms[index]}`}
+                              className={`absolute h-[85%] w-[45%] overflow-hidden rounded-[20px] border border-white/20 bg-zinc-800 shadow-[0_12px_24px_rgba(0,0,0,0.4)] transition-all duration-500 group-hover:-translate-y-3 ${rotations[index]} ${zIndexes[index]}`}
+                              style={{
+                                backgroundImage: `url(https://image.tmdb.org/t/p/w500${path.startsWith('/') ? path : `/${path}`})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                              }}
                             >
-                              <img
-                                src={`https://image.tmdb.org/t/p/w500${path.startsWith('/') ? path : `/${path}`}`}
-                                alt=""
-                                className="h-full w-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.16] via-transparent to-transparent" />
-                              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/35 to-transparent" />
+                              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-40" />
                             </div>
                           ) : null;
                         })}
                       </div>
 
-                      <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-3 rounded-[18px] border border-white/[0.10] bg-black/38 px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.28),inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-2xl">
-                        <div className="min-w-0">
-                          <p className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-white/85">My List</p>
-                          <p className="mt-0.5 truncate text-[9px] font-semibold text-white/45">{Math.max(folder.posterPaths?.length || 0, 1)} items · In this list</p>
-                        </div>
-                        <div className="flex items-center gap-1.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-400 via-violet-500 to-purple-700 text-white shadow-[0_5px_16px_rgba(168,85,247,0.35),inset_0_1px_1px_rgba(255,255,255,0.30)]"><Check className="h-3.5 w-3.5 stroke-[3]" /></span><span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/35 text-white/65"><MoreHorizontal className="h-4 w-4" /></span></div>
-                      </div>
-                    </div>
-                    <div className="px-1 pt-3">
-                      <h3 className="truncate text-base font-bold text-white transition-colors group-hover:text-violet-200">{folder.name}</h3>
-                      <div className="mt-1.5 flex items-center gap-2 text-[11px] font-medium text-zinc-500">
-                        {userPhoto ? (
-                          <img src={userPhoto} alt="" className="h-5 w-5 rounded-full border border-white/10 object-cover" />
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[8px] font-black text-zinc-400">
-                            {(user.displayName || 'U').slice(0, 1).toUpperCase()}
+                      <div
+                        className="absolute inset-x-0 bottom-0 h-[75%] z-30 overflow-hidden"
+                        style={{
+                          clipPath: `url(#folder-clip-${folder.id})`,
+                          filter: 'drop-shadow(0 24px 32px rgba(0,0,0,0.5))'
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-3xl backdrop-saturate-150" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/5 to-transparent opacity-80" />
+                        <div className="absolute top-0 left-0 w-2/3 h-1/3 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.3),transparent_60%)] mix-blend-overlay" />
+
+                        <div className="absolute inset-0 border border-white/20 opacity-40" style={{ clipPath: `url(#folder-clip-${folder.id})` }} />
+
+                        <div className="relative z-10 flex h-full flex-col justify-between p-5 pt-12 sm:p-6 sm:pt-14">
+                          <div>
+                            <h3 className="truncate text-[17px] font-bold text-white tracking-tight">{folder.name}</h3>
+                            <div className="mt-1.5 flex items-center gap-2 text-[12px] font-medium text-zinc-400">
+                              {userPhoto ? (
+                                <img src={userPhoto} alt="" className="h-5 w-5 rounded-full object-cover border border-white/20 shadow-sm" />
+                              ) : (
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-[9px] font-bold text-white border border-white/20 shadow-sm">
+                                  {(user.displayName || 'U').slice(0, 1).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="truncate">{user.displayName || 'Your list'}</span>
+                            </div>
+                            <p className="mt-1 text-[11px] font-medium text-zinc-500">
+                              {previewPaths.length} {previewPaths.length === 1 ? 'title' : 'titles'}
+                            </p>
                           </div>
-                        )}
-                        <span className="truncate">{user.displayName || 'Your list'}</span>
+
+                          <div className="flex items-end justify-between mt-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 shadow-[0_8px_16px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.5)] backdrop-blur-xl border border-white/30 transition-all duration-300 group-hover:scale-110 group-hover:bg-white/30">
+                              <ArrowUpRight className="h-5 w-5 text-white" />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -2247,18 +4207,25 @@ const MovieDetails = () => {
             <button
               type="button"
               onClick={() => setShowMyListPicker(true)}
-              className="group relative flex w-full max-w-xl items-center gap-4 overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.035] p-3 text-left shadow-[0_16px_44px_rgba(0,0,0,0.35)] backdrop-blur-2xl transition hover:bg-white/[0.055]"
+              className="group relative flex w-full max-w-xl items-center gap-5 overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-white/10 to-white/5 p-4 text-left shadow-[0_16px_32px_-10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-xl transition hover:bg-white/10"
+              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
             >
-              <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-900">
-                <img src={posterUrl} alt="" className="h-full w-full object-cover opacity-75 blur-[1px] transition group-hover:scale-105" />
-                <div className="absolute inset-0 bg-black/25" />
-                <div className="absolute inset-0 flex items-center justify-center"><ListChecks className="h-6 w-6 text-violet-300" /></div>
+              <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-zinc-900 shadow-inner">
+                <img src={posterUrl} alt="" className="h-full w-full object-cover opacity-90 blur-[0.5px] transition duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 border border-white/30 backdrop-blur-md shadow-lg">
+                    <ListChecks className="h-5 w-5 text-white" />
+                  </div>
+                </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-white">Add to one of your lists</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">Create a curated collection around this movie or add it to an existing list.</p>
+                <p className="text-[15px] font-bold text-white">Add to one of your lists</p>
+                <p className="mt-1 text-[13px] leading-snug font-medium text-zinc-400">Create a curated collection around this movie or add it to an existing list.</p>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-zinc-600" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md transition group-hover:bg-white/20">
+                <ChevronRight className="h-5 w-5 text-white" />
+              </div>
             </button>
           )}
         </section>
@@ -2266,37 +4233,63 @@ const MovieDetails = () => {
 
       <div className="container mx-auto px-4 py-8 space-y-8 md:space-y-12">
         <motion.section
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="relative bg-zinc-950/40 backdrop-blur-3xl rounded-3xl p-4 sm:p-6 md:p-8 border border-white/[0.04] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_24px_64px_rgba(0,0,0,0.7)] overflow-hidden group"
+          transition={{ duration: 0.6, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0A0A0A] p-3.5 sm:p-5 md:p-6"
         >
-          <div className="absolute top-0 inset-x-12 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent blur-sm pointer-events-none" />
-          <div className="relative z-10 mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="shrink-0 p-2.5 bg-gradient-to-b from-red-500/10 to-red-500/20 border border-red-500/20 rounded-xl">
-                <TvMinimalPlay className="w-5 h-5 text-red-500 animate-pulse" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-xl md:text-2xl font-extrabold text-white tracking-tight">Watch Now</h2>
-                <span className="block truncate text-[10px] text-zinc-500 font-medium tracking-wide uppercase">Adaptive Player Stream</span>
-              </div>
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04]">
+              <TvMinimalPlay className="h-[17px] w-[17px] text-[#EEF1F6]" />
             </div>
-            <div id="media" className="min-w-0 w-full [&>*]:w-full [&>*]:max-w-full sm:ml-auto sm:w-auto sm:shrink-0 sm:[&>*]:w-auto">
-              <PlayerControl source={playerSource} onChange={setPlayerSource} />
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-semibold tracking-[-0.3px] text-[#EEF1F6]">
+                Watch Now
+              </h2>
+              <p className="mt-0.5 text-[11px] font-medium text-[#7D8798]">
+                Choose your preferred player
+              </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-500/5 border border-red-500/10 mb-5 shadow-[inset_0_1px_1px_rgba(239,68,68,0.1)] relative z-10">
-            <div className="flex items-center justify-center w-5 h-5 rounded-full border border-red-500/40 bg-red-500/10 flex-shrink-0 text-[11px] font-extrabold text-red-400 select-none mt-0.5">
-              i
-            </div>
-            <p className="text-zinc-400 text-[12px] leading-relaxed font-medium">
-              Watch movie in <span className="text-red-400 font-semibold">full screen mode</span> to avoid irritating ads and unexpected popups.
-            </p>
-          </div>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
 
-          {VideoPlayer}
+            <div className="order-2 min-w-0 flex-1 lg:order-1">
+              <div className="relative w-full overflow-hidden rounded-xl border border-white/[0.08] bg-black">
+                <div className="relative aspect-video w-full">
+                  {VideoPlayer}
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3 px-0.5">
+                <p className="text-[11px] leading-relaxed text-[#7D8798]">
+                  For the best experience, use fullscreen mode.
+                </p>
+
+                <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-medium text-[#9AA3B2]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Player ready
+                </span>
+              </div>
+            </div>
+
+            <div className="order-1 w-full shrink-0 lg:order-2 lg:w-[260px] xl:w-[280px]">
+              <div className="h-full rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wider text-[#7D8798]">
+                  Media Sources
+                </h3>
+
+                <div id="media" className="w-full">
+                  <PlayerControl
+                    source={playerSource}
+                    onChange={setPlayerSource}
+                    vertical
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
         </motion.section>
 
         <motion.section
@@ -2520,18 +4513,12 @@ const MovieDetails = () => {
             </div>
           </div>
         </motion.section>
-
-
-
         <MovieCollection
           movieParts={movieParts}
           collectionName={collectionName}
           watchedMovieIds={watchedMovieIds}
           SpatialCard={SpatialCard}
         />
-
-
-
         <div id="similar">
           <SimilarTitles
             mediaType="movie"
@@ -2539,11 +4526,9 @@ const MovieDetails = () => {
             genreIds={genres.map((g) => g.id)}
           />
         </div>
-
         {ratingHistory.length > 1 && (
           <section className="rounded-3xl border border-white/[0.07] bg-zinc-950/55 p-5"><div className="flex items-center justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-600">Rating Evolution</p><p className="mt-1 text-sm font-black text-white">{ratingHistory[ratingHistory.length - 2].rating.toFixed(1)} → {ratingHistory[ratingHistory.length - 1].rating.toFixed(1)}</p></div><div className="flex h-16 items-end gap-1">{ratingHistory.slice(-8).map((entry, index) => <div key={index} className="w-2 rounded-t-sm bg-gradient-to-t from-amber-600 to-amber-300" style={{ height: `${Math.max(10, entry.rating * 6)}px` }} title={`${entry.rating}/10`} />)}</div></div></section>
         )}
-
         <MediaRating
           userRating={userRating}
           hasSavedRating={hasSavedRating}
@@ -2553,11 +4538,9 @@ const MovieDetails = () => {
           onEdit={handleEditRating}
           onCancelEdit={handleCancelEditRating}
           onDeleteRating={handleDeleteRating}
+          onShare={() => setShareOpen(true)}
           mediaType="movie"
         />
-
-
-
         <motion.section
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -2647,6 +4630,14 @@ const MovieDetails = () => {
                   </div>
 
                   <div className="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-xl border border-zinc-800/80 backdrop-blur-sm">
+                    <button
+                      type="button"
+                      onClick={() => setReviewShareOpen(true)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-300 hover:bg-amber-400/10 active:scale-95 transition-all"
+                      title="Share review"
+                    >
+                      <Share2 className="w-3.5 h-3.5 stroke-[1.75]" />
+                    </button>
                     <button
                       type="button"
                       onClick={handleEditUserReview}

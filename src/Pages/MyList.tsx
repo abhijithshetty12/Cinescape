@@ -1,10 +1,10 @@
-import React, { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
-import { Archive, ArrowLeft, BarChart3, Bookmark, BookmarkMinus, Check, CheckSquare, ChevronDown, ChevronRight, ChevronUp, Clapperboard, Clock3, Command, Copy, Dices, Download, Edit3, Eye, Film, Filter, FolderOpen, FolderPlus, Grid3X3, GripVertical, Heart, Images, List, ListChecks, ListPlus, Loader2, MoreHorizontal, Palette, Pin, PinOff, Play, Plus, PlusSquare, RotateCcw, Search, Share2, SlidersHorizontal, Sparkles, Star, Trash2, Tv, X, Layers, Info } from "lucide-react";
+import { Archive, ArrowLeft, BarChart3, Bookmark, BookmarkMinus, Check, CheckSquare, ChevronDown, ChevronRight, ChevronUp, ChevronLeft, Clapperboard, Clock3, Command, Copy, Dices, Download, Edit3, Eye, Film, Filter, FolderOpen, FolderPlus, Grid3X3, GripVertical, Heart, Images, List, ListChecks, ListPlus, Loader2, MoreHorizontal, Palette, Pin, PinOff, Play, Plus, PlusSquare, RotateCcw, Search, Share2, SlidersHorizontal, Sparkles, Star, Trash2, Tv, X, Layers, Info, CalendarDays, Clock, Calendar } from "lucide-react";
 import { useAuth } from "../context/AuthContext.tsx";
 import { db } from "../firebase.ts";
 import Loading from "../components/Loading.tsx";
@@ -22,7 +22,7 @@ type AccentId = "auto" | "amber" | "red" | "cyan" | "violet" | "emerald" | "blue
 interface SmartRules { mediaType?: "all" | MediaType; genre?: string; minRating?: number; maxRuntimeMinutes?: number; provider?: string; release?: ReleaseFilter; unwatchedOnly?: boolean; favoriteOnly?: boolean; recentDays?: number; }
 interface ProviderInfo { id: number; name: string; logoPath: string; }
 interface ListItem { id: number; title: string; type: MediaType; poster: string | null; backdrop: string | null; releaseYear: string; overview: string; voteAverage: number; runtimeMinutes?: number; genres?: string[]; order?: number; addedAt?: any; providers?: ProviderInfo[]; providersFetched?: boolean; }
-interface CustomFolder { id: string; name: string; description: string; items: ListItem[]; coverImage?: string | null; coverMode?: CoverMode; pinned?: boolean; order?: number; storageVersion?: number; smartList?: boolean; smartRules?: SmartRules; accent?: AccentId; archived?: boolean; archivedAt?: any; updatedAt?: any; }
+interface CustomFolder { id: string; name: string; description: string; items: ListItem[]; coverImage?: string | null; coverMode?: CoverMode; coverBackdrops?: string[]; pinned?: boolean; order?: number; storageVersion?: number; smartList?: boolean; smartRules?: SmartRules; accent?: AccentId; archived?: boolean; archivedAt?: any; updatedAt?: any; }
 interface SearchResultItem { id: number; title?: string; name?: string; poster_path: string | null; backdrop_path?: string | null; release_date?: string; first_air_date?: string; overview: string; vote_average: number; media_type: MediaType; runtimeMinutes?: number; genres?: string[]; }
 interface DetailsData { poster: string | null; backdrop: string | null; runtimeMinutes: number; genres: string[]; providers: ProviderInfo[]; voteAverage: number; releaseYear: string; }
 interface StatusState { type: "success" | "error"; message: string; }
@@ -75,6 +75,27 @@ const itemKey = (item: {
 }) => `${item.type}-${item.id}`;
 const yearOf = (date?: string) => date?.slice(0, 4) || "—";
 const formatRuntime = (minutes = 0) => minutes <= 0 ? "—" : `${Math.floor(minutes / 60) ? `${Math.floor(minutes / 60)}h` : ""}${minutes % 60 ? `${minutes % 60}m` : ""}`;
+const dateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+const keyToDate = (key: string) => {
+    const [year, month, day] = key.split("-").map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+};
+const buildCalendarDays = (month: Date) => {
+    const first = new Date(month.getFullYear(), month.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(first.getDate() - first.getDay());
+    return Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(start);
+        date.setDate(start.getDate() + index);
+        return date;
+    });
+};
+const formatWatchDate = (date: Date) => date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 const imageSource = (path: string | null | undefined, size = "original") => {
     if (!path) return null;
     if (/^(https?:|data:|blob:)/i.test(path)) return path;
@@ -335,75 +356,79 @@ const EmptyCover = () => <div className="absolute inset-0 overflow-hidden bg-zin
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.055),transparent_42%)]" />
     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent" />
 </div>;
+
 const FolderPosterPreview = ({ folder }: {
     folder: CustomFolder;
 }) => {
     const items = [...folder.items]
         .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .filter((item) => item.poster)
-        .slice(0, 3);
+        .filter(item => item.poster)
+        .slice(0, 5);
 
-    const posterClasses = [
-        "z-10 -rotate-[4deg] translate-y-2",
-        "z-30 -mx-5 sm:-mx-6 -translate-y-1 scale-[1.04]",
-        "z-20 rotate-[4deg] translate-y-2",
+    const layouts = [
+        "left-1/2 top-[3%] z-30 h-[94%] w-[35%] max-w-[125px] -translate-x-1/2",
+        "left-[29%] top-[13%] z-20 h-[78%] w-[31%] max-w-[110px] -translate-x-1/2 -rotate-[13deg]",
+        "right-[29%] top-[13%] z-20 h-[78%] w-[31%] max-w-[110px] translate-x-1/2 rotate-[13deg]",
+        "left-[12%] top-[23%] z-10 h-[64%] w-[27%] max-w-[96px] -translate-x-1/2 -rotate-[23deg]",
+        "right-[12%] top-[23%] z-10 h-[64%] w-[27%] max-w-[96px] translate-x-1/2 rotate-[23deg]"
     ];
 
     return (
         <div className="relative h-full overflow-hidden rounded-[22px] border border-white/[0.10] bg-[radial-gradient(circle_at_50%_18%,rgba(245,158,11,0.10),transparent_30%),linear-gradient(145deg,#171717_0%,#090909_52%,#020202_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_45px_rgba(0,0,0,0.38)]">
             {items.length ? (
                 <>
-                    <div className="absolute inset-0 overflow-hidden">
-                        {items.slice(0, 2).map((item, index) => (
+                    <div className="pointer-events-none absolute inset-0">
+                        {items.slice(0, 3).map((item, index) => (
                             <img
                                 key={`ambient-${itemKey(item)}`}
                                 src={imageSource(item.poster, "w500") || ""}
                                 alt=""
                                 aria-hidden="true"
-                                className={`absolute top-1/2 h-[150%] w-[55%] -translate-y-1/2 object-cover opacity-[0.10] blur-3xl saturate-150 ${index === 0 ? "-left-[8%]" : "-right-[8%]"
+                                className={`absolute top-1/2 h-[140%] w-[55%] -translate-y-1/2 object-cover opacity-[0.12] blur-3xl saturate-150 ${index === 0 ? "left-[20%]" : index === 1 ? "left-0" : "right-0"
                                     }`}
                             />
                         ))}
                     </div>
 
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.025] via-transparent to-black/55" />
-                    <div className="absolute left-1/2 top-3 h-16 w-44 -translate-x-1/2 rounded-full bg-amber-400/[0.07] blur-3xl" />
-                    <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.025] via-transparent to-black/30" />
 
-                    <div className="absolute inset-x-0 bottom-0 top-0 flex items-end justify-center px-5 pb-3 pt-4">
-                        {items.map((item, index) => {
-                            const single = items.length === 1;
-                            const double = items.length === 2;
-                            const dynamicClass = single
-                                ? "z-30"
-                                : double
-                                    ? index === 0
-                                        ? "z-20 -rotate-[3deg] translate-x-3 translate-y-1"
-                                        : "z-30 -ml-7 rotate-[3deg] -translate-x-3 -translate-y-1"
-                                    : posterClasses[index];
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        {items.map((item, index) => (
+                            <motion.div
+                                key={itemKey(item)}
+                                initial={{ opacity: 0, y: 18, scale: .82 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{
+                                    duration: .55,
+                                    delay: index * .075,
+                                    ease: "easeOut"
+                                }}
+                                whileHover={{
+                                    y: -8,
+                                    rotate: 0,
+                                    scale: 1.045,
+                                    transition: { duration: .25 }
+                                }}
+                                className={`absolute aspect-[2/3] overflow-hidden rounded-[13px] border border-white/[0.22] bg-zinc-900 shadow-[0_14px_30px_rgba(0,0,0,.65),0_4px_10px_rgba(0,0,0,.4),inset_0_1px_0_rgba(255,255,255,.2)] sm:rounded-[16px] ${layouts[index]}`}
+                            >
+                                <SmartImage
+                                    src={imageSource(item.poster, "w500")}
+                                    alt={item.title}
+                                    className="absolute inset-0"
+                                />
 
-                            return (
-                                <motion.div
-                                    key={itemKey(item)}
-                                    className={`group/poster relative h-[88%] max-h-[172px] min-h-[142px] aspect-[2/3] shrink-0 overflow-hidden rounded-[18px] border border-white/[0.14] bg-zinc-900 shadow-[0_18px_38px_rgba(0,0,0,0.60),0_2px_8px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.10)] ${dynamicClass}`}
-                                    whileHover={{ y: -7, rotate: 0, scale: 1.055 }}
-                                    transition={{ type: "spring", stiffness: 320, damping: 24 }}
-                                >
-                                    <SmartImage
-                                        src={imageSource(item.poster, "w500")}
-                                        alt={item.title}
-                                        className="absolute inset-0"
-                                    />
-                                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-black/20 opacity-70" />
-                                    <div className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-white/45 to-transparent" />
-                                    <div className="pointer-events-none absolute inset-0 rounded-[18px] ring-1 ring-inset ring-white/[0.04]" />
-                                </motion.div>
-                            );
-                        })}
+                                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.16] via-transparent to-black/30" />
+
+                                <div className="pointer-events-none absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-white/[0.13] to-transparent" />
+
+                                <div className="pointer-events-none absolute inset-0 rounded-[13px] ring-1 ring-inset ring-white/[0.10] sm:rounded-[16px]" />
+                            </motion.div>
+                        ))}
                     </div>
 
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
                     <div className="pointer-events-none absolute bottom-[-18px] left-1/2 h-10 w-52 -translate-x-1/2 rounded-full bg-black/80 blur-2xl" />
+
+                    <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 </>
             ) : (
                 <EmptyCover />
@@ -417,31 +442,78 @@ const CollectionCover = ({ folder, className = "", hero = false }: {
     className?: string;
     hero?: boolean;
 }) => {
-    const reduced = useReducedMotion(), mode = folder.coverMode || "auto", sources = getCoverCandidates(folder), posters = folder.items.map(i => imageSource(i.poster, "w500")).filter((v): v is string => Boolean(v)).slice(0, 3), [index, setIndex] = useState(0);
+    const reduced = useReducedMotion();
+    const mode = folder.coverMode || "auto";
+    const customBackdrops = useMemo(
+        () => (folder.coverBackdrops || []).map(path => imageSource(path, "w1280")).filter((v): v is string => Boolean(v)),
+        [folder.coverBackdrops],
+    );
+    const sources = mode === "rotate" && customBackdrops.length ? customBackdrops : getCoverCandidates(folder);
+    const posters = mode === "collage" && customBackdrops.length
+        ? customBackdrops.slice(0, 3)
+        : folder.items.map(i => imageSource(i.poster, "w500")).filter((v): v is string => Boolean(v)).slice(0, 3);
+    const [index, setIndex] = useState(0);
+
     useEffect(() => {
         setIndex(0);
     }, [folder.id, folder.coverImage, folder.items.length, mode]);
+
     useEffect(() => {
         if (mode !== "rotate" || sources.length < 2 || reduced) return;
         const t = window.setInterval(() => setIndex(i => (i + 1) % sources.length), 5200);
         return () => window.clearInterval(t);
     }, [mode, sources.length, reduced]);
-    if (mode === "collage" && posters.length >= 2) return <div className={`overflow-hidden bg-zinc-950 ${className}`}>
-        <div className="absolute inset-0 grid grid-cols-[1.45fr_.8fr] gap-1"> <SmartImage src={posters[0]} alt={folder.name} className="h-full" />
-            <div className="grid grid-rows-2 gap-1">
-                <SmartImage src={posters[1]} alt={folder.name} className="h-full" />
-                <SmartImage src={posters[2] || sources[0] || null} alt={folder.name} className="h-full" />
-            </div>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-black/15" />
-    </div>;
+
     const src = mode === "single" ? (imageSource(folder.coverImage) || sources[0] || null) : sources[index] || null;
-    return <div className={`overflow-hidden bg-zinc-950 ${className}`}>
-        {src ? <motion.div className="absolute inset-0" animate={hero && !reduced ? { scale: [1, 1.04] } : { scale: 1 }} transition={hero && !reduced ? { duration: 18, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" } : { duration: .4 }}>
-            <SmartImage src={src} alt={folder.name} className="absolute inset-0" />
-        </motion.div> : <EmptyCover />}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/5" />
-    </div>;
+
+    return (
+        <div className={`overflow-hidden isolate bg-[#050505] ${className}`}>
+            {mode === "collage" && posters.length >= 2 ? (
+                <div className="absolute inset-0 grid grid-cols-[1.5fr_1fr] gap-1.5 p-1.5 sm:gap-2 sm:p-2">
+                    <div className="relative h-full w-full overflow-hidden rounded-[16px] border border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.6)] sm:rounded-[24px]">
+                        <SmartImage src={posters[0]} alt={folder.name} className="absolute inset-0 transition-transform duration-[2s] hover:scale-105" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/[0.05] mix-blend-overlay" />
+                    </div>
+                    <div className="grid h-full grid-rows-2 gap-1.5 sm:gap-2">
+                        <div className="relative h-full w-full overflow-hidden rounded-[16px] border border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.6)] sm:rounded-[24px]">
+                            <SmartImage src={posters[1]} alt={folder.name} className="absolute inset-0 transition-transform duration-[2s] hover:scale-105" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/[0.05] mix-blend-overlay" />
+                        </div>
+                        <div className="relative h-full w-full overflow-hidden rounded-[16px] border border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.6)] sm:rounded-[24px]">
+                            <SmartImage src={posters[2] || sources[0] || null} alt={folder.name} className="absolute inset-0 transition-transform duration-[2s] hover:scale-105" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/[0.05] mix-blend-overlay" />
+                        </div>
+                    </div>
+                </div>
+            ) : src ? (
+                <motion.div
+                    key={src}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 1.2 }}
+                    className="absolute inset-0"
+                >
+                    <motion.div
+                        className="absolute inset-0"
+                        animate={hero && !reduced ? { scale: [1, 1.08] } : { scale: 1 }}
+                        transition={hero && !reduced ? { duration: 25, repeat: Infinity, repeatType: "reverse", ease: "linear" } : { duration: .4 }}
+                    >
+                        <SmartImage src={src} alt={folder.name} className="absolute inset-0" />
+                    </motion.div>
+                </motion.div>
+            ) : (
+                <EmptyCover />
+            )}
+
+            <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-3/4 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+            <div className="pointer-events-none absolute inset-0 z-20 opacity-[0.25] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+
+            <div className="pointer-events-none absolute inset-0 z-30 border border-white/[0.08] shadow-[inset_0_0_80px_rgba(0,0,0,0.6)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-40 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        </div>
+    );
 };
 
 const SuggestionRail = ({ title, subtitle, items, existing, onAdd, eyebrow = "For this collection", large = false }: {
@@ -612,6 +684,78 @@ const PreferredBackdropPicker = ({
     );
 };
 
+const BackdropMultiPicker = ({
+    items,
+    value,
+    onChange,
+    max = 6,
+}: {
+    items: ListItem[];
+    value: string[];
+    onChange: (next: string[]) => void;
+    max?: number;
+}) => {
+    const backdrops = useMemo(
+        () => items.filter((item) => Boolean(item.backdrop)),
+        [items],
+    );
+
+    const toggle = (backdrop: string) => {
+        if (value.includes(backdrop)) {
+            onChange(value.filter((entry) => entry !== backdrop));
+        } else if (value.length < max) {
+            onChange([...value, backdrop]);
+        }
+    };
+
+    return (
+        <div>
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-400">Select backdrops</span>
+                <span className="text-[10px] font-semibold text-zinc-600">{value.length}/{max} selected</span>
+            </div>
+            <div className="mt-3 max-h-64 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {backdrops.map((item) => {
+                        const selected = value.includes(item.backdrop!);
+                        const order = value.indexOf(item.backdrop!);
+                        return (
+                            <button
+                                type="button"
+                                key={itemKey(item)}
+                                onClick={() => toggle(item.backdrop!)}
+                                className={`relative aspect-video overflow-hidden rounded-xl border transition active:scale-[0.98] ${selected
+                                    ? "border-amber-400 ring-2 ring-amber-400/30"
+                                    : "border-white/10"
+                                    }`}
+                            >
+                                <SmartImage
+                                    src={imageSource(item.backdrop, "w500")}
+                                    alt={item.title}
+                                    className="absolute inset-0"
+                                />
+                                {selected && (
+                                    <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-[9px] font-black text-black shadow-lg">
+                                        {order + 1}
+                                    </span>
+                                )}
+                                <span className="absolute inset-x-1.5 bottom-1.5 truncate text-left text-[8px] text-white drop-shadow">
+                                    {item.title}
+                                </span>
+                            </button>
+                        );
+                    })}
+                    {!backdrops.length && (
+                        <p className="col-span-full py-8 text-center text-[10px] text-zinc-600">
+                            No backdrops available yet. Add titles with artwork first.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const MyList: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -681,6 +825,7 @@ const MyList: React.FC = () => {
     const [editDescription, setEditDescription] = useState("");
     const [editCover, setEditCover] = useState<string | null>(null);
     const [editCoverMode, setEditCoverMode] = useState<CoverMode>("auto");
+    const [editCoverBackdrops, setEditCoverBackdrops] = useState<string[]>([]);
     const [editSmartList, setEditSmartList] = useState(false);
     const [editSmartRules, setEditSmartRules] = useState<SmartRules>({});
     const [editAccent, setEditAccent] = useState<AccentId>("auto");
@@ -688,12 +833,17 @@ const MyList: React.FC = () => {
     const [deleteFolderId, setDeleteFolderId] = useState<string | null>(null);
     const [draggedItemKey, setDraggedItemKey] = useState<string | null>(null);
     const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
+    const [watchDateItem, setWatchDateItem] = useState<ListItem | null>(null);
+    const [watchDateStep, setWatchDateStep] = useState<"root" | "calendar">("root");
+    const [watchDateMonth, setWatchDateMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    const [watchDateSelectedKey, setWatchDateSelectedKey] = useState(dateKey(new Date()));
+    const [showPicker, setShowPicker] = useState(false);
 
     const addInputRef = useRef<HTMLInputElement>(null);
     const sortButtonRef = useRef<HTMLButtonElement>(null);
     const isMobileControls = useMediaQuery("(max-width: 639px)");
 
-    const updateSortMenuPosition = () => {
+    const updateSortMenuPosition = useCallback(() => {
         if (isMobileControls || typeof window === "undefined") return;
         const rect = sortButtonRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -716,7 +866,7 @@ const MyList: React.FC = () => {
             : Math.max(viewportPadding, rect.top - maxHeight - gap);
 
         setSortMenuPosition({ top, left, width, maxHeight, placement });
-    };
+    }, [isMobileControls]);
     const itemUnsubs = useRef(new Map<string, () => void>());
     const legacyMigrating = useRef(new Set<string>());
     const itemCreateTimesRef = useRef(new Map<string, string>());
@@ -736,10 +886,10 @@ const MyList: React.FC = () => {
             window.removeEventListener("resize", syncPosition);
             window.removeEventListener("scroll", syncPosition, true);
         };
-    }, [showSortMenu, isMobileControls]);
+    }, [showSortMenu, isMobileControls, updateSortMenuPosition]);
 
-    const folderPath = (id: string) => `users/${user!.uid}/customWatchlists/${id}`;
-    const itemsPath = (id: string) => `${folderPath(id)}/items`;
+    const folderPath = useCallback((id: string) => `users/${user!.uid}/customWatchlists/${id}`, [user?.uid]);
+    const itemsPath = useCallback((id: string) => `${folderPath(id)}/items`, [folderPath]);
     const recentStorageKey = `${RECENT_LISTS_KEY}:${user?.uid || "guest"}`;
 
     useEffect(() => {
@@ -756,7 +906,7 @@ const MyList: React.FC = () => {
         try { window.localStorage.setItem(recentStorageKey, JSON.stringify(next)); } catch { }
     };
 
-    const fetchListItemCreateTimes = async (folderId: string) => {
+    const fetchListItemCreateTimes = useCallback(async (folderId: string) => {
         if (!user?.uid) return itemCreateTimesRef.current;
         const projectId = db.app.options.projectId;
         const getIdToken = (user as any)?.getIdToken;
@@ -784,7 +934,7 @@ const MyList: React.FC = () => {
         } catch {
             return itemCreateTimesRef.current;
         }
-    };
+    }, [user]);
 
     const orderedFolders = useMemo(
         () =>
@@ -798,7 +948,7 @@ const MyList: React.FC = () => {
         [folders],
     );
 
-    const activeFolder = folders.find((folder) => folder.id === activeFolderId);
+    const activeFolder = useMemo(() => folders.find((folder) => folder.id === activeFolderId), [folders, activeFolderId]);
     const editingFolder = folders.find((folder) => folder.id === editingFolderId);
     const folderToDelete = folders.find((folder) => folder.id === deleteFolderId);
     const mobileCardActionFolder = folders.find((folder) => folder.id === mobileCardActionId) || null;
@@ -834,7 +984,7 @@ const MyList: React.FC = () => {
         };
     }), [baseSmartSourceItems, smartEnrichment]);
 
-    const getSmartFolderItems = (folder: CustomFolder) => {
+    const getSmartFolderItems = useCallback((folder: CustomFolder) => {
         if (!folder.smartList) return folder.items;
         const rules = folder.smartRules || {};
         return smartSourceItems.filter(item => {
@@ -853,10 +1003,10 @@ const MyList: React.FC = () => {
             }
             return true;
         });
-    };
+    }, [smartSourceItems, watchHistory, favoriteKeys]);
 
-    const activeItems = useMemo(() => activeFolder ? getSmartFolderItems(activeFolder) : [], [activeFolder, smartSourceItems, watchHistory, favoriteKeys]);
-    const activeDisplayFolder = activeFolder ? { ...activeFolder, items: activeItems } : null;
+    const activeItems = useMemo(() => activeFolder ? getSmartFolderItems(activeFolder) : [], [activeFolder, getSmartFolderItems]);
+    const activeDisplayFolder = useMemo(() => activeFolder ? { ...activeFolder, items: activeItems } : null, [activeFolder, activeItems]);
     const activeStats = useMemo(() => getStats(activeItems), [activeItems]);
     const watchedCount = useMemo(() => activeItems.filter(item => watchHistory.has(itemKey(item))).length, [activeItems, watchHistory]);
     const completionPct = activeItems.length ? Math.round((watchedCount / activeItems.length) * 100) : 0;
@@ -957,7 +1107,7 @@ const MyList: React.FC = () => {
             result.set(folder.id, { activityTime, latestAdded, latestWatch, addedThisWeek, label, watched, completion });
         });
         return result;
-    }, [folders, watchHistory, watchHistoryTimes, recentFolderTouches, smartSourceItems, favoriteKeys]);
+    }, [folders, watchHistory, watchHistoryTimes, recentFolderTouches, getSmartFolderItems]);
 
     const overlapInsights = useMemo(() => {
         const manual = folders.filter(folder => !folder.smartList && !folder.archived);
@@ -996,7 +1146,7 @@ const MyList: React.FC = () => {
             const matches = items.filter(item => item.title.toLowerCase().includes(query));
             return { folder, nameMatch, matches };
         }).filter(group => group.nameMatch || group.matches.length);
-    }, [landingSearchQuery, folders, smartSourceItems, watchHistory, favoriteKeys]);
+    }, [landingSearchQuery, folders, getSmartFolderItems]);
 
     const emptyFilterLabel = useMemo(() => {
         const parts: string[] = [];
@@ -1010,7 +1160,7 @@ const MyList: React.FC = () => {
         return parts.length ? `No ${parts.join(" ")}` : "No titles match these filters";
     }, [statusFilter, selectedGenres, filterType, ratingFilter, releaseFilter]);
 
-    const migrateLegacy = async (folderId: string, legacy: ListItem[]) => {
+    const migrateLegacy = useCallback(async (folderId: string, legacy: ListItem[]) => {
         if (!user?.uid || !legacy.length || legacyMigrating.current.has(folderId)) return;
         legacyMigrating.current.add(folderId);
         try {
@@ -1024,7 +1174,7 @@ const MyList: React.FC = () => {
         } catch { } finally {
             legacyMigrating.current.delete(folderId);
         }
-    };
+    }, [user?.uid, itemsPath, folderPath]);
 
     useEffect(() => {
         if (!user?.uid) {
@@ -1039,13 +1189,14 @@ const MyList: React.FC = () => {
             return { id, ...rest, items: itemMap.has(id) ? itemMap.get(id)! : legacyItems };
         }));
         const root = collection(db, `users/${user.uid}/customWatchlists`);
+        const subscriptions = itemUnsubs.current;
         const rootUnsub = onSnapshot(root, snapshot => {
             const live = new Set<string>();
             snapshot.docs.forEach((sd, index) => {
                 const data = sd.data(), id = sd.id, legacy = Array.isArray(data.items) ? data.items.map((x: any, i: number) => normalizeItem(x, i)) : [];
                 live.add(id);
-                meta.set(id, { id, name: data.name || "Untitled List", description: data.description || "", coverImage: data.coverImage || null, coverMode: ["auto", "single", "collage", "rotate"].includes(data.coverMode) ? data.coverMode : "auto", pinned: Boolean(data.pinned), order: Number.isFinite(Number(data.order)) ? Number(data.order) : index, storageVersion: Number(data.storageVersion) || 1, smartList: Boolean(data.smartList), smartRules: data.smartRules || {}, accent: (["auto", "amber", "red", "cyan", "violet", "emerald", "blue"].includes(data.accent) ? data.accent : "auto") as AccentId, archived: Boolean(data.archived), archivedAt: data.archivedAt ?? null, updatedAt: data.updatedAt ?? data.createdAt ?? null, legacyItems: legacy });
-                if (!itemUnsubs.current.has(id)) {
+                meta.set(id, { id, name: data.name || "Untitled List", description: data.description || "", coverImage: data.coverImage || null, coverMode: ["auto", "single", "collage", "rotate"].includes(data.coverMode) ? data.coverMode : "auto", coverBackdrops: Array.isArray(data.coverBackdrops) ? data.coverBackdrops.filter((path: any) => typeof path === "string") : [], pinned: Boolean(data.pinned), order: Number.isFinite(Number(data.order)) ? Number(data.order) : index, storageVersion: Number(data.storageVersion) || 1, smartList: Boolean(data.smartList), smartRules: data.smartRules || {}, accent: (["auto", "amber", "red", "cyan", "violet", "emerald", "blue"].includes(data.accent) ? data.accent : "auto") as AccentId, archived: Boolean(data.archived), archivedAt: data.archivedAt ?? null, updatedAt: data.updatedAt ?? data.createdAt ?? null, legacyItems: legacy });
+                if (!subscriptions.has(id)) {
                     const unsub = onSnapshot(collection(db, `users/${user.uid}/customWatchlists/${id}/items`), async snap => {
                         const needsCreateTimes = snap.docs.some(d => !storedAddedAt(d.data()) && !itemCreateTimesRef.current.has(`${id}/${d.id}`));
                         const createTimes = needsCreateTimes ? await fetchListItemCreateTimes(id) : itemCreateTimesRef.current;
@@ -1055,13 +1206,13 @@ const MyList: React.FC = () => {
                         }, i)).sort((a, b) => (a.order || 0) - (b.order || 0)));
                         emit();
                     });
-                    itemUnsubs.current.set(id, unsub);
+                    subscriptions.set(id, unsub);
                 } if (legacy.length && data.storageVersion !== 2) migrateLegacy(id, legacy);
             });
-            [...itemUnsubs.current.entries()].forEach(([id, unsub]) => {
+            [...subscriptions.entries()].forEach(([id, unsub]) => {
                 if (!live.has(id)) {
                     unsub();
-                    itemUnsubs.current.delete(id);
+                    subscriptions.delete(id);
                     itemMap.delete(id);
                     meta.delete(id);
                 }
@@ -1074,10 +1225,10 @@ const MyList: React.FC = () => {
         });
         return () => {
             rootUnsub();
-            itemUnsubs.current.forEach(u => u());
-            itemUnsubs.current.clear();
+            subscriptions.forEach(u => u());
+            subscriptions.clear();
         };
-    }, [user?.uid]);
+    }, [user?.uid, fetchListItemCreateTimes, migrateLegacy]);
 
     useEffect(() => {
         if (!user?.uid) {
@@ -1194,7 +1345,7 @@ const MyList: React.FC = () => {
             });
         });
         return () => { cancelled = true; };
-    }, [folders, baseSmartSourceItems]);
+    }, [folders, baseSmartSourceItems, smartEnrichment]);
 
     useEffect(() => {
         if (!activeDisplayFolder) { setDerivedAccent("#f59e0b"); return; }
@@ -1231,7 +1382,7 @@ const MyList: React.FC = () => {
         };
         img.onerror = () => !cancelled && setDerivedAccent("#f59e0b");
         return () => { cancelled = true; };
-    }, [activeFolder?.id, activeFolder?.accent, activeFolder?.coverImage, activeItems.length]);
+    }, [activeDisplayFolder]);
 
     useEffect(() => {
         setSelectedKeys(new Set());
@@ -1262,12 +1413,12 @@ const MyList: React.FC = () => {
             .catch(() => !cancelled && setQuickPeekTrailerKey(null))
             .finally(() => !cancelled && setQuickPeekTrailerLoading(false));
         return () => { cancelled = true; };
-    }, [quickPeekItem?.id, quickPeekItem?.type]);
+    }, [quickPeekItem]);
 
     useEffect(() => {
         const id = new URLSearchParams(window.location.search).get("list");
         if (id && folders.some(f => f.id === id)) setActiveFolderId(id);
-    }, [folders.length]);
+    }, [folders]);
     useEffect(() => {
         if (!undo) return;
         const t = window.setTimeout(() => setUndo(null), 5000);
@@ -1328,7 +1479,7 @@ const MyList: React.FC = () => {
             }).slice(0, 18);
         })());
         recommendationCache.get(cacheKey)!.then(setContextSuggestions);
-    }, [activeFolder?.id, activeFolder?.smartList, activeItems.length, activeStats.topGenre]);
+    }, [activeFolder, activeItems, activeStats.topGenre, existingKeys]);
     useEffect(() => {
         if (!activeFolder || activeFolder.smartList || !user?.uid) return;
         const missing = activeFolder.items.filter(i => !i.runtimeMinutes || !i.poster || !i.backdrop || !i.genres?.length || !i.providersFetched).slice(0, 12);
@@ -1351,7 +1502,7 @@ const MyList: React.FC = () => {
         return () => {
             cancelled = true;
         };
-    }, [activeFolder, user?.uid]);
+    }, [activeFolder, user?.uid, itemsPath]);
 
     const updateFolder = (id: string, values: Partial<CustomFolder> | Record<string, any>) => user?.uid ? updateDoc(doc(db, folderPath(id)), values as any) : Promise.resolve();
     const touchFolder = (id: string) => updateFolder(id, { updatedAt: serverTimestamp() }).catch(() => undefined);
@@ -1435,7 +1586,7 @@ const MyList: React.FC = () => {
         if (!newFolderName.trim() || !user?.uid) return;
         const id = Date.now().toString();
         try {
-            await setDoc(doc(db, folderPath(id)), { id, name: newFolderName.trim(), description: newFolderDesc.trim(), coverImage: null, coverMode: "auto", pinned: false, order: folders.length, storageVersion: 2, smartList: newFolderSmart, smartRules: newFolderSmart ? newSmartRules : {}, accent: "auto", archived: false, updatedAt: serverTimestamp() });
+            await setDoc(doc(db, folderPath(id)), { id, name: newFolderName.trim(), description: newFolderDesc.trim(), coverImage: null, coverMode: "auto", coverBackdrops: [], pinned: false, order: folders.length, storageVersion: 2, smartList: newFolderSmart, smartRules: newFolderSmart ? newSmartRules : {}, accent: "auto", archived: false, updatedAt: serverTimestamp() });
             setNewFolderName("");
             setNewFolderDesc("");
             setNewFolderSmart(false);
@@ -1476,11 +1627,6 @@ const MyList: React.FC = () => {
             setStatus({ type: "error", message: "Failed to remove item." });
         }
     };
-    const removeItem = async (e: React.MouseEvent, item: ListItem) => {
-        e.preventDefault();
-        e.stopPropagation();
-        await removeListItem(item);
-    };
     const moveItem = async (target: ListItem) => {
         if (!activeFolder || !draggedItemKey || !canReorder) return;
         const items = [...activeFolder.items].sort((a, b) => (a.order || 0) - (b.order || 0)), from = items.findIndex(i => itemKey(i) === draggedItemKey), to = items.findIndex(i => itemKey(i) === itemKey(target));
@@ -1507,6 +1653,7 @@ const MyList: React.FC = () => {
         setEditDescription(folder.description);
         setEditCover(folder.coverImage || null);
         setEditCoverMode(folder.coverMode || "auto");
+        setEditCoverBackdrops(folder.coverBackdrops || []);
         setEditSmartList(Boolean(folder.smartList));
         setEditSmartRules(folder.smartRules || {});
         setEditAccent(folder.accent || "auto");
@@ -1516,7 +1663,7 @@ const MyList: React.FC = () => {
         e.preventDefault();
         if (!editingFolder || !editName.trim()) return;
         try {
-            await updateFolder(editingFolder.id, { name: editName.trim(), description: editDescription.trim(), coverImage: editCover, coverMode: editCoverMode, smartList: editSmartList, smartRules: editSmartList ? editSmartRules : {}, accent: editAccent, updatedAt: serverTimestamp() });
+            await updateFolder(editingFolder.id, { name: editName.trim(), description: editDescription.trim(), coverImage: editCover, coverMode: editCoverMode, coverBackdrops: editCoverBackdrops, smartList: editSmartList, smartRules: editSmartList ? editSmartRules : {}, accent: editAccent, updatedAt: serverTimestamp() });
             setEditingFolderId(null);
             setStatus({ type: "success", message: "List updated." });
         } catch {
@@ -1530,7 +1677,7 @@ const MyList: React.FC = () => {
     const duplicateFolder = async (folder: CustomFolder) => {
         if (!user?.uid) return;
         const id = Date.now().toString();
-        await setDoc(doc(db, folderPath(id)), { id, name: `${folder.name} Copy`, description: folder.description, coverImage: folder.coverImage || null, coverMode: folder.coverMode || "auto", pinned: false, order: folders.length, storageVersion: 2, smartList: Boolean(folder.smartList), smartRules: folder.smartRules || {}, accent: folder.accent || "auto", archived: false, updatedAt: serverTimestamp() });
+        await setDoc(doc(db, folderPath(id)), { id, name: `${folder.name} Copy`, description: folder.description, coverImage: folder.coverImage || null, coverMode: folder.coverMode || "auto", coverBackdrops: folder.coverBackdrops || [], pinned: false, order: folders.length, storageVersion: 2, smartList: Boolean(folder.smartList), smartRules: folder.smartRules || {}, accent: folder.accent || "auto", archived: false, updatedAt: serverTimestamp() });
         if (!folder.smartList) await Promise.all(folder.items.map((item, i) => setDoc(doc(db, itemsPath(id), itemKey(item)), { ...item, order: i })));
         setMenuId(null);
         setStatus({ type: "success", message: "List duplicated." });
@@ -1579,7 +1726,7 @@ const MyList: React.FC = () => {
             setDeleteFolderId(null);
             setUndo({
                 message: `Deleted ${snapshot.name}`, action: async () => {
-                    await setDoc(doc(db, folderPath(snapshot.id)), { id: snapshot.id, name: snapshot.name, description: snapshot.description, coverImage: snapshot.coverImage || null, coverMode: snapshot.coverMode || "auto", pinned: snapshot.pinned || false, order: snapshot.order || 0, storageVersion: 2, smartList: Boolean(snapshot.smartList), smartRules: snapshot.smartRules || {}, accent: snapshot.accent || "auto", archived: Boolean(snapshot.archived), archivedAt: snapshot.archivedAt || null, updatedAt: serverTimestamp() });
+                    await setDoc(doc(db, folderPath(snapshot.id)), { id: snapshot.id, name: snapshot.name, description: snapshot.description, coverImage: snapshot.coverImage || null, coverMode: snapshot.coverMode || "auto", coverBackdrops: snapshot.coverBackdrops || [], pinned: snapshot.pinned || false, order: snapshot.order || 0, storageVersion: 2, smartList: Boolean(snapshot.smartList), smartRules: snapshot.smartRules || {}, accent: snapshot.accent || "auto", archived: Boolean(snapshot.archived), archivedAt: snapshot.archivedAt || null, updatedAt: serverTimestamp() });
                     if (!snapshot.smartList) await Promise.all(snapshot.items.map(i => setDoc(doc(db, itemsPath(snapshot.id), itemKey(i)), i)));
                     setUndo(null);
                 }
@@ -1615,33 +1762,59 @@ const MyList: React.FC = () => {
         }
     };
 
-    const toggleHistory = async (item: ListItem) => {
-        if (!user?.uid) return;
+    const openWatchDatePicker = (item: ListItem) => {
+        const initial = new Date();
+        setWatchDateMonth(new Date(initial.getFullYear(), initial.getMonth(), 1));
+        setWatchDateSelectedKey(dateKey(initial));
+        setWatchDateStep("root");
+        setWatchDateItem(item);
+    };
+
+    const closeWatchDatePicker = () => {
+        setWatchDateItem(null);
+        setWatchDateStep("root");
+    };
+
+    const markWatchedAt = async (item: ListItem, date: Date) => {
+        if (!user?.uid) {
+            setStatus({ type: "error", message: "Please log in to update watch history." });
+            return;
+        }
         const key = itemKey(item);
         try {
-            const existingId = historyDocIds.get(key);
-            if (existingId) {
-                await deleteDoc(doc(db, `users/${user.uid}/history/${existingId}`));
-                setStatus({ type: "success", message: "Removed from history." });
-            } else {
-                const iso = new Date().toISOString();
-                await setDoc(doc(db, `users/${user.uid}/history/${key}`), {
-                    movieId: item.id,
-                    mediaId: item.id,
-                    title: item.title,
-                    posterPath: storedPosterPath(item.poster),
-                    releaseDate: item.releaseYear || "",
-                    genres: item.genres || [],
-                    mediaType: item.type,
-                    watchedDate: iso,
-                    watchedDates: [iso],
-                    timestamp: serverTimestamp(),
-                }, { merge: true });
-                setStatus({ type: "success", message: "Marked as watched." });
-            }
+            const iso = date.toISOString();
+            await setDoc(doc(db, `users/${user.uid}/history/${key}`), {
+                movieId: item.id,
+                mediaId: item.id,
+                title: item.title,
+                posterPath: storedPosterPath(item.poster),
+                releaseDate: item.releaseYear || "",
+                genres: item.genres || [],
+                mediaType: item.type,
+                watchedDate: iso,
+                watchedDates: [iso],
+                timestamp: serverTimestamp(),
+            }, { merge: true });
+            setStatus({ type: "success", message: "Marked as watched." });
         } catch {
             setStatus({ type: "error", message: "Failed to update watch history." });
         }
+    };
+
+    const toggleHistory = async (item: ListItem) => {
+        if (!user?.uid) return;
+        const key = itemKey(item);
+        const existingId = historyDocIds.get(key);
+        if (existingId) {
+            try {
+                await deleteDoc(doc(db, `users/${user.uid}/history/${existingId}`));
+                setStatus({ type: "success", message: "Removed from history." });
+            } catch {
+                setStatus({ type: "error", message: "Failed to update watch history." });
+            }
+            return;
+        }
+        openWatchDatePicker(item);
     };
 
     const toggleFavorite = async (item: ListItem) => {
@@ -1867,6 +2040,7 @@ const MyList: React.FC = () => {
         const activity = folderActivity.get(folder.id);
         const overlap = overlapInsights.get(folder.id);
         const complete = Boolean(displayItems.length && activity?.completion === 100);
+
         return <motion.article
             draggable={!folder.archived && !compact}
             onDragStart={() => setDraggedFolderId(folder.id)}
@@ -1880,7 +2054,7 @@ const MyList: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index, 6) * .035 }}
             style={{ "--card-accent": cardAccent } as React.CSSProperties}
-            className={`group relative overflow-visible rounded-[26px] transition-all duration-300 ${compact ? "w-[82vw] max-w-[360px] shrink-0 sm:w-auto sm:max-w-none" : "min-h-[326px]"} ${folder.archived ? "opacity-65 hover:opacity-90" : "hover:-translate-y-1"} ${menuId === folder.id ? "z-50" : "z-0"}`}
+            className={`group relative overflow-visible rounded-[26px] transition-all duration-300 w-[85vw] max-w-[340px] shrink-0 snap-center sm:w-full sm:max-w-none sm:min-h-[326px] ${folder.archived ? "opacity-65 hover:opacity-90" : "hover:-translate-y-1"} ${menuId === folder.id ? "z-50" : "z-0"}`}
         >
             <button
                 type="button"
@@ -1888,29 +2062,34 @@ const MyList: React.FC = () => {
                     if (landingSwipeTriggeredRef.current) { landingSwipeTriggeredRef.current = false; return; }
                     openFolder(folder.id);
                 }}
-                className={`relative block w-full overflow-hidden rounded-[26px] border border-white/[0.085] bg-[linear-gradient(150deg,rgba(17,17,19,.98),rgba(5,5,6,.98))] p-4 text-left shadow-[0_18px_46px_rgba(0,0,0,.30),inset_0_1px_0_rgba(255,255,255,.04)] transition duration-300 hover:border-white/[0.16] hover:shadow-[0_28px_68px_rgba(0,0,0,.46)] ${compact ? "min-h-[252px]" : "min-h-[326px] sm:p-5"}`}
+                className={`relative flex flex-col justify-between w-full overflow-hidden rounded-[26px] border border-white/[0.085] bg-[linear-gradient(150deg,rgba(17,17,19,.98),rgba(5,5,6,.98))] p-4 text-left shadow-[0_18px_46px_rgba(0,0,0,.30),inset_0_1px_0_rgba(255,255,255,.04)] transition duration-300 hover:border-white/[0.16] hover:shadow-[0_28px_68px_rgba(0,0,0,.46)] min-h-[300px] sm:min-h-[326px] sm:p-5`}
             >
                 <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" style={{ background: hexToRgba(cardAccent, .11) }} />
                 <div className="pointer-events-none absolute inset-x-7 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${hexToRgba(cardAccent, .82)}, transparent)` }} />
-                <div className="pr-10">
-                    <div className="flex min-w-0 items-center gap-2">
-                        <h2 className={`${compact ? "text-lg" : "text-xl sm:text-2xl"} truncate font-black tracking-[-.02em] text-white transition-colors duration-300 group-hover:text-[var(--card-accent)]`}>
-                            {folder.name}
-                        </h2>
-                        {folder.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
-                        {folder.smartList && <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-400/20 bg-violet-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-violet-300"><SlidersHorizontal className="h-2.5 w-2.5" />Smart</span>}
-                        {complete && !folder.archived && <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-300"><Check className="h-2.5 w-2.5" />Complete</span>}
-                        {folder.archived && <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-zinc-400"><Archive className="h-2.5 w-2.5" />Archived</span>}
+
+                <div>
+                    <div className="pr-10">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <h2 className={`text-lg sm:text-xl md:text-2xl truncate font-black tracking-[-.02em] text-white transition-colors duration-300 group-hover:text-[var(--card-accent)]`}>
+                                {folder.name}
+                            </h2>
+                            {folder.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
+                            {folder.smartList && <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-violet-400/20 bg-violet-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-violet-300"><SlidersHorizontal className="h-2.5 w-2.5" />Smart</span>}
+                            {complete && !folder.archived && <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-400/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-300"><Check className="h-2.5 w-2.5" />Complete</span>}
+                            {folder.archived && <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-zinc-400"><Archive className="h-2.5 w-2.5" />Archived</span>}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-zinc-500">
+                            <span>{displayItems.length} {displayItems.length === 1 ? "title" : "titles"}</span>
+                            {activity?.label && <span className="flex items-center gap-1 text-zinc-600"><Clock3 className="h-3 w-3" />{activity.label}</span>}
+                        </div>
+                        {folder.smartList && <p className="mt-1 truncate text-[9px] font-medium text-zinc-600">{smartRuleSummary(folder.smartRules)}</p>}
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-zinc-500">
-                        <span>{displayItems.length} {displayItems.length === 1 ? "title" : "titles"}</span>
-                        {activity?.label && <span className="flex items-center gap-1 text-zinc-600"><Clock3 className="h-3 w-3" />{activity.label}</span>}
+
+                    <div className="mt-3 h-[160px] sm:h-[190px]">
+                        <FolderPosterPreview folder={displayFolder} />
                     </div>
-                    {folder.smartList && <p className="mt-1 truncate text-[9px] font-medium text-zinc-600">{smartRuleSummary(folder.smartRules)}</p>}
                 </div>
-                <div className={`mt-3 ${compact ? "h-[126px]" : "h-[190px]"}`}>
-                    <FolderPosterPreview folder={displayFolder} />
-                </div>
+
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                     <span className="rounded-full border border-white/10 bg-white/[.04] px-2 py-1 text-[9px] font-bold uppercase text-zinc-300">{stats.movies} Movies · {stats.series} Series</span>
                     <span className="rounded-full border px-2 py-1 text-[9px] font-bold" style={{ borderColor: hexToRgba(cardAccent, .24), background: hexToRgba(cardAccent, .09), color: mixHex(cardAccent, "#ffffff", .22) }}>{stats.topGenre}</span>
@@ -1937,69 +2116,107 @@ const MyList: React.FC = () => {
         const activity = folderActivity.get(folder.id);
         const stats = getStats(displayItems);
         const cardAccent = folder.accent && folder.accent !== "auto" ? ACCENTS[folder.accent].color : "#f59e0b";
+
         const visualItems = displayItems.filter(item => item.poster || item.backdrop).slice(0, 3);
-        const backdrop = imageSource(folder.coverImage, "w1280") || imageSource(displayItems.find(item => item.backdrop)?.backdrop, "w1280") || imageSource(displayItems.find(item => item.poster)?.poster, "w780");
-        const posterPositions = [
-            { right: 78, top: 24, rotate: -7, scale: .84, opacity: .52, z: 10 },
-            { right: 42, top: 18, rotate: 5, scale: .92, opacity: .82, z: 20 },
-            { right: 10, top: 14, rotate: -1.5, scale: 1, opacity: 1, z: 30 },
-        ];
 
         return <motion.article
             key={`recent-premium-${folder.id}`}
-            initial={{ opacity: 0, y: 12, scale: .985 }}
+            initial={{ opacity: 0, y: 15, scale: .97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: Math.min(index, 4) * .045, duration: .36 }}
-            className="group w-[82vw] max-w-[342px] shrink-0 snap-start sm:w-auto sm:max-w-none"
+            transition={{ delay: Math.min(index, 4) * .05, duration: .4, type: "spring", stiffness: 300, damping: 30 }}
+            className="group w-[84vw] max-w-[350px] shrink-0 snap-start sm:w-auto sm:max-w-none"
         >
             <button
                 type="button"
                 onClick={() => openFolder(folder.id)}
-                className="relative block h-[178px] w-full isolate overflow-hidden rounded-[24px] border border-white/[0.09] bg-zinc-950 text-left shadow-[0_18px_48px_rgba(0,0,0,.38),inset_0_1px_0_rgba(255,255,255,.05)] transition duration-300 hover:-translate-y-1 hover:border-white/[0.16] hover:shadow-[0_28px_72px_rgba(0,0,0,.52)] sm:h-[192px]"
+                className="relative flex h-[240px] w-full flex-col overflow-hidden rounded-[26px] border border-white/[0.12] bg-[#0a0a0a] text-left shadow-[0_20px_50px_rgba(0,0,0,.6),inset_0_1px_1px_rgba(255,255,255,.1)] transition-all duration-500 hover:-translate-y-1.5 hover:border-white/[0.22] hover:shadow-[0_30px_80px_rgba(0,0,0,.8)] sm:h-[260px]"
             >
-                <div className="absolute inset-0 z-0 overflow-hidden">
-                    {backdrop ? <SmartImage src={backdrop} alt={folder.name} className="absolute inset-0" /> : <EmptyCover />}
-                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,3,4,.86)_0%,rgba(3,3,4,.57)_42%,rgba(3,3,4,.20)_72%,rgba(3,3,4,.48)_100%)]" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-black/20" />
-                    <div className="absolute -left-10 -top-14 h-40 w-40 rounded-full blur-3xl" style={{ background: hexToRgba(cardAccent, .16) }} />
-                    <div className="absolute inset-x-6 top-0 h-px" style={{ background: `linear-gradient(90deg,transparent,${hexToRgba(cardAccent, .78)},transparent)` }} />
+                <div className="absolute inset-0 z-0 overflow-hidden bg-[#050505]">
+                    <div
+                        className="absolute inset-0 opacity-40 transition-opacity duration-700 group-hover:opacity-60"
+                        style={{ background: `radial-gradient(circle at 50% 100%, ${hexToRgba(cardAccent, .5)}, transparent 70%)` }}
+                    />
+                    <div
+                        className="absolute inset-0 opacity-20 transition-opacity duration-700 group-hover:opacity-30"
+                        style={{ background: `radial-gradient(circle at 10% 10%, ${hexToRgba(cardAccent, .8)}, transparent 60%)` }}
+                    />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:16px_16px] opacity-50" />
+                    <div className="absolute inset-x-0 top-0 h-[180px] bg-gradient-to-b from-white/[0.03] to-transparent sm:h-[200px]" />
+                    <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                 </div>
 
-                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-[48%] overflow-hidden sm:w-[46%]">
-                    <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/55 to-transparent" />
-                    {visualItems.length ? visualItems.map((item, posterIndex) => {
-                        const position = posterPositions[posterIndex] || posterPositions[posterPositions.length - 1];
-                        return <div
-                            key={`recent-poster-${itemKey(item)}`}
-                            className="absolute aspect-[2/3] h-[110px] overflow-hidden rounded-[14px] border border-white/[0.15] bg-zinc-900 shadow-[0_18px_34px_rgba(0,0,0,.58),inset_0_1px_0_rgba(255,255,255,.10)] transition-transform duration-300 group-hover:-translate-y-1 sm:h-[124px]"
-                            style={{ right: position.right, top: position.top, zIndex: position.z, opacity: position.opacity, transform: `rotate(${position.rotate}deg) scale(${position.scale})` }}
-                        >
-                            <SmartImage src={imageSource(item.poster || item.backdrop, "w342")} alt={item.title} className="absolute inset-0" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-transparent to-white/[0.05]" />
-                        </div>;
-                    }) : <div className="absolute right-4 top-7 flex h-24 w-20 items-center justify-center rounded-2xl border border-white/10 bg-black/40 text-zinc-700 backdrop-blur-xl"><Film className="h-5 w-5" /></div>}
+                <div className="relative z-10 flex flex-1 w-full items-center justify-center pt-2">
+                    <div className="absolute bottom-[10px] h-[30px] w-[160px] rounded-[100%] bg-black/80 blur-xl transition-all duration-500 group-hover:scale-110" />
+
+                    {visualItems.map((item, idx) => {
+                        if (visualItems.length === 1 && idx !== 0) return null;
+                        if (visualItems.length === 2 && idx === 2) return null;
+
+                        return (
+                            <div
+                                key={`deck-${itemKey(item)}`}
+                                className={`absolute h-[135px] w-[95px] overflow-hidden rounded-[16px] border-[2px] border-white/30 bg-zinc-900 shadow-[0_15px_30px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.2)] transition-all duration-500 sm:h-[150px] sm:w-[105px]
+                                ${idx === 0 && visualItems.length > 1 ? '-translate-x-[65px] -rotate-[12deg] group-hover:-translate-x-[80px] group-hover:-rotate-[16deg]' : ''}
+                                ${idx === 2 && visualItems.length > 2 ? 'translate-x-[65px] rotate-[12deg] group-hover:translate-x-[80px] group-hover:rotate-[16deg]' : ''}
+                                ${idx === 0 && visualItems.length === 1 ? 'z-20 group-hover:-translate-y-2 group-hover:scale-105' : ''}
+                                ${idx === 0 && visualItems.length === 2 ? '-translate-x-[45px] -rotate-[8deg] z-10 group-hover:-translate-x-[60px] group-hover:-rotate-[12deg]' : ''}
+                                ${idx === 1 && visualItems.length === 2 ? 'translate-x-[45px] rotate-[8deg] z-20 group-hover:translate-x-[60px] group-hover:rotate-[12deg]' : ''}
+                                ${idx === 1 && visualItems.length >= 3 ? 'z-20 scale-[1.05] group-hover:-translate-y-2 group-hover:scale-[1.08]' : ''}
+                            `}
+                            >
+                                <SmartImage src={imageSource(item.poster || item.backdrop, "w342")} alt={item.title} className="absolute inset-0" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-white/10 mix-blend-overlay" />
+                                <div className="absolute inset-x-0 top-0 h-px bg-white/40" />
+                                <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
+                            </div>
+                        );
+                    })}
                 </div>
 
-                <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black via-black/90 to-transparent px-4 pb-4 pt-14 sm:px-5 sm:pb-5 sm:pt-16">
-                    <div className="mb-2 flex min-w-0 items-center gap-1.5 pr-9">
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.10] bg-black/45 px-2 py-1 text-[8px] font-black uppercase tracking-[.12em] text-zinc-300 backdrop-blur-xl">
-                            <Clock3 className="h-2.5 w-2.5" />{activity?.activityTime ? formatRelativeTime(activity.activityTime) : "Recent"}
-                        </span>
-                        {folder.pinned && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/[0.10] bg-black/45 text-amber-300 backdrop-blur-xl"><Pin className="h-2.5 w-2.5" /></span>}
-                        {folder.smartList && <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-violet-400/20 bg-violet-500/10 text-violet-300 backdrop-blur-xl"><SlidersHorizontal className="h-2.5 w-2.5" /></span>}
-                    </div>
-                    <div className="min-w-0 pr-9">
-                        <h3 className="truncate text-[17px] font-black leading-tight tracking-[-.025em] text-white sm:text-lg">{folder.name}</h3>
-                        <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[9px] font-semibold text-zinc-400">
-                            <span className="shrink-0">{displayItems.length} {displayItems.length === 1 ? "title" : "titles"}</span>
-                            <span className="text-zinc-700">•</span>
-                            <span className="truncate">{stats.topGenre}</span>
-                            {activity?.label && <><span className="text-zinc-700">•</span><span className="truncate text-zinc-500">{activity.label}</span></>}
+                <div className="relative z-30 flex w-full flex-col bg-[#0a0a0a]/85 backdrop-blur-2xl px-4 pb-3.5 pt-3 sm:px-5 sm:pb-4 sm:pt-3.5 shadow-[0_-10px_30px_rgba(0,0,0,0.6)]">
+                    <div
+                        className="absolute top-0 inset-x-0 h-px opacity-80"
+                        style={{ background: `linear-gradient(90deg, transparent, ${hexToRgba(cardAccent, .8)}, transparent)` }}
+                    />
+
+                    <div className="flex w-full items-center justify-between gap-2">
+                        <h3 className="truncate text-[15px] font-extrabold tracking-[-.01em] text-white sm:text-[16px] leading-none">
+                            {folder.name}
+                        </h3>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                            {folder.pinned && (
+                                <span className="flex h-[22px] w-[22px] items-center justify-center rounded-md border border-amber-400/20 bg-gradient-to-b from-amber-400/20 to-amber-600/10 text-amber-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                                    <Pin className="h-3 w-3" />
+                                </span>
+                            )}
+                            {folder.smartList && (
+                                <span className="flex h-[22px] w-[22px] items-center justify-center rounded-md border border-violet-400/20 bg-gradient-to-b from-violet-400/20 to-violet-600/10 text-violet-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                                    <SlidersHorizontal className="h-3 w-3" />
+                                </span>
+                            )}
                         </div>
                     </div>
+
+                    <div className="mt-1.5 flex w-full items-center justify-between gap-2 text-[10px] font-semibold tracking-wide">
+                        <div className="flex min-w-0 items-center gap-2 text-zinc-400">
+                            <span className="shrink-0 flex items-center gap-1.5 leading-none">
+                                <span className="flex h-[15px] w-[15px] items-center justify-center rounded-full bg-white/[0.06]">
+                                    <Clock3 className="h-[9px] w-[9px]" style={{ color: cardAccent }} />
+                                </span>
+                                <span className="leading-none pt-[1px]">
+                                    {activity?.activityTime ? formatRelativeTime(activity.activityTime) : "Recent"}
+                                </span>
+                            </span>
+                            <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-zinc-600" />
+                            <span className="truncate text-zinc-300 leading-none pt-[1px]">{stats.topGenre}</span>
+                        </div>
+                        <span className="shrink-0 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-zinc-300 leading-none pt-[3px]">
+                            {displayItems.length} {displayItems.length === 1 ? "Title" : "Titles"}
+                        </span>
+                    </div>
                 </div>
 
-                <div className="absolute bottom-4 right-4 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.12] bg-black/55 text-white/80 backdrop-blur-xl transition group-hover:border-white/[0.20] group-hover:bg-black/70 sm:bottom-5 sm:right-5">
+                <div className="absolute bottom-[72px] right-3 z-40 flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-xl transition-all duration-300 group-hover:scale-110 group-hover:bg-white/20 sm:bottom-[86px] sm:right-4">
                     <ChevronRight className="h-3.5 w-3.5" />
                 </div>
             </button>
@@ -2048,40 +2265,40 @@ const MyList: React.FC = () => {
                 </div>
 
                 <div className="mt-4 flex items-center gap-2 sm:mt-5">
-  <div className="group/search relative min-w-0 flex-1">
-    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5">
-      <Search className="h-4 w-4 stroke-[2.2] text-zinc-400 transition-colors duration-200 group-focus-within/search:text-white" />
-    </div>
-    <input
-      type="text"
-      value={landingSearchQuery}
-      onChange={(event) => setLandingSearchQuery(event.target.value)}
-      placeholder="Search lists and titles..."
-      className="h-11 w-full rounded-2xl border border-white/[0.08] bg-white/[0.025] pl-10 pr-10 text-sm text-white outline-none backdrop-blur-xl transition placeholder:text-zinc-500 focus:border-white/[0.18] focus:bg-white/[0.04]"
-    />
-    {landingSearchQuery && (
-      <button
-        type="button"
-        onClick={() => setLandingSearchQuery('')}
-        className="absolute right-2.5 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
-        aria-label="Clear library search"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    )}
-  </div>
-  <button
-    type="button"
-    onClick={() => {
-      setCommandOpen(true);
-      setCommandQuery('');
-    }}
-    className="hidden h-11 shrink-0 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 text-[10px] font-bold text-zinc-400 backdrop-blur-xl transition hover:border-white/[0.14] hover:text-zinc-200 sm:flex"
-  >
-    <Command className="h-3.5 w-3.5" />
-    <span>Alt + P</span>
-  </button>
-</div>
+                    <div className="group/search relative min-w-0 flex-1">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3.5">
+                            <Search className="h-4 w-4 stroke-[2.2] text-zinc-400 transition-colors duration-200 group-focus-within/search:text-white" />
+                        </div>
+                        <input
+                            type="text"
+                            value={landingSearchQuery}
+                            onChange={(event) => setLandingSearchQuery(event.target.value)}
+                            placeholder="Search lists and titles..."
+                            className="h-11 w-full rounded-2xl border border-white/[0.08] bg-white/[0.025] pl-10 pr-10 text-sm text-white outline-none backdrop-blur-xl transition placeholder:text-zinc-500 focus:border-white/[0.18] focus:bg-white/[0.04]"
+                        />
+                        {landingSearchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setLandingSearchQuery('')}
+                                className="absolute right-2.5 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+                                aria-label="Clear library search"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setCommandOpen(true);
+                            setCommandQuery('');
+                        }}
+                        className="hidden h-11 shrink-0 items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 text-[10px] font-bold text-zinc-400 backdrop-blur-xl transition hover:border-white/[0.14] hover:text-zinc-200 sm:flex"
+                    >
+                        <Command className="h-3.5 w-3.5" />
+                        <span>Alt + P</span>
+                    </button>
+                </div>
             </motion.header>
 
             <AnimatePresence>
@@ -2123,27 +2340,57 @@ const MyList: React.FC = () => {
                     <div className="-mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4">{recentlyUpdatedFolders.map((folder, index) => renderRecentFolderCard(folder, index))}</div>
                 </section>}
 
-                {!!pinnedFolders.length && <section>
-                    <div className="mb-3 flex items-center gap-2"><Pin className="h-3.5 w-3.5 text-amber-300" /><div><p className="text-[9px] font-black uppercase tracking-[.18em] text-amber-300/80">Pinned</p><h2 className="text-lg font-black text-white">Keep close</h2></div></div>
-                    <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">{pinnedFolders.map((folder, index) => renderLandingFolderCard(folder, index))}</div>
-                </section>}
+                {!!pinnedFolders.length && (
+                    <section>
+                        <div className="mb-3 flex items-center gap-2">
+                            <Pin className="h-3.5 w-3.5 text-amber-300" />
+                            <div>
+                                <p className="text-[9px] font-black uppercase tracking-[.18em] text-amber-300/80">Pinned</p>
+                                <h2 className="text-lg font-black text-white">Keep close</h2>
+                            </div>
+                        </div>
+                        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-3 px-3 sm:grid sm:grid-cols-2 sm:gap-5 sm:mx-0 sm:px-0 sm:pb-0 no-scrollbar">
+                            {pinnedFolders.map((folder, index) => renderLandingFolderCard(folder, index))}
+                        </div>
+                    </section>
+                )}
 
-                {!!regularFolders.length && <section>
-                    <div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-600">Collections</p><h2 className="mt-0.5 text-lg font-black text-white">All lists</h2></div><span className="text-[10px] text-zinc-600">{regularFolders.length} {regularFolders.length === 1 ? "list" : "lists"}</span></div>
-                    <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">{regularFolders.map((folder, index) => renderLandingFolderCard(folder, index))}</div>
-                </section>}
+                {!!regularFolders.length && (
+                    <section>
+                        <div className="mb-3 flex items-end justify-between gap-3">
+                            <div>
+                                <p className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-600">Collections</p>
+                                <h2 className="mt-0.5 text-lg font-black text-white">All lists</h2>
+                            </div>
+                            <span className="text-[10px] text-zinc-600">{regularFolders.length} {regularFolders.length === 1 ? "list" : "lists"}</span>
+                        </div>
+                        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-3 px-3 sm:grid sm:grid-cols-2 sm:gap-5 sm:mx-0 sm:px-0 sm:pb-0 no-scrollbar">
+                            {regularFolders.map((folder, index) => renderLandingFolderCard(folder, index))}
+                        </div>
+                    </section>
+                )}
 
-                {!!archivedFolders.length && <section>
-                    <div className="mb-3 flex items-center gap-2"><Archive className="h-3.5 w-3.5 text-zinc-600" /><div><p className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-700">Archived</p><h2 className="text-base font-black text-zinc-400">Completed collections</h2></div></div>
-                    <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">{archivedFolders.map((folder, index) => renderLandingFolderCard(folder, index))}</div>
-                </section>}
+                {!!archivedFolders.length && (
+                    <section>
+                        <div className="mb-3 flex items-center gap-2">
+                            <Archive className="h-3.5 w-3.5 text-zinc-600" />
+                            <div>
+                                <p className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-700">Archived</p>
+                                <h2 className="text-base font-black text-zinc-400">Completed collections</h2>
+                            </div>
+                        </div>
+                        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-3 px-3 sm:grid sm:grid-cols-2 sm:gap-5 sm:mx-0 sm:px-0 sm:pb-0 no-scrollbar">
+                            {archivedFolders.map((folder, index) => renderLandingFolderCard(folder, index))}
+                        </div>
+                    </section>
+                )}
             </div>}
         </main> :
             <main className="mx-auto max-w-6xl px-3 py-3 sm:px-4 sm:py-8">
                 {activeFolder && <>
                     <div className="relative -mx-3 min-h-[280px] overflow-hidden border-y border-white/10 sm:mx-0 sm:min-h-[390px] sm:rounded-3xl sm:border">
                         <CollectionCover folder={activeDisplayFolder || activeFolder} hero className="absolute inset-0" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent sm:bg-gradient-to-r sm:from-black/70 sm:via-black/15 sm:to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/40 to-transparent sm:bg-gradient-to-r sm:from-[#050505]/90 sm:via-[#050505]/20 sm:to-transparent" />
                         <div className="pointer-events-none absolute -left-20 bottom-[-90px] h-72 w-72 rounded-full blur-3xl" style={{ background: hexToRgba(derivedAccent, .18) }} />
                         <div className="absolute left-3 right-3 top-3 z-20 flex items-center justify-between sm:left-4 sm:right-4 sm:top-4">
                             <button onClick={closeFolder} className="rounded-full border border-white/20 bg-black/40 p-2.5 backdrop-blur-xl active:scale-95 sm:p-3 sm:hover:bg-black/60">
@@ -2174,7 +2421,7 @@ const MyList: React.FC = () => {
                                     <div className={`h-1.5 overflow-hidden rounded-full ${completionPct === 100 && activeItems.length ? "bg-emerald-950/80" : "bg-white/10"}`}>
                                         <motion.div initial={{ width: 0 }} animate={{ width: `${completionPct}%` }} transition={{ duration: .55, ease: "easeOut" }} className="h-full rounded-full" style={{ background: completionPct === 100 && activeItems.length ? "linear-gradient(90deg,#34d399,#10b981)" : `linear-gradient(90deg, ${hexToRgba(derivedAccent, .72)}, ${derivedAccent})`, boxShadow: completionPct === 100 && activeItems.length ? "0 0 18px rgba(16,185,129,.35)" : `0 0 18px ${hexToRgba(derivedAccent, .3)}` }} />
                                     </div>
-                                    {(completionPct === 100 && activeItems.length > 0 || activeFolder.archived) && <div className="mt-2.5 flex items-center justify-between gap-3">
+                                    {((completionPct === 100 && activeItems.length > 0) || activeFolder.archived) && <div className="mt-2.5 flex items-center justify-between gap-3">
                                         <p className="text-[9px] font-semibold text-zinc-500">{activeFolder.archived ? "This collection is archived." : "Collection complete — nice finish."}</p>
                                         <button type="button" onClick={() => setFolderArchived(activeFolder, !activeFolder.archived)} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-2.5 py-1.5 text-[9px] font-black text-zinc-200 transition hover:bg-white/[0.08]">{activeFolder.archived ? <RotateCcw className="h-3 w-3" /> : <Archive className="h-3 w-3" />}{activeFolder.archived ? "Restore" : "Archive"}</button>
                                     </div>}
@@ -2929,6 +3176,261 @@ const MyList: React.FC = () => {
             document.body,
         )}
 
+        {watchDateItem && createPortal(
+            <div className="fixed inset-0 z-[10090] flex items-end justify-center sm:items-center sm:p-5">
+                <button type="button" aria-label="Close date picker" onClick={closeWatchDatePicker} className="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity" />
+
+                <motion.div
+                    initial={{ opacity: 0, y: 40, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="relative z-10 flex w-full max-w-[400px] flex-col overflow-hidden rounded-t-[32px] border border-white/10 bg-zinc-950/95 shadow-[0_30px_100px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-3xl sm:rounded-[32px]"
+                >
+                    <div className="mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full bg-white/15 sm:hidden" />
+                    <div className="relative flex shrink-0 items-center gap-3.5 overflow-hidden border-b border-white/[0.06] p-4 sm:p-5">
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent" />
+                        <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-lg">
+                            <SmartImage src={imageSource(watchDateItem.poster, "w185")} alt={watchDateItem.title} className="absolute inset-0" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        </div>
+                        <div className="relative min-w-0 flex-1">
+                            <p className="truncate text-sm font-black tracking-tight text-white">{watchDateItem.title}</p>
+                            <p className="mt-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">
+                                <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                {watchDateItem.type === "tv" ? "Series" : "Movie"}{watchDateItem.releaseYear ? ` · ${yearOf(watchDateItem.releaseYear)}` : ""}
+                            </p>
+                        </div>
+                        <button type="button" onClick={() => { closeWatchDatePicker(); setShowPicker(false); }} className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition-all hover:bg-white/10 hover:text-white active:scale-95"><X className="h-4 w-4" /></button>
+                    </div>
+
+                    <div className="p-4 sm:p-5">
+                        {watchDateStep === "root" ? (
+                            <div>
+                                <div className="mb-4 px-1">
+                                    <h3 className="text-base font-black tracking-tight text-white">When did you watch it?</h3>
+                                    <p className="mt-1 text-[11px] font-medium text-zinc-500">Select a quick option or choose a specific date.</p>
+                                </div>
+
+                                <div className="space-y-2.5">
+                                    <button type="button" onClick={() => { markWatchedAt(watchDateItem, new Date()); closeWatchDatePicker(); }} className="group flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 text-left transition-all hover:border-white/15 hover:bg-white/[0.06] active:scale-[0.99]">
+                                        <div className="flex items-center gap-3">
+                                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 group-hover:text-emerald-400 group-hover:border-emerald-400/20 group-hover:bg-emerald-400/10 transition-colors">
+                                                <Clock className="h-4 w-4" />
+                                            </span>
+                                            <div>
+                                                <span className="block text-sm font-bold text-white group-hover:text-emerald-50">Just Now</span>
+                                                <span className="block text-[10px] font-medium text-zinc-500">Mark as watched today</span>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-zinc-600 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+                                    </button>
+
+                                    {(() => {
+                                        const releaseDateObj = watchDateItem.releaseYear ? new Date(`${watchDateItem.releaseYear}T12:00:00`) : null;
+                                        const todayEnd = new Date();
+                                        todayEnd.setHours(23, 59, 59, 999);
+                                        const validReleaseDate = releaseDateObj && !Number.isNaN(releaseDateObj.getTime()) && releaseDateObj <= todayEnd ? releaseDateObj : null;
+                                        return (
+                                            <button type="button" disabled={!validReleaseDate} onClick={() => { if (validReleaseDate) { markWatchedAt(watchDateItem, validReleaseDate); closeWatchDatePicker(); } }} className="group flex w-full items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 text-left transition-all hover:border-white/15 hover:bg-white/[0.06] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/[0.08] disabled:hover:bg-white/[0.03]">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 border border-white/5 text-zinc-400 group-hover:text-amber-400 group-hover:border-amber-400/20 group-hover:bg-amber-400/10 transition-colors">
+                                                        <Calendar className="h-4 w-4" />
+                                                    </span>
+                                                    <div>
+                                                        <span className="block text-sm font-bold text-white group-hover:text-amber-50">Release Date</span>
+                                                        <span className="block text-[10px] font-medium text-zinc-500">{validReleaseDate ? formatWatchDate(validReleaseDate) : "Unavailable"}</span>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="h-4 w-4 text-zinc-600 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+                                            </button>
+                                        );
+                                    })()}
+
+                                    <button type="button" onClick={() => setWatchDateStep("calendar")} className="group flex w-full items-center justify-between rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.08] p-3.5 text-left transition-all hover:border-emerald-400/30 hover:bg-emerald-400/[0.12] active:scale-[0.99]">
+                                        <div className="flex items-center gap-3">
+                                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 transition-colors">
+                                                <CalendarDays className="h-4 w-4" />
+                                            </span>
+                                            <div>
+                                                <span className="block text-sm font-bold text-emerald-100">Pick a Date</span>
+                                                <span className="block text-[10px] font-medium text-emerald-400/70">Open the calendar</span>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-emerald-500/50 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => { setWatchDateStep("root"); setShowPicker(false); }}
+                                    className="mb-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-white transition-colors"
+                                >
+                                    <ChevronLeft className="h-3.5 w-3.5" />Back
+                                </button>
+
+                                <div className="relative w-full overflow-hidden rounded-[32px] border border-white/10 bg-[#0a0a0a] shadow-[0_24px_80px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                                    <div className="pointer-events-none absolute left-1/2 top-0 h-32 w-[80%] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[60px]" />
+
+                                    <div className="relative p-5">
+                                        <div className="mb-6 flex items-center justify-between">
+                                            <button
+                                                type="button"
+                                                onClick={() => setWatchDateMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPicker(!showPicker)}
+                                                className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2 transition hover:bg-white/5 active:scale-[0.98]"
+                                            >
+                                                <span className="text-lg font-black tracking-wide text-white">
+                                                    {watchDateMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                                                </span>
+                                                <ChevronDown className={`h-4 w-4 text-emerald-500 transition-transform duration-300 ${showPicker ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                disabled={watchDateMonth.getFullYear() >= new Date().getFullYear() && watchDateMonth.getMonth() >= new Date().getMonth()}
+                                                onClick={() => setWatchDateMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                        </div>
+
+                                        <AnimatePresence>
+                                            {showPicker && (
+                                                <>
+                                                    <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                                        className="absolute left-4 right-4 top-[72px] z-50 overflow-hidden rounded-3xl border border-white/10 bg-[#111]/95 shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-3xl"
+                                                    >
+                                                        <div className="p-4">
+                                                            <div className="mb-3 flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                                                {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => {
+                                                                    const isYearActive = watchDateMonth.getFullYear() === year;
+                                                                    const isYearDisabled = year > new Date().getFullYear();
+                                                                    return (
+                                                                        <button
+                                                                            key={year}
+                                                                            type="button"
+                                                                            disabled={isYearDisabled}
+                                                                            onClick={() => {
+                                                                                const safeMonth = year === new Date().getFullYear() ? Math.min(watchDateMonth.getMonth(), new Date().getMonth()) : watchDateMonth.getMonth();
+                                                                                setWatchDateMonth(new Date(year, safeMonth, 1));
+                                                                            }}
+                                                                            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-all duration-200 
+                            ${isYearActive ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]' :
+                                                                                    isYearDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}
+                                                                        >
+                                                                            {year}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                {Array.from({ length: 12 }, (_, month) => {
+                                                                    const isMonthActive = watchDateMonth.getMonth() === month;
+                                                                    const isMonthDisabled = watchDateMonth.getFullYear() === new Date().getFullYear() && month > new Date().getMonth();
+                                                                    return (
+                                                                        <button
+                                                                            key={month}
+                                                                            type="button"
+                                                                            disabled={isMonthDisabled}
+                                                                            onClick={() => {
+                                                                                setWatchDateMonth(new Date(watchDateMonth.getFullYear(), month, 1));
+                                                                                setShowPicker(false);
+                                                                            }}
+                                                                            className={`rounded-xl py-2.5 text-xs font-bold transition-all duration-200 active:scale-95 
+                            ${isMonthActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                                                                    isMonthDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/[0.02] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-white'}`}
+                                                                        >
+                                                                            {new Date(2000, month, 1).toLocaleDateString(undefined, { month: 'short' })}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </motion.div>
+                                                </>
+                                            )}
+                                        </AnimatePresence>
+
+                                        <div className="mb-4 grid grid-cols-7 gap-1 text-center">
+                                            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day, index) => (
+                                                <span key={`${day}-${index}`} className="py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                                                    {day}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        <div className="grid grid-cols-7 gap-y-2 gap-x-1 text-center">
+                                            {buildCalendarDays(watchDateMonth).map((date) => {
+                                                const key = dateKey(date);
+                                                const outsideMonth = date.getMonth() !== watchDateMonth.getMonth();
+                                                const todayEnd = new Date();
+                                                todayEnd.setHours(23, 59, 59, 999);
+                                                const future = date > todayEnd;
+                                                const selected = watchDateSelectedKey === key;
+                                                const isToday = key === dateKey(new Date());
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={key}
+                                                        disabled={future}
+                                                        onClick={() => setWatchDateSelectedKey(key)}
+                                                        className={`group relative mx-auto flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold transition-all duration-300 
+                  ${selected
+                                                                ? 'bg-emerald-500 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.6)] scale-110 z-10 font-black'
+                                                                : outsideMonth
+                                                                    ? 'text-zinc-600 hover:bg-white/5'
+                                                                    : 'text-zinc-200 hover:bg-white/10 hover:scale-105'
+                                                            } disabled:cursor-not-allowed disabled:opacity-20`}
+                                                    >
+                                                        {date.getDate()}
+                                                        {isToday && !selected && (
+                                                            <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-white/5 bg-white/[0.01] p-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => { markWatchedAt(watchDateItem, keyToDate(watchDateSelectedKey)); closeWatchDatePicker(); }}
+                                            className="flex w-full items-center justify-between rounded-2xl bg-zinc-900 border border-white/10 px-5 py-3.5 transition hover:bg-zinc-800 active:scale-[0.98] group"
+                                        >
+                                            <div className="flex flex-col items-start">
+                                                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500">Selected Date</span>
+                                                <span className="text-sm font-black text-white">{formatWatchDate(keyToDate(watchDateSelectedKey))}</span>
+                                            </div>
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-110 group-active:scale-95">
+                                                <Check className="h-5 w-5 stroke-[3]" />
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+            </div>, document.body,
+        )}
+
         {showRoulette && <Roulette source="my-list" isOpen={showRoulette} onClose={() => setShowRoulette(false)} items={rouletteItems} />}
 
         <AnimatePresence>
@@ -3227,12 +3729,23 @@ const MyList: React.FC = () => {
                                 </div>
                             </div>
 
-                            <PreferredBackdropPicker
-                                folderId={editingFolder.id}
-                                items={getSmartFolderItems(editingFolder)}
-                                value={editCover}
-                                onChange={setEditCover}
-                            />
+                            {editCoverMode === "single" && (
+                                <PreferredBackdropPicker
+                                    folderId={editingFolder.id}
+                                    items={getSmartFolderItems(editingFolder)}
+                                    value={editCover}
+                                    onChange={setEditCover}
+                                />
+                            )}
+
+                            {(editCoverMode === "collage" || editCoverMode === "rotate") && (
+                                <BackdropMultiPicker
+                                    items={getSmartFolderItems(editingFolder)}
+                                    value={editCoverBackdrops}
+                                    onChange={setEditCoverBackdrops}
+                                    max={editCoverMode === "collage" ? 3 : 6}
+                                />
+                            )}
                         </div>
 
                         <div className="mt-3 shrink-0 border-t border-white/10 pt-3 sm:mt-5 sm:pt-3">

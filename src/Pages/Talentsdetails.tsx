@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext, useRef, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Flame, CalendarDays, Calendar, ChevronDown, Check, Network, Images, Download, X, ChevronLeft, ChevronRight, User, Film, Crown, Star, CalendarCheck, Bookmark, ListChecks, Trophy, MoreHorizontal, History, Plus } from "lucide-react";
+import { Heart, HeartOff, ImageOff, ChartNoAxesCombined, Clapperboard, Tv, Layers, Flame, CalendarDays, Calendar, ChevronDown, Check, Network, Images, Download, X, ChevronLeft, ChevronRight, User, Film, Crown, Star, CalendarCheck, Bookmark, ListChecks, Trophy, MoreHorizontal, History, Plus, BookmarkMinus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import Toast from "../components/Toast.tsx";
 import Loading from "../components/Loading.tsx";
@@ -68,6 +68,36 @@ const storedMediaKey = (data: any, fallbackId?: string) => {
   const rawType = data?.mediaType ?? data?.type ?? fallbackMatch?.[1];
   const mediaType = rawType === 'tv' ? 'tv' : 'movie';
   return `${mediaType}-${numericId}`;
+};
+
+const buildCalendarDays = (month: Date) => {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date;
+  });
+};
+
+const keyToDate = (key: string) => {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+};
+
+const formatWatchDate = (value: any) => {
+  if (!value) return 'Unknown date';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown date';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const dateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 type MediaStatusIconsProps = {
@@ -175,7 +205,12 @@ const Talentsdetails = () => {
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [quickActionWork, setQuickActionWork] = useState<any | null>(null);
   const [showQuickMyListFolders, setShowQuickMyListFolders] = useState(false);
-
+  const [watchDateWork, setWatchDateWork] = useState<any | null>(null);
+  const [watchDateMode, setWatchDateMode] = useState<'just-now' | 'release' | 'custom'>('just-now');
+  const [customWatchDate, setCustomWatchDate] = useState<string>('');
+  const [showCalendarPopup, setShowCalendarPopup] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [showPicker, setShowPicker] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
   const bioRef = useRef<HTMLDivElement>(null);
   const watchedRef = useRef<HTMLDivElement>(null);
@@ -878,30 +913,72 @@ const Talentsdetails = () => {
     }
     const key = workHistoryKey(work);
     const existingId = historyDocIds.get(key);
-    try {
-      if (existingId) {
+
+    if (existingId) {
+      try {
         await deleteDoc(doc(db, `users/${user.uid}/history/${existingId}`));
         setToast({ message: `${work.title || work.name || 'Title'} removed from history.`, type: 'info', isVisible: true });
-      } else {
-        const { mediaType, title, releaseDate, genres } = workMediaData(work);
-        const watchedDate = new Date().toISOString();
-        await setDoc(doc(db, `users/${user.uid}/history/${key}`), {
-          movieId: Number(work.id),
-          mediaId: Number(work.id),
-          mediaType,
-          title,
-          name: mediaType === 'tv' ? title : '',
-          posterPath: work.poster_path || '',
-          releaseDate: mediaType === 'movie' ? releaseDate : '',
-          first_air_date: mediaType === 'tv' ? releaseDate : '',
-          genres,
-          watchedDate,
-          watchedDates: [watchedDate],
-          timestamp: serverTimestamp(),
-        }, { merge: true });
-        setToast({ message: `${title} added to history.`, type: 'success', isVisible: true });
+      } catch {
+        setToast({ message: 'Failed to update watch history.', type: 'error', isVisible: true });
       }
       closeQuickActions();
+      return;
+    }
+
+    setWatchDateWork(work);
+    setWatchDateMode('just-now');
+    setCustomWatchDate('');
+    closeQuickActions();
+  };
+
+  const confirmWatchDate = async () => {
+    if (!watchDateWork || !user?.uid) return;
+    const work = watchDateWork;
+    const key = workHistoryKey(work);
+
+    let watchedDate = '';
+
+    if (watchDateMode === 'just-now') {
+      watchedDate = new Date().toISOString();
+    } else if (watchDateMode === 'release') {
+      const rawRelease = work.release_date || work.first_air_date || '';
+      const parsed = rawRelease ? new Date(`${rawRelease}T12:00:00`) : null;
+      if (!parsed || Number.isNaN(parsed.getTime())) {
+        setToast({ message: 'Release date is unavailable for this title.', type: 'error', isVisible: true });
+        return;
+      }
+      watchedDate = parsed.toISOString();
+    } else {
+      if (!customWatchDate) {
+        setToast({ message: 'Please pick a date first.', type: 'error', isVisible: true });
+        return;
+      }
+      const parsed = new Date(`${customWatchDate}T12:00:00`);
+      if (Number.isNaN(parsed.getTime())) {
+        setToast({ message: 'Please pick a valid date.', type: 'error', isVisible: true });
+        return;
+      }
+      watchedDate = parsed.toISOString();
+    }
+
+    try {
+      const { mediaType, title, releaseDate, genres } = workMediaData(work);
+      await setDoc(doc(db, `users/${user.uid}/history/${key}`), {
+        movieId: Number(work.id),
+        mediaId: Number(work.id),
+        mediaType,
+        title,
+        name: mediaType === 'tv' ? title : '',
+        posterPath: work.poster_path || '',
+        releaseDate: mediaType === 'movie' ? releaseDate : '',
+        first_air_date: mediaType === 'tv' ? releaseDate : '',
+        genres,
+        watchedDate,
+        watchedDates: [watchedDate],
+        timestamp: serverTimestamp(),
+      }, { merge: true });
+      setToast({ message: `${title} added to history.`, type: 'success', isVisible: true });
+      setWatchDateWork(null);
     } catch {
       setToast({ message: 'Failed to update watch history.', type: 'error', isVisible: true });
     }
@@ -1136,6 +1213,20 @@ const Talentsdetails = () => {
   const quickActionMediaType = quickActionWork?.media_type === 'tv' ? 'tv' : 'movie';
   const quickActionReleaseDate = quickActionWork?.release_date || quickActionWork?.first_air_date || '';
   const quickActionYear = quickActionReleaseDate ? String(quickActionReleaseDate).slice(0, 4) : 'TBD';
+
+  const watchDateReleaseRaw = watchDateWork?.release_date || watchDateWork?.first_air_date || '';
+  const watchDateReleaseLabel = watchDateReleaseRaw
+    ? new Date(`${watchDateReleaseRaw}T12:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+    : 'Not available';
+  const watchDateWorkYear = watchDateReleaseRaw ? String(watchDateReleaseRaw).slice(0, 4) : 'TBD';
+  const watchDateMax = (() => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  })();
 
   return (
     <div className="cinescape-liquid-glass relative min-h-screen font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',sans-serif]">
@@ -1970,7 +2061,7 @@ const Talentsdetails = () => {
                     key={work.uniqueKey || work.id}
                     variants={cardVariants}
                     layout={isMobileViewport ? false : "position"}
-                    className="filmography-card-static relative"
+                    className="filmography-card-static group relative"
                   >
                     <Link to={`/${mediaType}/${work.id}`} className="relative block h-full group">
                       <div className="h-full relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-b from-white/25 via-white/10 to-transparent shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-colors duration-300 group-hover:from-white/40 group-hover:via-white/20 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]">
@@ -2027,12 +2118,49 @@ const Talentsdetails = () => {
                     <button
                       type="button"
                       onClick={(event) => openQuickActions(event, work)}
-                      className="absolute left-2 bottom-20 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/15 bg-black/70 text-zinc-200 shadow-lg backdrop-blur-md transition hover:bg-black/90 hover:text-white active:scale-90 md:left-3 md:bottom-24"
+                      className="absolute left-2 bottom-20 z-50 flex h-8 w-8 items-center justify-center rounded-xl border border-white/15 bg-black/70 text-zinc-200 shadow-lg backdrop-blur-md transition hover:bg-black/90 hover:text-white active:scale-90 md:left-3 md:bottom-24 lg:hidden"
                       aria-label={`Quick actions for ${workTitle}`}
                       title="Quick actions"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
+                    <div className="absolute bottom-[72px] left-1/2 z-50 hidden -translate-x-1/2 items-center gap-0.5 rounded-2xl border border-white/[0.12] bg-black/70 p-1 shadow-[0_12px_30px_rgba(0,0,0,.55),inset_0_1px_0_rgba(255,255,255,.12)] opacity-0 backdrop-blur-2xl transition-all duration-200 group-hover:opacity-100 group-focus-within:opacity-100 lg:flex">
+                      <button
+                        type="button"
+                        onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleWorkFavorite(work); }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${favoriteMediaKeys.has(statusKey) ? 'text-rose-400' : 'text-white/80 hover:text-rose-300'}`}
+                        title={favoriteMediaKeys.has(statusKey) ? 'Remove Favorite' : 'Favorite'}
+                      >
+                        <Heart className={`h-3.5 w-3.5 ${favoriteMediaKeys.has(statusKey) ? 'fill-current' : ''}`} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleWorkHistory(work); }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${isWatched ? 'text-emerald-400' : 'text-white/80 hover:text-emerald-300'}`}
+                        title={isWatched ? 'Remove History' : 'Mark Watched'}
+                      >
+                        {isWatched ? <Check className="h-3.5 w-3.5" /> : <History className="h-3.5 w-3.5" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(event) => { event.preventDefault(); event.stopPropagation(); openQuickActions(event, work); }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${isInMyList ? 'text-violet-400' : 'text-white/80 hover:text-violet-300'}`}
+                        title="Manage List"
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(event) => { event.preventDefault(); event.stopPropagation(); void toggleWorkWatchlist(work); }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-xl transition hover:bg-white/10 ${isInWatchlist ? 'text-blue-400' : 'text-white/80 hover:text-blue-300'}`}
+                        title={isInWatchlist ? 'Remove Watchlist' : 'Add Watchlist'}
+                      >
+                        {isInWatchlist ? <BookmarkMinus className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
                   </motion.div>
                 );
               })}
@@ -2359,6 +2487,357 @@ const Talentsdetails = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {watchDateWork && (
+          <div className="fixed inset-0 z-[10030] flex items-end justify-center sm:items-center sm:p-5">
+            <motion.button
+              type="button"
+              aria-label="Close watch date dialog"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setWatchDateWork(null)}
+              className="absolute inset-0 h-full w-full border-0 bg-black/70 p-0 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 36, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 28, scale: 0.985 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="relative z-10 w-full rounded-t-[30px] border border-white/10 bg-zinc-950/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_70px_rgba(0,0,0,0.62)] backdrop-blur-3xl sm:max-w-md sm:rounded-[28px] sm:p-5"
+            >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+
+              <div className="mb-4 flex items-center gap-3">
+                <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-900">
+                  <img
+                    src={watchDateWork.poster_path ? `https://image.tmdb.org/t/p/w185${watchDateWork.poster_path}` : noImageSvg}
+                    alt={watchDateWork.title || watchDateWork.name || ''}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">
+                    When did you watch this?
+                  </p>
+                  <p className="mt-1 truncate text-sm font-black tracking-tight text-white">
+                    {watchDateWork.title || watchDateWork.name || 'Untitled'}
+                  </p>
+                  <p className="mt-1 text-[10px] font-medium text-zinc-500">
+                    {watchDateWork.media_type === 'tv' ? 'Series' : 'Movie'} · {watchDateWorkYear}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWatchDateWork(null)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white active:scale-90"
+                  aria-label="Close watch date dialog"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                {(
+                  [
+                    {
+                      id: 'just-now' as const,
+                      label: 'Just Now',
+                      description: 'Mark as watched today',
+                      icon: History,
+                      disabled: false,
+                    },
+                    {
+                      id: 'release' as const,
+                      label: 'Release Date',
+                      description: watchDateReleaseLabel,
+                      icon: CalendarDays,
+                      disabled: !watchDateReleaseRaw,
+                    },
+                    {
+                      id: 'custom' as const,
+                      label: 'Pick a Date',
+                      description: 'Choose a date from the calendar',
+                      icon: Calendar,
+                      disabled: false,
+                    },
+                  ]
+                ).map((option) => {
+                  const Icon = option.icon;
+                  const selected = watchDateMode === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      disabled={option.disabled}
+                      onClick={() => {
+                        setWatchDateMode(option.id);
+                        if (option.id === 'custom') {
+                          setShowCalendarPopup(true);
+                        }
+                      }}
+                      className={`flex min-h-[52px] w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${selected
+                        ? 'border-emerald-400/30 bg-emerald-500/[0.11] text-emerald-50'
+                        : 'border-white/[0.06] bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06] hover:text-white'
+                        }`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/10 transition ${selected
+                          ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-md shadow-emerald-500/30'
+                          : 'bg-white/[0.05] text-zinc-400'
+                          }`}
+                      >
+                        <Icon className="h-4 w-4 stroke-[2.4]" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-bold">{option.label}</span>
+                        <span
+                          className={`mt-0.5 block truncate text-[9px] font-medium ${selected ? 'text-emerald-200/80' : 'text-zinc-500'
+                            }`}
+                        >
+                          {option.description}
+                        </span>
+                      </span>
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${selected
+                          ? 'border-emerald-300/30 bg-emerald-400 text-zinc-950'
+                          : 'border-white/10 bg-white/[0.04] text-transparent'
+                          }`}
+                      >
+                        <Check className="h-3.5 w-3.5 stroke-[3]" />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWatchDateWork(null)}
+                  className="flex min-h-[46px] flex-1 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[11px] font-bold text-zinc-300 transition hover:bg-white/[0.07] hover:text-white active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmWatchDate}
+                  className="flex min-h-[46px] flex-[1.6] items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 px-4 py-3 text-[11px] font-black text-zinc-950 shadow-[0_8px_24px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] transition hover:from-emerald-300 hover:to-emerald-500 active:scale-[0.98]"
+                >
+                  <Check className="h-4 w-4 stroke-[3]" />
+                  Mark as Watched
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCalendarPopup && (
+          <div className="fixed inset-0 z-[10040] flex items-end justify-center sm:items-center sm:p-5">
+            <motion.button
+              type="button"
+              aria-label="Close calendar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCalendarPopup(false)}
+              className="absolute inset-0 h-full w-full border-0 bg-black/70 p-0 backdrop-blur-md"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 36, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 28, scale: 0.985 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              className="relative z-10 flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-[30px] border border-white/10 bg-zinc-950/95 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-24px_70px_rgba(0,0,0,0.62)] backdrop-blur-3xl sm:max-w-md sm:rounded-[32px] sm:p-5"
+            >
+              <div className="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-white/15 sm:hidden" />
+
+              <div className="mb-4 flex shrink-0 items-center justify-between px-2">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Select Date</p>
+                  <p className="mt-1 text-sm font-black tracking-tight text-white">When did you watch it?</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCalendarPopup(false)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white active:scale-90"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
+                <div className="relative w-full overflow-hidden rounded-[24px] border border-white/10 bg-[#0a0a0a] shadow-[0_24px_80px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                  <div className="pointer-events-none absolute left-1/2 top-0 h-32 w-[80%] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[60px]" />
+
+                  <div className="relative p-4 sm:p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPicker(!showPicker)}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2 transition hover:bg-white/5 active:scale-[0.98]"
+                      >
+                        <span className="text-base font-black tracking-wide text-white">
+                          {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        </span>
+                        <ChevronDown className={`h-4 w-4 text-emerald-500 transition-transform duration-300 ${showPicker ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={calendarMonth.getFullYear() >= new Date().getFullYear() && calendarMonth.getMonth() >= new Date().getMonth()}
+                        onClick={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 backdrop-blur-md transition-all hover:bg-white/10 hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <AnimatePresence>
+                      {showPicker && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            className="absolute left-4 right-4 top-[60px] z-50 overflow-hidden rounded-2xl border border-white/10 bg-[#111]/95 shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-3xl"
+                          >
+                            <div className="p-3">
+                              <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => {
+                                  const isYearActive = calendarMonth.getFullYear() === year;
+                                  const isYearDisabled = year > new Date().getFullYear();
+                                  return (
+                                    <button
+                                      key={year}
+                                      type="button"
+                                      disabled={isYearDisabled}
+                                      onClick={() => {
+                                        const safeMonth = year === new Date().getFullYear() ? Math.min(calendarMonth.getMonth(), new Date().getMonth()) : calendarMonth.getMonth();
+                                        setCalendarMonth(new Date(year, safeMonth, 1));
+                                      }}
+                                      className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all duration-200 
+                                  ${isYearActive ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' :
+                                          isYearDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'}`}
+                                    >
+                                      {year}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {Array.from({ length: 12 }, (_, month) => {
+                                  const isMonthActive = calendarMonth.getMonth() === month;
+                                  const isMonthDisabled = calendarMonth.getFullYear() === new Date().getFullYear() && month > new Date().getMonth();
+                                  return (
+                                    <button
+                                      key={month}
+                                      type="button"
+                                      disabled={isMonthDisabled}
+                                      onClick={() => {
+                                        setCalendarMonth(new Date(calendarMonth.getFullYear(), month, 1));
+                                        setShowPicker(false);
+                                      }}
+                                      className={`rounded-lg py-2 text-[11px] font-bold transition-all duration-200 active:scale-95 
+                                  ${isMonthActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                          isMonthDisabled ? 'text-zinc-700 cursor-not-allowed' : 'bg-white/[0.02] text-zinc-400 border border-transparent hover:bg-white/[0.08] hover:text-white'}`}
+                                    >
+                                      {new Date(2000, month, 1).toLocaleDateString(undefined, { month: 'short' })}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="mb-2 grid grid-cols-7 gap-1 text-center">
+                      {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day, index) => (
+                        <span key={`${day}-${index}`} className="py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                          {day}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-y-1 gap-x-1 text-center">
+                      {buildCalendarDays(calendarMonth).map((date) => {
+                        const key = dateKey(date);
+                        const outsideMonth = date.getMonth() !== calendarMonth.getMonth();
+                        const todayEnd = new Date();
+                        todayEnd.setHours(23, 59, 59, 999);
+                        const future = date > todayEnd;
+                        const selected = customWatchDate === key;
+                        const isToday = key === dateKey(new Date());
+
+                        return (
+                          <button
+                            type="button"
+                            key={key}
+                            disabled={future}
+                            onClick={() => setCustomWatchDate(key)}
+                            className={`group relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-semibold transition-all duration-300 
+                        ${selected
+                                ? 'bg-emerald-500 text-zinc-950 shadow-[0_0_15px_rgba(16,185,129,0.6)] scale-110 z-10 font-black'
+                                : outsideMonth
+                                  ? 'text-zinc-600 hover:bg-white/5'
+                                  : 'text-zinc-200 hover:bg-white/10 hover:scale-105'
+                              } disabled:cursor-not-allowed disabled:opacity-20`}
+                          >
+                            {date.getDate()}
+                            {isToday && !selected && (
+                              <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!customWatchDate) return;
+                    setShowCalendarPopup(false);
+                    confirmWatchDate();
+                  }}
+                  disabled={!customWatchDate}
+                  className="flex w-full items-center justify-between rounded-2xl bg-zinc-900 border border-white/10 px-5 py-3.5 transition hover:bg-zinc-800 active:scale-[0.98] group disabled:opacity-50"
+                >
+                  <div className="flex flex-col items-start">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500">Selected Date</span>
+                    <span className="text-sm font-black text-white">
+                      {customWatchDate ? formatWatchDate(keyToDate(customWatchDate)) : 'Pick a date'}
+                    </span>
+                  </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-transform group-hover:scale-110 group-active:scale-95">
+                    <Check className="h-5 w-5 stroke-[3]" />
+                  </div>
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
