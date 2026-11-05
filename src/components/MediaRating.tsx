@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Star, Sparkles, CheckCircle, Edit2, Trash2 } from 'lucide-react';
+import { Star, Sparkles, CheckCircle, Edit2, Trash2, Share2 } from 'lucide-react';
 
 interface MediaRatingProps {
   userRating: number | null;
@@ -11,6 +11,7 @@ interface MediaRatingProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onDeleteRating: () => void;
+  onShare: () => void;
   mediaType: 'movie' | 'tv';
 }
 
@@ -23,6 +24,7 @@ const MediaRating = ({
   onEdit,
   onCancelEdit,
   onDeleteRating,
+  onShare,
   mediaType,
 }: MediaRatingProps) => {
   const maskPrefix = mediaType === 'tv' ? 'star-gradient-tv' : 'star-gradient';
@@ -143,12 +145,12 @@ const MediaRating = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-2.5 w-full max-w-md pt-1">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2.5 w-full max-w-md pt-1">
                 <motion.button
                   onClick={onSubmit}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="flex-1 py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-zinc-950 font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30"
+                  className="py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-zinc-950 font-black text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 w-full"
                 >
                   <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] shrink-0" />
                   <span className="truncate">Re-Submit</span>
@@ -158,20 +160,30 @@ const MediaRating = ({
                   onClick={onEdit}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="flex-1 py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-white font-bold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-md backdrop-blur-xl"
+                  className="py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-white font-bold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-md backdrop-blur-xl w-full"
                 >
                   <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400/20 shrink-0" />
                   <span className="truncate">Edit Rating</span>
                 </motion.button>
 
                 <motion.button
+                  onClick={onShare}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-zinc-200 font-bold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-md backdrop-blur-xl w-full"
+                >
+                  <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="truncate">Share</span>
+                </motion.button>
+
+                <motion.button
                   onClick={onDeleteRating}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 font-bold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-md backdrop-blur-xl"
+                  className="py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 font-bold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-md backdrop-blur-xl w-full"
                 >
                   <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                  <span className="truncate hidden sm:inline">Delete</span>
+                  <span className="truncate">Delete</span>
                 </motion.button>
               </div>
             </div>
@@ -258,16 +270,26 @@ const MediaRating = ({
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-2 sm:gap-3 pt-2 w-full max-w-xs sm:max-w-md mx-auto">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-2 w-full max-w-xs sm:max-w-md mx-auto">
               <motion.button
                 onClick={onSubmit}
                 disabled={userRating === null}
                 whileHover={{ scale: userRating !== null ? 1.02 : 1 }}
                 whileTap={{ scale: userRating !== null ? 0.98 : 1 }}
-                className={`flex-1 min-w-0 py-2.5 sm:py-3 px-3 sm:px-6 rounded-xl font-extrabold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg ${userRating !== null ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-zinc-950 shadow-amber-500/20 hover:shadow-amber-500/30 cursor-pointer' : 'bg-zinc-800/50 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-60'}`}
+                className={`flex-1 min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-6 rounded-xl font-extrabold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg ${userRating !== null ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-zinc-950 shadow-amber-500/20 hover:shadow-amber-500/30 cursor-pointer' : 'bg-zinc-800/50 text-zinc-600 border border-zinc-800 cursor-not-allowed opacity-60'}`}
               >
                 <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] shrink-0" />
                 <span className="truncate">Submit</span>
+              </motion.button>
+
+              <motion.button
+                onClick={onShare}
+                disabled={userRating === null}
+                whileHover={{ scale: userRating !== null ? 1.02 : 1 }}
+                whileTap={{ scale: userRating !== null ? 0.98 : 1 }}
+                className={`py-2.5 sm:py-3 px-3 sm:px-5 rounded-xl font-extrabold text-[11px] sm:text-xs uppercase tracking-wider transition-all duration-200 flex items-center justify-center shrink-0 border ${userRating !== null ? 'bg-white/[0.06] hover:bg-white/[0.1] border-white/10 text-zinc-200 cursor-pointer' : 'bg-zinc-800/50 border-zinc-800 text-zinc-600 cursor-not-allowed opacity-60'}`}
+              >
+                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               </motion.button>
 
               {hasSavedRating && (

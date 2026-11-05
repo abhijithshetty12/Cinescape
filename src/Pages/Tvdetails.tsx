@@ -383,7 +383,7 @@ const UserRatingShareSheet = ({
     }
   };
 
-  if (!open) return null;
+  if (!open || !hasUserRating) return null;
 
   return (
     <>
@@ -919,12 +919,32 @@ const ReviewShareSheet = ({
   const [textSize, setTextSize] = useState<ReviewShareTextSize>('medium');
   const [artworkSelector, setArtworkSelector] = useState<ArtworkTab | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [previewScale, setPreviewScale] = useState(0.25);
+
   const storyCardRef = useRef<HTMLDivElement | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
   const artwork = useTmdbArtwork(open, movieId, mediaType, posterPath, backdropPath);
 
   const hasRating = rating !== null && rating !== undefined && Number.isFinite(rating);
   const isRewatch = (watchCount || 0) > 1;
   const handle = userHandle || author.toLowerCase().replace(/\s/g, '') || 'user';
+
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+
+      if (width && height) {
+        setPreviewScale(Math.min(width / 1080, height / 1920));
+      }
+    });
+
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [open]);
 
   const GRAIN = {
     backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='0.9'/%3E%3C/svg%3E")`,
@@ -966,6 +986,243 @@ const ReviewShareSheet = ({
       : `${(rating as number).toFixed(1)}/10`
     : '';
 
+  // We render the exact same card component for both preview and export
+  const renderCard = (isExport = false) => {
+    const ref = isExport ? { ref: storyCardRef } : {};
+
+    if (theme === 'minimal') {
+      return (
+        <div {...ref} className="relative h-[1920px] w-[1080px] overflow-hidden bg-[#0a0202] text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+          <div className="absolute inset-0" style={{ background: redGrainBg }} />
+          <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
+          <div className="relative z-10 flex h-full flex-col justify-between p-[100px]">
+            <div className="flex items-start justify-between">
+              <div className="rounded-[28px] border border-white/10 bg-black/50 p-[24px] backdrop-blur-md shadow-2xl">
+                <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[100px] w-[100px] object-contain" />
+              </div>
+              <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="mt-[10px] h-[50px] object-contain opacity-80 brightness-0 invert" />
+            </div>
+            <div>
+              {artwork.poster && <img src={artwork.poster} crossOrigin={isExport ? "anonymous" : undefined} alt={title} className="mb-[60px] h-[540px] w-[360px] rounded-[30px] border border-white/10 object-cover shadow-[0_30px_60px_rgba(0,0,0,0.7)]" />}
+              <div className="flex items-center gap-[20px] text-[26px] font-black uppercase tracking-[0.28em] text-white/55">
+                <span className="h-px w-[60px] bg-white/35" /> Cinematic Review
+              </div>
+              <h1 className="mt-[40px] font-serif text-[130px] font-bold leading-[1.02] tracking-tight text-white line-clamp-3 drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">{title || 'Untitled'}</h1>
+              <div className="mt-[30px] flex flex-wrap items-center gap-[20px]">
+                {releaseYear && <span className="text-[36px] font-semibold text-white/60">{releaseYear}</span>}
+                {hasRating && (
+                  <>
+                    <span className="text-[36px] text-white/30">·</span>
+                    <ShareRatingStars rating={rating as number} size={36} gap={4} />
+                    <span className="text-[36px] font-bold text-white/90">{ratingLabel}</span>
+                    {isFavorite && <Heart className="h-[36px] w-[36px] fill-red-400 text-red-400" />}
+                  </>
+                )}
+              </div>
+              {reviewContent && (
+                <div className="relative mt-[50px] overflow-hidden pl-[56px]">
+                  <Quote className="absolute left-0 top-0 h-[40px] w-[40px] rotate-180 text-white/35" />
+                  <p className="whitespace-pre-line text-[36px] italic leading-[1.5] text-white/75 line-clamp-3">{reviewContent}</p>
+                </div>
+              )}
+              <div className="mt-[50px] flex items-center justify-between border-t border-white/10 pt-[36px]">
+                <div className="flex items-center gap-[24px]">
+                  <div className="h-[100px] w-[100px] overflow-hidden rounded-full border-[3px] border-white/20 shadow-xl">
+                    <img src={userPhoto || '/user-icon.jpg'} crossOrigin={isExport ? "anonymous" : undefined} alt={author} className="h-full w-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-[32px] font-bold text-white">{author}</p>
+                    <p className="text-[24px] text-white/50">@{handle}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[20px] uppercase tracking-[0.22em] text-white/40">Watched</p>
+                  <p className="mt-[8px] text-[28px] font-semibold text-white/85">{watchDate || 'Recently'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (theme === 'cinematic') {
+      return (
+        <div {...ref} className="relative flex h-[1920px] w-[1080px] flex-col overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+          <div className="relative h-[1000px] w-full shrink-0 overflow-hidden">
+            {artwork.backdrop ? (
+              <img src={artwork.backdrop} crossOrigin={isExport ? "anonymous" : undefined} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black" />
+            <div className="absolute left-[80px] right-[80px] top-[110px] flex items-center justify-between">
+              <div className="flex items-center gap-[16px] rounded-full border border-white/15 bg-black/55 px-[36px] py-[16px] backdrop-blur-md">
+                <Clapperboard className="h-[30px] w-[30px] text-white" />
+                <span className="text-[24px] font-bold uppercase tracking-[0.22em] text-white">{mediaType === 'tv' ? 'Series Review' : 'Film Review'}</span>
+              </div>
+              <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain brightness-0 invert opacity-90" />
+            </div>
+          </div>
+          <div className="relative flex flex-1 flex-col bg-black px-[80px] pb-[80px] pt-0">
+            <div className="relative flex shrink-0 items-end gap-[40px]">
+              <div className="relative z-10 -mt-[180px]">
+                {artwork.poster ? (
+                  <img src={artwork.poster} crossOrigin={isExport ? "anonymous" : undefined} alt={title} className="h-[420px] w-[280px] rounded-[20px] border border-white/15 object-cover shadow-[0_40px_80px_rgba(0,0,0,0.8)]" />
+                ) : (
+                  <div className="flex h-[420px] w-[280px] items-center justify-center rounded-[20px] border border-white/15 bg-zinc-900">
+                    <Film className="h-[60px] w-[60px] text-white/20" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 pb-[20px]">
+                <p className="text-[22px] font-black uppercase tracking-[0.24em] text-white/35">A {mediaType === 'tv' ? 'Series' : 'Film'} By Review</p>
+                <h1 className="mt-[20px] font-serif text-[96px] font-bold leading-[1.02] tracking-tight text-white line-clamp-2">{title || 'Untitled'}</h1>
+                <div className="mt-[20px] flex flex-wrap items-center gap-[18px]">
+                  {releaseYear && <span className="text-[32px] font-semibold text-white/50">{releaseYear}</span>}
+                  {hasRating && (
+                    <>
+                      <span className="text-[32px] text-white/25">·</span>
+                      <ShareRatingStars rating={rating as number} size={32} gap={4} />
+                      <span className="text-[30px] font-bold text-white/85">{ratingLabel}</span>
+                      {isFavorite && <Heart className="h-[30px] w-[30px] fill-red-400 text-red-400" />}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            {reviewContent && (
+              <div className="relative mt-[40px] overflow-hidden pl-[40px]" style={{ maxHeight: '360px' }}>
+                <Quote className="absolute left-0 top-0 h-[32px] w-[32px] rotate-180 text-white/30" />
+                <p className="whitespace-pre-line text-[30px] italic leading-[1.5] text-white/75 line-clamp-6">{reviewContent}</p>
+              </div>
+            )}
+            <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-[30px]">
+              <div className="flex items-center gap-[20px]">
+                <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/15">
+                  <img src={userPhoto || '/user-icon.jpg'} crossOrigin={isExport ? "anonymous" : undefined} alt={author} className="h-full w-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-[28px] font-bold text-white">{author}</p>
+                  <p className="text-[20px] text-white/45">@{handle}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-[16px] opacity-85">
+                <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[36px] w-auto object-contain" />
+                <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[26px] w-auto object-contain brightness-0 invert" />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (theme === 'poster') {
+      return (
+        <div {...ref} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+          {artwork.poster ? <img src={artwork.poster} crossOrigin={isExport ? "anonymous" : undefined} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black" />}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 32%, rgba(0,0,0,0.65) 58%, #000 92%)' }} />
+          <div className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-25" style={GRAIN} />
+          <div className="absolute left-[80px] right-[80px] top-[80px] z-30 flex items-center justify-between">
+            <div className="rounded-[24px] border border-white/15 bg-black/55 p-[20px] backdrop-blur-md">
+              <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[70px] w-[70px] object-contain" />
+            </div>
+            <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain opacity-85 brightness-0 invert" />
+          </div>
+          <div className="absolute inset-x-0 bottom-0 z-20 px-[80px] pb-[80px] pt-[40px]">
+            <Quote className="h-[60px] w-[60px] rotate-180 text-white/45" />
+            <h1 className="mt-[24px] font-serif text-[110px] font-bold leading-[1.02] tracking-tight text-white line-clamp-2 drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">{title || 'Untitled'}</h1>
+            <div className="mt-[26px] flex flex-wrap items-center gap-[20px]">
+              {releaseYear && <span className="text-[32px] font-semibold text-white/60">{releaseYear}</span>}
+              {hasRating && (
+                <>
+                  <span className="text-[32px] text-white/30">·</span>
+                  <ShareRatingStars rating={rating as number} size={32} gap={4} />
+                  <span className="text-[32px] font-bold text-white/90">{ratingLabel}</span>
+                  {isFavorite && <Heart className="h-[32px] w-[32px] fill-red-400 text-red-400" />}
+                </>
+              )}
+            </div>
+            {reviewContent && <p className="mt-[32px] whitespace-pre-line text-[34px] italic leading-[1.5] text-white/80 line-clamp-4">{reviewContent}</p>}
+            <div className="mt-[40px] flex items-center justify-between border-t border-white/20 pt-[30px]">
+              <div className="flex items-center gap-[20px]">
+                <div className="h-[80px] w-[80px] overflow-hidden rounded-full border border-white/25">
+                  <img src={userPhoto || '/user-icon.jpg'} crossOrigin={isExport ? "anonymous" : undefined} alt={author} className="h-full w-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-[28px] font-bold text-white">{author}</p>
+                  <p className="text-[20px] text-white/50">@{handle}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-[16px] opacity-90">
+                <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[36px] w-auto object-contain" />
+                <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[24px] w-auto object-contain brightness-0 invert" />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div {...ref} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
+        {artwork.backdrop ? <img src={artwork.backdrop} crossOrigin={isExport ? "anonymous" : undefined} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-950 to-black" />}
+        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
+        <div className={`absolute left-1/2 top-1/2 w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-[32px] border px-[42px] pb-[34px] pt-[38px] shadow-[0_48px_140px_rgba(0,0,0,0.58)] ${backdropCardClass}`}>
+          <div className="flex items-center gap-[16px] pr-[190px]">
+            <div className="h-[58px] w-[58px] shrink-0 overflow-hidden rounded-full border border-white/10 bg-zinc-800">
+              <img src={userPhoto || '/user-icon.jpg'} crossOrigin={isExport ? "anonymous" : undefined} alt={author} className="h-full w-full object-cover" />
+            </div>
+            <span className="max-w-[470px] truncate text-[24px] font-semibold tracking-tight text-zinc-300">{author}</span>
+          </div>
+          <div className="absolute right-[42px] top-[38px] h-[230px] w-[154px] overflow-hidden rounded-[7px] border border-white/10 bg-zinc-900 shadow-[0_22px_55px_rgba(0,0,0,0.48)]">
+            {artwork.poster ? (
+              <img src={artwork.poster} crossOrigin={isExport ? "anonymous" : undefined} alt={title} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center"><Film className="h-14 w-14 text-white/15" /></div>
+            )}
+          </div>
+          <div className="mt-[32px] pr-[186px]">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-[39px] font-black leading-[1.08] tracking-tight text-white">{title || 'Untitled'}</h1>
+              {releaseYear && <span className="text-[24px] font-medium text-zinc-500">{releaseYear}</span>}
+            </div>
+            {hasRating && (
+              <div className="mt-[12px] flex items-center gap-[10px]">
+                <ShareRatingStars rating={rating as number} size={28} gap={4} />
+                <span className="text-[20px] font-medium leading-none text-zinc-400">{ratingLabel}</span>
+                {isFavorite && <Heart className="h-[26px] w-[26px] shrink-0 fill-red-500 text-red-500 drop-shadow-[0_2px_8px_rgba(239,68,68,0.4)]" />}
+              </div>
+            )}
+          </div>
+          {(watchDate || isRewatch) && (
+            <div className="mt-[34px] flex items-center gap-[12px]">
+              <p className="text-[20px] font-medium text-zinc-500">Watched {watchDate || 'Recently'}</p>
+              {isRewatch && (
+                <span className="inline-flex items-center gap-[8px] text-[15px] font-semibold tracking-[0.02em] text-zinc-500">
+                  <RotateCcw className="h-[17px] w-[17px] stroke-[2]" /> Rewatch ×{watchCount}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="relative mt-[20px] pl-[38px]">
+            <Quote className="absolute left-1.5 -top-0.5 h-[28px] w-[28px] rotate-180 text-white/25" />
+            <p className="overflow-hidden whitespace-pre-line font-normal tracking-[-0.01em] text-zinc-300" style={{ fontSize: textSize === 'small' ? '22px' : textSize === 'large' ? '30px' : reviewContent.length > 700 ? '22px' : reviewContent.length > 420 ? '25px' : '28px', lineHeight: 1.43, maxHeight: textSize === 'large' ? '680px' : '620px' }}>{reviewContent}</p>
+          </div>
+          <div className={`mt-[30px] flex items-center justify-between border-t pt-[20px] ${backdropFooterBorder}`}>
+            <span className="text-[16px] font-medium text-zinc-600">{mediaType === 'tv' ? 'Series review' : 'Film review'}</span>
+            <div className="flex items-center gap-[12px] opacity-80">
+              <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[28px] w-auto object-contain" />
+              <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[20px] w-auto object-contain brightness-0 invert" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-[10065] flex items-end justify-center p-0 overflow-hidden sm:items-center sm:p-5">
@@ -991,293 +1248,20 @@ const ReviewShareSheet = ({
             </div>
 
             <div className="flex h-[36dvh] min-h-[190px] max-h-[340px] shrink-0 items-center justify-center py-1 sm:h-auto sm:min-h-0 sm:max-h-none sm:flex-1 sm:py-4">
-              <div className="relative h-full max-h-full aspect-[9/16] w-auto max-w-full shrink-0 overflow-hidden rounded-[20px] border border-white/15 bg-black shadow-[0_24px_70px_rgba(0,0,0,0.5)] sm:rounded-[30px]">
-                {theme === 'minimal' && (
-                  <div className="absolute inset-0">
-                    <div className="absolute inset-0 bg-[#0a0202]" />
-                    <div className="absolute inset-0" style={{ background: redGrainBg }} />
-                    <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
-                    <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
-
-                    <div className="relative z-10 flex h-full flex-col p-4 justify-between sm:p-5">
-                      <div className="flex items-start justify-between">
-                        <div className="rounded-xl border border-white/10 bg-black/50 p-1.5 backdrop-blur-md shadow-lg">
-                          <img src="/Cinescape_Logo.svg" alt="Logo" className="h-5 w-5 object-contain sm:h-6 sm:w-6" />
-                        </div>
-                        <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="mt-1 h-2.5 object-contain opacity-80 brightness-0 invert sm:h-3" />
-                      </div>
-
-                      <div className="break-words">
-                        {artwork.poster && (
-                          <div className="mb-3 flex justify-start sm:mb-4">
-                            <img
-                              src={artwork.poster}
-                              alt={title}
-                              className="h-24 w-16 rounded-md border border-white/10 object-cover shadow-[0_8px_20px_rgba(0,0,0,0.5)] sm:h-32 sm:w-[86px] sm:rounded-lg"
-                            />
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 text-[6px] font-black uppercase tracking-[0.28em] text-white/55 sm:text-[7px]">
-                          <span className="h-px w-3 bg-white/35 sm:w-4" />
-                          Cinematic Review
-                        </div>
-                        <h3 className="mt-1.5 font-serif text-[14px] font-bold leading-[1.05] text-white line-clamp-3 drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)] sm:mt-2 sm:text-[24px]">
-                          {title || 'Untitled'}
-                        </h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-2.5 sm:gap-2">
-                          {releaseYear && <span className="text-[8px] font-semibold text-white/60 sm:text-[10px]">{releaseYear}</span>}
-                          {hasRating && (
-                            <>
-                              <span className="text-[8px] text-white/30 sm:text-[10px]">·</span>
-                              <ShareRatingStars rating={rating as number} size={7} gap={1} />
-                              <span className="text-[8px] font-bold text-white/90 sm:text-[10px]">{ratingLabel}</span>
-                              {isFavorite && <Heart className="h-2 w-2 fill-red-400 text-red-400 sm:h-2.5 sm:w-2.5" />}
-                            </>
-                          )}
-                        </div>
-
-                        {reviewContent && (
-                          <div className="relative mt-2 sm:mt-3">
-                            <Quote className="absolute -top-0.5 left-0 h-2 w-2 rotate-180 text-white/35 sm:h-2.5 sm:w-2.5" />
-                            <p className="line-clamp-3 pl-3 text-[8px] italic leading-[1.5] text-white/70 sm:pl-4 sm:text-[10px]">{reviewContent}</p>
-                          </div>
-                        )}
-
-                        <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-2 sm:mt-4 sm:pt-3">
-                          <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/20 sm:h-7 sm:w-7">
-                            <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[8px] font-bold text-white sm:text-[10px]">{author}</p>
-                            <p className="truncate text-[6px] text-white/45 sm:text-[8px]">@{handle}</p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-[5px] font-bold uppercase tracking-[0.22em] text-white/40 sm:text-[6px]">Watched</p>
-                            <p className="text-[7px] font-semibold text-white/80 sm:text-[8px]">{watchDate || 'Recently'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {theme === 'cinematic' && (
-                  <div className="absolute inset-0 flex flex-col bg-black">
-                    <div className="relative h-[52%] w-full shrink-0 overflow-hidden">
-                      {artwork.backdrop ? (
-                        <img src={artwork.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black" />
-
-                      <div className="absolute left-2.5 right-2.5 top-3 flex items-center justify-between sm:left-3 sm:right-3 sm:top-4">
-                        <div className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-2 py-0.5 backdrop-blur-md sm:px-2.5 sm:py-1">
-                          <Clapperboard className="h-2 w-2 text-white sm:h-2.5 sm:w-2.5" />
-                          <span className="text-[5px] font-bold uppercase tracking-[0.2em] text-white sm:text-[7px]">{mediaType === 'tv' ? 'Series Review' : 'Film Review'}</span>
-                        </div>
-                        <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-2 object-contain brightness-0 invert opacity-90 sm:h-2.5" />
-                      </div>
-                    </div>
-
-                    <div className="relative flex min-h-0 flex-1 flex-col bg-black px-3 pb-3 pt-0 sm:px-5 sm:pb-5">
-                      <div className="relative flex shrink-0 items-end gap-2 sm:gap-3">
-                        <div className="relative z-10 -mt-8 sm:-mt-11">
-                          {artwork.poster ? (
-                            <img
-                              src={artwork.poster}
-                              alt={title}
-                              className="h-[72px] w-12 rounded-md border border-white/15 object-cover shadow-[0_16px_32px_rgba(0,0,0,0.7)] sm:h-[96px] sm:w-16 sm:rounded-lg"
-                            />
-                          ) : (
-                            <div className="flex h-[72px] w-12 items-center justify-center rounded-md border border-white/15 bg-zinc-900 sm:h-[96px] sm:w-16 sm:rounded-lg">
-                              <Film className="h-3 w-3 text-white/20 sm:h-4 sm:w-4" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1 pb-0.5 sm:pb-1 break-words">
-                          <p className="text-[5.5px] font-black uppercase tracking-[0.24em] text-white/35 sm:text-[6.5px]">A {mediaType === 'tv' ? 'Series' : 'Film'} By Review</p>
-                          <h3 className="mt-0.5 font-serif text-[13px] font-bold leading-[1.08] text-white line-clamp-2 sm:mt-1 sm:text-[17px]">{title || 'Untitled'}</h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:gap-1.5">
-                            {releaseYear && <span className="text-[8px] font-semibold text-white/50 sm:text-[9px]">{releaseYear}</span>}
-                            {hasRating && (
-                              <>
-                                <span className="text-[8px] text-white/25 sm:text-[9px]">·</span>
-                                <ShareRatingStars rating={rating as number} size={7} gap={1} />
-                                <span className="text-[8px] font-bold text-white/85 sm:text-[9px]">{ratingLabel}</span>
-                                {isFavorite && <Heart className="h-2 w-2 fill-red-400 text-red-400 sm:h-2.5 sm:w-2.5" />}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {reviewContent && (
-                        <div className="relative mt-2 overflow-hidden pl-3 sm:mt-2.5 sm:pl-3.5">
-                          <Quote className="absolute left-0 top-0 h-2 w-2 rotate-180 text-white/30 sm:h-2.5 sm:w-2.5" />
-                          <p className={`whitespace-pre-line break-words text-[8px] italic leading-[1.5] text-white/70 sm:text-[10px] line-clamp-3 sm:line-clamp-4 ${textSize === 'small' ? 'text-[7px] sm:text-[8px]' : textSize === 'large' ? 'text-[9px] sm:text-[12px]' : ''}`}>
-                            {reviewContent}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-white/10 pt-2 sm:pt-2.5">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-white/15 sm:h-5 sm:w-5">
-                            <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-[8px] font-bold text-white sm:text-[9px]">{author}</p>
-                            <p className="truncate text-[6px] text-white/45 sm:text-[7px]">@{handle}</p>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1 opacity-80 sm:gap-1.5">
-                          <img src="/Cinescape_Logo.svg" alt="Logo" className="h-2 w-auto object-contain sm:h-2.5" />
-                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-1.5 w-auto object-contain brightness-0 invert sm:h-2" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {theme === 'poster' && (
-                  <div className="absolute inset-0 bg-black">
-                    {artwork.poster ? (
-                      <img src={artwork.poster} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black" />
-                    )}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 32%, rgba(0,0,0,0.65) 58%, #000 92%)',
-                      }}
-                    />
-                    <div className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-25" style={GRAIN} />
-
-                    <div className="absolute left-2.5 right-2.5 top-2.5 z-30 flex items-center justify-between sm:left-3 sm:right-3 sm:top-3">
-                      <div className="rounded-lg border border-white/15 bg-black/55 p-1.5 backdrop-blur-md">
-                        <img src="/Cinescape_Logo.svg" alt="Logo" className="h-4 w-4 object-contain sm:h-5 sm:w-5" />
-                      </div>
-                      <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-2.5 object-contain opacity-85 brightness-0 invert sm:h-3" />
-                    </div>
-
-                    <div className="absolute inset-x-0 bottom-0 z-20 p-4 sm:p-6 break-words">
-                      <Quote className="h-4 w-4 rotate-180 text-white/40 sm:h-5 sm:w-5" />
-                      <h3 className="mt-1.5 font-serif text-[16px] font-bold leading-[1.05] text-white line-clamp-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] sm:mt-2 sm:text-[26px]">
-                        {title || 'Untitled'}
-                      </h3>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:mt-2">
-                        {releaseYear && <span className="text-[8px] font-semibold text-white/60 sm:text-[10px]">{releaseYear}</span>}
-                        {hasRating && (
-                          <>
-                            <span className="text-[8px] text-white/30 sm:text-[10px]">·</span>
-                            <ShareRatingStars rating={rating as number} size={7} gap={1} />
-                            <span className="text-[8px] font-bold text-white/90 sm:text-[10px]">{ratingLabel}</span>
-                            {isFavorite && <Heart className="h-2 w-2 fill-red-400 text-red-400 sm:h-2.5 sm:w-2.5" />}
-                          </>
-                        )}
-                      </div>
-
-                      {reviewContent && (
-                        <p className={`mt-2 whitespace-pre-line break-words text-[8px] italic leading-[1.5] text-white/75 sm:mt-2.5 sm:text-[11px] line-clamp-3 ${textSize === 'small' ? 'text-[7px] sm:text-[9px]' : textSize === 'large' ? 'text-[9px] sm:text-[12.5px]' : ''}`}>
-                          {reviewContent}
-                        </p>
-                      )}
-
-                      <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/15 pt-2.5 sm:mt-4 sm:pt-3">
-                        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-                          <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/20 sm:h-6 sm:w-6">
-                            <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-[8px] font-bold text-white sm:text-[9px]">{author}</p>
-                            <p className="truncate text-[6px] text-white/50 sm:text-[7px]">@{handle}</p>
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-[5px] font-bold uppercase tracking-[0.22em] text-white/40 sm:text-[6px]">Watched</p>
-                          <p className="text-[7px] font-semibold text-white/80 sm:text-[8px]">{watchDate || 'Recently'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {theme === 'backdrop' && (
-                  <>
-                    {artwork.backdrop ? (
-                      <img src={artwork.backdrop} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-950 to-black" />
-                    )}
-                    <div className="absolute inset-0 bg-black/25" />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/45" />
-
-                    <div className={`absolute left-1/2 top-1/2 z-20 w-[88%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border p-3 text-left shadow-[0_20px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:w-[82%] sm:rounded-[18px] sm:p-4 ${backdropCardClass}`}>
-                      <div className="flex items-center gap-2 pr-[50px] sm:pr-[72px] break-words">
-                        <div className="h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/10 bg-zinc-800 sm:h-7 sm:w-7">
-                          <img src={userPhoto || '/user-icon.jpg'} alt={author} className="h-full w-full object-cover" />
-                        </div>
-                        <span className="truncate text-[7px] font-semibold text-zinc-300 sm:text-[9px]">{author}</span>
-                      </div>
-
-                      <div className="absolute right-3 top-3 h-[60px] w-[40px] overflow-hidden rounded-[3px] border border-white/10 bg-zinc-900 shadow-[0_8px_20px_rgba(0,0,0,0.4)] sm:right-4 sm:top-4 sm:h-[82px] sm:w-[55px]">
-                        {artwork.poster ? (
-                          <img src={artwork.poster} alt={title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center"><Film className="h-3 w-3 text-white/20 sm:h-5 sm:w-5" /></div>
-                        )}
-                      </div>
-
-                      <div className="mt-2 pr-[46px] sm:mt-3 sm:pr-[68px]">
-                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 break-words">
-                          <h2 className="text-[10px] font-black leading-tight tracking-tight text-white sm:text-[13px]">{title || 'Untitled'}</h2>
-                          {releaseYear && <span className="text-[7px] font-medium text-zinc-500 sm:text-[9px]">{releaseYear}</span>}
-                        </div>
-
-                        {hasRating && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1 sm:mt-1.5 sm:flex-nowrap sm:gap-1.5">
-                            <ShareRatingStars rating={rating as number} size={8} gap={1} />
-                            <span className="text-[7px] font-medium leading-none text-zinc-400 sm:text-[9px]">{ratingLabel}</span>
-                            {isFavorite && <Heart className="h-2 w-2 shrink-0 fill-red-500 text-red-500 drop-shadow-[0_2px_8px_rgba(239,68,68,0.4)] sm:h-3 sm:w-3" />}
-                          </div>
-                        )}
-                      </div>
-
-                      {(watchDate || isRewatch) && (
-                        <div className="mt-2 flex items-center gap-1.5 sm:mt-3">
-                          <p className="text-[6px] font-medium text-zinc-500 sm:text-[8px]">Watched {watchDate || 'Recently'}</p>
-                          {isRewatch && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.05] px-1 py-[1px] text-[5px] font-semibold tracking-wide text-zinc-300 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] backdrop-blur-md sm:gap-1 sm:px-1.5 sm:text-[6.5px]">
-                              <RotateCcw className="h-1 w-1 stroke-[2] text-zinc-400 sm:h-2 sm:w-2" />
-                              <span>Rewatch ×{watchCount}</span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="relative mt-1.5 pl-0 sm:mt-2">
-                        <Quote className="pointer-events-none absolute -top-1 left-0 h-2 w-2 rotate-180 text-white/30 sm:h-2.5 sm:w-2.5" />
-                        <p
-                          className={`overflow-hidden whitespace-pre-line break-words pl-3 text-[8px] font-normal leading-[1.4] text-zinc-300 sm:pl-3.5 sm:text-[10px] sm:leading-[1.45] ${textSize === 'small' ? 'text-[7px] sm:text-[8px]' : textSize === 'large' ? 'text-[9px] sm:text-[12px]' : ''}`}
-                          style={{ maxHeight: textSize === 'large' ? '115px' : '80px' }}
-                        >
-                          {reviewContent}
-                        </p>
-                      </div>
-
-                      <div className={`mt-2 flex items-center justify-between border-t pt-1.5 sm:mt-3 sm:pt-2.5 ${backdropFooterBorder}`}>
-                        <span className="text-[5px] font-medium text-zinc-600 sm:text-[7px]">{mediaType === 'tv' ? 'Series review' : 'Film review'}</span>
-                        <div className="flex items-center gap-1 opacity-80 sm:gap-1.5">
-                          <img src="/Cinescape_Logo.svg" alt="Logo" className="h-2.5 w-auto object-contain sm:h-3.5" />
-                          <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-1.5 w-auto object-contain brightness-0 invert sm:h-2.5" />
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
+              <div
+                ref={previewContainerRef}
+                className="relative h-full aspect-[9/16] w-auto max-w-full shrink-0 overflow-hidden rounded-[20px] border border-white/15 bg-black shadow-[0_24px_70px_rgba(0,0,0,0.5)] sm:rounded-[30px]"
+              >
+                <div
+                  className="absolute left-0 top-0 origin-top-left"
+                  style={{
+                    transform: `scale(${previewScale})`,
+                    width: '1080px',
+                    height: '1920px',
+                  }}
+                >
+                  {renderCard(false)}
+                </div>
               </div>
             </div>
           </div>
@@ -1357,303 +1341,7 @@ const ReviewShareSheet = ({
       </div>
 
       <div className="fixed -left-[9999px] -top-[9999px] pointer-events-none" aria-hidden="true">
-        {theme === 'minimal' && (
-          <div ref={storyCardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-[#0a0202] text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
-            <div className="absolute inset-0" style={{ background: redGrainBg }} />
-            <div className="absolute inset-0 mix-blend-overlay opacity-60" style={GRAIN} />
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 18%, rgba(0,0,0,0.82) 100%)' }} />
-
-            <div className="relative z-10 flex h-full flex-col justify-between p-[100px]">
-              <div className="flex items-start justify-between">
-                <div className="rounded-[28px] border border-white/10 bg-black/50 p-[24px] backdrop-blur-md shadow-2xl">
-                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[100px] w-[100px] object-contain" />
-                </div>
-                <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="mt-[10px] h-[50px] object-contain opacity-80 brightness-0 invert" />
-              </div>
-
-              <div>
-                {artwork.poster && (
-                  <img
-                    src={artwork.poster}
-                    crossOrigin="anonymous"
-                    alt={title}
-                    className="mb-[60px] h-[540px] w-[360px] rounded-[30px] border border-white/10 object-cover shadow-[0_30px_60px_rgba(0,0,0,0.7)]"
-                  />
-                )}
-                <div className="flex items-center gap-[20px] text-[26px] font-black uppercase tracking-[0.28em] text-white/55">
-                  <span className="h-px w-[60px] bg-white/35" />
-                  Cinematic Review
-                </div>
-                <h1 className="mt-[40px] font-serif text-[130px] font-bold leading-[1.02] tracking-tight text-white line-clamp-3 drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
-                  {title || 'Untitled'}
-                </h1>
-                <div className="mt-[30px] flex flex-wrap items-center gap-[20px]">
-                  {releaseYear && <span className="text-[36px] font-semibold text-white/60">{releaseYear}</span>}
-                  {hasRating && (
-                    <>
-                      <span className="text-[36px] text-white/30">·</span>
-                      <ShareRatingStars rating={rating as number} size={36} gap={4} />
-                      <span className="text-[36px] font-bold text-white/90">{ratingLabel}</span>
-                      {isFavorite && <Heart className="h-[36px] w-[36px] fill-red-400 text-red-400" />}
-                    </>
-                  )}
-                </div>
-
-                {reviewContent && (
-                  <div className="relative mt-[50px] overflow-hidden pl-[56px]">
-                    <Quote className="absolute left-0 top-0 h-[40px] w-[40px] rotate-180 text-white/35" />
-                    <p className="whitespace-pre-line text-[36px] italic leading-[1.5] text-white/75 line-clamp-3">
-                      {reviewContent}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-[50px] flex items-center justify-between border-t border-white/10 pt-[36px]">
-                  <div className="flex items-center gap-[24px]">
-                    <div className="h-[100px] w-[100px] overflow-hidden rounded-full border-[3px] border-white/20 shadow-xl">
-                      <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
-                    </div>
-                    <div>
-                      <p className="text-[32px] font-bold text-white">{author}</p>
-                      <p className="text-[24px] text-white/50">@{handle}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[20px] uppercase tracking-[0.22em] text-white/40">Watched</p>
-                    <p className="mt-[8px] text-[28px] font-semibold text-white/85">{watchDate || 'Recently'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {theme === 'cinematic' && (
-          <div ref={storyCardRef} className="relative flex h-[1920px] w-[1080px] flex-col overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
-            <div className="relative h-[1000px] w-full shrink-0 overflow-hidden">
-              {artwork.backdrop ? (
-                <img src={artwork.backdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black" />
-
-              <div className="absolute left-[80px] right-[80px] top-[110px] flex items-center justify-between">
-                <div className="flex items-center gap-[16px] rounded-full border border-white/15 bg-black/55 px-[36px] py-[16px] backdrop-blur-md">
-                  <Clapperboard className="h-[30px] w-[30px] text-white" />
-                  <span className="text-[24px] font-bold uppercase tracking-[0.22em] text-white">{mediaType === 'tv' ? 'Series Review' : 'Film Review'}</span>
-                </div>
-                <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain brightness-0 invert opacity-90" />
-              </div>
-            </div>
-
-            <div className="relative flex flex-1 flex-col bg-black px-[80px] pb-[80px] pt-0">
-              <div className="relative flex shrink-0 items-end gap-[40px]">
-                <div className="relative z-10 -mt-[180px]">
-                  {artwork.poster ? (
-                    <img
-                      src={artwork.poster}
-                      crossOrigin="anonymous"
-                      alt={title}
-                      className="h-[420px] w-[280px] rounded-[20px] border border-white/15 object-cover shadow-[0_40px_80px_rgba(0,0,0,0.8)]"
-                    />
-                  ) : (
-                    <div className="flex h-[420px] w-[280px] items-center justify-center rounded-[20px] border border-white/15 bg-zinc-900">
-                      <Film className="h-[60px] w-[60px] text-white/20" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 pb-[20px]">
-                  <p className="text-[22px] font-black uppercase tracking-[0.24em] text-white/35">
-                    A {mediaType === 'tv' ? 'Series' : 'Film'} By Review
-                  </p>
-                  <h1 className="mt-[20px] font-serif text-[96px] font-bold leading-[1.02] tracking-tight text-white line-clamp-2">
-                    {title || 'Untitled'}
-                  </h1>
-                  <div className="mt-[20px] flex flex-wrap items-center gap-[18px]">
-                    {releaseYear && <span className="text-[32px] font-semibold text-white/50">{releaseYear}</span>}
-                    {hasRating && (
-                      <>
-                        <span className="text-[32px] text-white/25">·</span>
-                        <ShareRatingStars rating={rating as number} size={32} gap={4} />
-                        <span className="text-[30px] font-bold text-white/85">{ratingLabel}</span>
-                        {isFavorite && <Heart className="h-[30px] w-[30px] fill-red-400 text-red-400" />}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {reviewContent && (
-                <div className="relative mt-[40px] overflow-hidden pl-[40px]" style={{ maxHeight: '360px' }}>
-                  <Quote className="absolute left-0 top-0 h-[32px] w-[32px] rotate-180 text-white/30" />
-                  <p className="whitespace-pre-line text-[30px] italic leading-[1.5] text-white/75 line-clamp-6">
-                    {reviewContent}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-[30px]">
-                <div className="flex items-center gap-[20px]">
-                  <div className="h-[72px] w-[72px] overflow-hidden rounded-full border border-white/15">
-                    <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
-                  </div>
-                  <div>
-                    <p className="text-[28px] font-bold text-white">{author}</p>
-                    <p className="text-[20px] text-white/45">@{handle}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-[16px] opacity-85">
-                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[36px] w-auto object-contain" />
-                  <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[26px] w-auto object-contain brightness-0 invert" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {theme === 'poster' && (
-          <div ref={storyCardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
-            {artwork.poster ? (
-              <img src={artwork.poster} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-black" />
-            )}
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 18%, rgba(0,0,0,0) 32%, rgba(0,0,0,0.65) 58%, #000 92%)',
-              }}
-            />
-            <div className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-25" style={GRAIN} />
-
-            <div className="absolute left-[80px] right-[80px] top-[80px] z-30 flex items-center justify-between">
-              <div className="rounded-[24px] border border-white/15 bg-black/55 p-[20px] backdrop-blur-md">
-                <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[70px] w-[70px] object-contain" />
-              </div>
-              <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[40px] object-contain opacity-85 brightness-0 invert" />
-            </div>
-
-            <div className="absolute inset-x-0 bottom-0 z-20 px-[80px] pb-[80px] pt-[40px]">
-              <Quote className="h-[60px] w-[60px] rotate-180 text-white/45" />
-              <h1 className="mt-[24px] font-serif text-[110px] font-bold leading-[1.02] tracking-tight text-white line-clamp-2 drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
-                {title || 'Untitled'}
-              </h1>
-              <div className="mt-[26px] flex flex-wrap items-center gap-[20px]">
-                {releaseYear && <span className="text-[32px] font-semibold text-white/60">{releaseYear}</span>}
-                {hasRating && (
-                  <>
-                    <span className="text-[32px] text-white/30">·</span>
-                    <ShareRatingStars rating={rating as number} size={32} gap={4} />
-                    <span className="text-[32px] font-bold text-white/90">{ratingLabel}</span>
-                    {isFavorite && <Heart className="h-[32px] w-[32px] fill-red-400 text-red-400" />}
-                  </>
-                )}
-              </div>
-
-              {reviewContent && (
-                <p className="mt-[32px] whitespace-pre-line text-[34px] italic leading-[1.5] text-white/80 line-clamp-4">
-                  {reviewContent}
-                </p>
-              )}
-
-              <div className="mt-[40px] flex items-center justify-between border-t border-white/20 pt-[30px]">
-                <div className="flex items-center gap-[20px]">
-                  <div className="h-[80px] w-[80px] overflow-hidden rounded-full border border-white/25">
-                    <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
-                  </div>
-                  <div>
-                    <p className="text-[28px] font-bold text-white">{author}</p>
-                    <p className="text-[20px] text-white/50">@{handle}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-[16px] opacity-90">
-                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[36px] w-auto object-contain" />
-                  <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[24px] w-auto object-contain brightness-0 invert" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {theme === 'backdrop' && (
-          <div ref={storyCardRef} className="relative h-[1920px] w-[1080px] overflow-hidden bg-black text-white font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Display','SF_Pro_Text','Helvetica_Neue',Helvetica,Arial,sans-serif]">
-            {artwork.backdrop ? (
-              <img src={artwork.backdrop} crossOrigin="anonymous" alt="" className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 via-zinc-950 to-black" />
-            )}
-            <div className="absolute inset-0 bg-black/25" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
-
-            <div className={`absolute left-1/2 top-1/2 w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-[32px] border px-[42px] pb-[34px] pt-[38px] shadow-[0_48px_140px_rgba(0,0,0,0.58)] ${backdropCardClass}`}>
-              <div className="flex items-center gap-[16px] pr-[190px]">
-                <div className="h-[58px] w-[58px] shrink-0 overflow-hidden rounded-full border border-white/10 bg-zinc-800">
-                  <img src={userPhoto || '/user-icon.jpg'} crossOrigin="anonymous" alt={author} className="h-full w-full object-cover" />
-                </div>
-                <span className="max-w-[470px] truncate text-[24px] font-semibold tracking-tight text-zinc-300">{author}</span>
-              </div>
-
-              <div className="absolute right-[42px] top-[38px] h-[230px] w-[154px] overflow-hidden rounded-[7px] border border-white/10 bg-zinc-900 shadow-[0_22px_55px_rgba(0,0,0,0.48)]">
-                {artwork.poster ? (
-                  <img src={artwork.poster} crossOrigin="anonymous" alt={title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center"><Film className="h-14 w-14 text-white/15" /></div>
-                )}
-              </div>
-
-              <div className="mt-[32px] pr-[186px]">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h1 className="text-[39px] font-black leading-[1.08] tracking-tight text-white">{title || 'Untitled'}</h1>
-                  {releaseYear && <span className="text-[24px] font-medium text-zinc-500">{releaseYear}</span>}
-                </div>
-
-                {hasRating && (
-                  <div className="mt-[12px] flex items-center gap-[10px]">
-                    <ShareRatingStars rating={rating as number} size={28} gap={4} />
-                    <span className="text-[20px] font-medium leading-none text-zinc-400">{ratingLabel}</span>
-                    {isFavorite && <Heart className="h-[26px] w-[26px] shrink-0 fill-red-500 text-red-500 drop-shadow-[0_2px_8px_rgba(239,68,68,0.4)]" />}
-                  </div>
-                )}
-              </div>
-
-              {(watchDate || isRewatch) && (
-                <div className="mt-[34px] flex items-center gap-[12px]">
-                  <p className="text-[20px] font-medium text-zinc-500">Watched {watchDate || 'Recently'}</p>
-                  {isRewatch && (
-                    <span className="inline-flex items-center gap-[8px] text-[15px] font-semibold tracking-[0.02em] text-zinc-500">
-                      <RotateCcw className="h-[17px] w-[17px] stroke-[2]" />
-                      Rewatch ×{watchCount}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="relative mt-[20px] pl-[38px]">
-                <Quote className="absolute left-1.5 -top-0.5 h-[28px] w-[28px] rotate-180 text-white/25" />
-                <p
-                  className="overflow-hidden whitespace-pre-line font-normal tracking-[-0.01em] text-zinc-300"
-                  style={{
-                    fontSize: textSize === 'small' ? '22px' : textSize === 'large' ? '30px' : reviewContent.length > 700 ? '22px' : reviewContent.length > 420 ? '25px' : '28px',
-                    lineHeight: 1.43,
-                    maxHeight: textSize === 'large' ? '680px' : '620px',
-                  }}
-                >
-                  {reviewContent}
-                </p>
-              </div>
-
-              <div className={`mt-[30px] flex items-center justify-between border-t pt-[20px] ${backdropFooterBorder}`}>
-                <span className="text-[16px] font-medium text-zinc-600">{mediaType === 'tv' ? 'Series review' : 'Film review'}</span>
-                <div className="flex items-center gap-[12px] opacity-80">
-                  <img src="/Cinescape_Logo.svg" alt="Logo" className="h-[28px] w-auto object-contain" />
-                  <img src="/Cinescape_Wordmark.svg" alt="Cinescape" className="h-[20px] w-auto object-contain brightness-0 invert" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {renderCard(true)}
       </div>
 
       <ArtworkPickerModal
@@ -3089,7 +2777,10 @@ const TvDetails = () => {
   const { user } = useAuth();
 
   useAutoLandscapeFullscreen();
-
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  const isInitialEpisodeLoad = useRef(true);
   const [userReview, setUserReview] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
   const [hasSavedRating, setHasSavedRating] = useState(false);
@@ -3551,6 +3242,10 @@ const TvDetails = () => {
 
   useEffect(() => {
     if (selectedEpisode !== null && playerRef.current) {
+      if (isInitialEpisodeLoad.current) {
+        isInitialEpisodeLoad.current = false;
+        return;
+      }
       playerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [selectedEpisode]);
@@ -4830,24 +4525,28 @@ const TvDetails = () => {
             <button
               type="button"
               onClick={() => setShowMyListPicker(true)}
-              className="group relative flex w-full max-w-xl items-center gap-5 overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-white/10 to-white/5 p-4 text-left shadow-[0_16px_32px_-10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-xl transition hover:bg-white/10"
+              className="group relative flex w-full max-w-xl items-center gap-3 sm:gap-5 overflow-hidden rounded-[20px] sm:rounded-[28px] border border-white/20 bg-gradient-to-br from-white/10 to-white/5 p-3 sm:p-4 text-left shadow-[0_16px_32px_-10px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-xl transition hover:bg-white/10"
               style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}
             >
-              <div className="relative h-24 w-36 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-zinc-900 shadow-inner">
+              <div className="relative h-[72px] w-[100px] sm:h-24 sm:w-36 shrink-0 overflow-hidden rounded-xl sm:rounded-2xl border border-white/20 bg-zinc-900 shadow-inner">
                 <img src={posterUrl} alt="" className="h-full w-full object-cover opacity-90 blur-[0.5px] transition duration-500 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 border border-white/30 backdrop-blur-md shadow-lg">
-                    <ListChecks className="h-5 w-5 text-white" />
+                  <div className="flex h-7 w-7 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-white/20 border border-white/30 backdrop-blur-md shadow-lg">
+                    <ListChecks className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-white" />
                   </div>
                 </div>
               </div>
+
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-bold text-white">Add to one of your lists</p>
-                <p className="mt-1 text-[13px] leading-snug font-medium text-zinc-400">Create a curated collection around this TV show or add it to an existing list.</p>
+                <p className="text-[13px] sm:text-[15px] font-bold text-white">Add to one of your lists</p>
+                <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-[13px] leading-snug font-medium text-zinc-400 line-clamp-2 sm:line-clamp-none">
+                  Create a curated collection around this TV show or add it to an existing list.
+                </p>
               </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md transition group-hover:bg-white/20">
-                <ChevronRight className="h-5 w-5 text-white" />
+
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-white/10 border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)] backdrop-blur-md transition group-hover:bg-white/20">
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
             </button>
           )}

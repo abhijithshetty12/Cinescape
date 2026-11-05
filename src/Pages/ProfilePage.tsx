@@ -243,6 +243,10 @@ const ProfilePage = () => {
   const user = authCtx?.user;
   const navigate = useNavigate();
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -684,7 +688,7 @@ const ProfilePage = () => {
         { merge: true },
       );
       setPhotoDataUrl(dataUrl);
-       setAvatarMode("custom");
+      setAvatarMode("custom");
       setPhotoPreview(null);
       showToast("Profile photo updated!", "success");
     } catch {
@@ -819,7 +823,7 @@ const ProfilePage = () => {
       const dataUrl = await compressImageToBase64(new File([blob], "talent.jpg", { type: blob.type || "image/jpeg" }));
       await setDoc(doc(db, "users", user.uid), { photoDataUrl: dataUrl, avatarMode: "custom", photoRemoved: false }, { merge: true });
       setPhotoDataUrl(dataUrl);
-       setAvatarMode("custom");
+      setAvatarMode("custom");
       setPhotoOpen(false);
       showToast("Profile photo updated", "success");
     } catch {
@@ -1018,8 +1022,8 @@ const ProfilePage = () => {
             </aside>
             <div className="min-w-0">
               <div className="hidden lg:flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-6 py-4"><div className="grid grid-cols-4 gap-2">{[{ label: "SEEN", value: filmsWatched + seriesWatched }, { label: "VERDICTS", value: ratedMovies.length }, { label: "QUEUED", value: watchlist.length }, { label: "AVG VERDICT", value: avgRating ?? "N/A" }].map((item) => <div key={item.label} className="min-w-[100px] rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2"><p className="text-lg font-extrabold tabular-nums">{item.value}</p><p className="text-[9px] font-semibold tracking-wider text-zinc-500">{item.label}</p></div>)}</div><div className="flex gap-2"><button onClick={openEdit} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><SquarePen className="h-4 w-4" /> Edit profile</button><button onClick={() => setBannerOpen(true)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10"><ImagePlus className="h-4 w-4" /> Change scene</button></div></div>
-                            <div className="border-b border-white/10 px-4 py-5 sm:px-7 sm:py-6 lg:py-4"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-bold">The Top Five</h3><button onClick={() => { setTopFiveOpen(topFiveMediaTab); setTopFiveSource("favourites"); }} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300">Arrange / Add</button></div><div className="my-4 flex gap-2 lg:my-3">{(["films", "shows"] as const).map(tab => <button key={tab} onClick={() => setTopFiveMediaTab(tab)} className={`rounded-full px-4 py-2 text-xs font-semibold ${topFiveMediaTab === tab ? "bg-white/15 text-white" : "text-zinc-500"}`}>{tab === "films" ? "Films" : "Shows"}</button>)}</div>{renderTopFiveMedia(topFiveMediaTab === "films" ? topFiveFilms : topFiveShows)}</div>
-               <div className="grid min-h-[180px] grid-cols-1 sm:grid-cols-2"><div className="border-b border-white/10 p-4 sm:border-b-0 sm:border-r sm:p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Top Five Talents</h3><button onClick={() => setTopFiveOpen("actors")} className="text-xs text-zinc-400 hover:text-white">Choose</button></div><div className="mt-5 flex flex-wrap gap-2">{topFiveActors.map(item => <Link key={item.id} to={`/talent/${item.id}`} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-zinc-300">{item.profilePath && <MediaImage src={item.profilePath} alt="" className="h-7 w-7 rounded-full object-cover" />}{item.name}</Link>)}{topFiveActors.length === 0 && <p className="text-xs text-zinc-500">Choose talents from favourites or search Cinescape.</p>}</div></div><div className="hidden p-6 sm:block"><h3 className="text-sm font-bold">Highest Rated</h3><div className="mt-5 space-y-2">{ratedMovies.slice().sort((a, b) => b.rating - a.rating).slice(0, 3).map(item => <Link key={item.id} to={`/${item.mediaType || "movie"}/${item.id}`} className="flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-white"><span className="truncate">{item.title}</span><span className="shrink-0 text-amber-400">★ {item.rating}</span></Link>)}{ratedMovies.length === 0 && <p className="text-xs leading-relaxed text-zinc-500">Rate a few films or shows and the best of them stand here.</p>}</div></div></div>
+              <div className="border-b border-white/10 px-4 py-5 sm:px-7 sm:py-6 lg:py-4"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-bold">The Top Five</h3><button onClick={() => { setTopFiveOpen(topFiveMediaTab); setTopFiveSource("favourites"); }} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-zinc-300">Arrange / Add</button></div><div className="my-4 flex gap-2 lg:my-3">{(["films", "shows"] as const).map(tab => <button key={tab} onClick={() => setTopFiveMediaTab(tab)} className={`rounded-full px-4 py-2 text-xs font-semibold ${topFiveMediaTab === tab ? "bg-white/15 text-white" : "text-zinc-500"}`}>{tab === "films" ? "Films" : "Shows"}</button>)}</div>{renderTopFiveMedia(topFiveMediaTab === "films" ? topFiveFilms : topFiveShows)}</div>
+              <div className="grid min-h-[180px] grid-cols-1 sm:grid-cols-2"><div className="border-b border-white/10 p-4 sm:border-b-0 sm:border-r sm:p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold">Top Five Talents</h3><button onClick={() => setTopFiveOpen("actors")} className="text-xs text-zinc-400 hover:text-white">Choose</button></div><div className="mt-5 flex flex-wrap gap-2">{topFiveActors.map(item => <Link key={item.id} to={`/talent/${item.id}`} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-1 pl-1 pr-3 text-xs text-zinc-300">{item.profilePath && <MediaImage src={item.profilePath} alt="" className="h-7 w-7 rounded-full object-cover" />}{item.name}</Link>)}{topFiveActors.length === 0 && <p className="text-xs text-zinc-500">Choose talents from favourites or search Cinescape.</p>}</div></div><div className="hidden p-6 sm:block"><h3 className="text-sm font-bold">Highest Rated</h3><div className="mt-5 space-y-2">{ratedMovies.slice().sort((a, b) => b.rating - a.rating).slice(0, 3).map(item => <Link key={item.id} to={`/${item.mediaType || "movie"}/${item.id}`} className="flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-white"><span className="truncate">{item.title}</span><span className="shrink-0 text-amber-400">★ {item.rating}</span></Link>)}{ratedMovies.length === 0 && <p className="text-xs leading-relaxed text-zinc-500">Rate a few films or shows and the best of them stand here.</p>}</div></div></div>
 
             </div>
           </div>
@@ -1379,12 +1383,12 @@ const ProfilePage = () => {
                         )}
                         <Icon
                           className={`relative z-10 w-3.5 h-3.5 ${active
-                              ? option.key === "movie"
-                                ? "text-red-400"
-                                : option.key === "tv"
-                                  ? "text-cyan-400"
-                                  : "text-violet-400"
-                              : "text-zinc-600"
+                            ? option.key === "movie"
+                              ? "text-red-400"
+                              : option.key === "tv"
+                                ? "text-cyan-400"
+                                : "text-violet-400"
+                            : "text-zinc-600"
                             }`}
                         />
                         <span className="relative z-10 hidden xs:inline">{option.label}</span>
@@ -1542,6 +1546,9 @@ const ProfilePage = () => {
                     <p className="text-xs text-zinc-500">
                       All reviews you've written
                     </p>
+                    <Link to="/reviews" className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-1.5 text-[10px] font-bold tracking-wide text-emerald-300 transition hover:bg-emerald-400/20">
+                      View All
+                    </Link>
                   </div>
                 </div>
                 <ReviewList userId={user?.uid ?? ""} />
